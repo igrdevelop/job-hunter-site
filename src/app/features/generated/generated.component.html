@@ -1,0 +1,40 @@
+<div class="page">
+  <nav class="breadcrumbs">
+    @for (crumb of breadcrumbs(); track crumb.label; let last = $last) {
+      @if (crumb.path && !last) {
+        <a [routerLink]="crumb.path">{{ crumb.label }}</a>
+        <span class="sep">/</span>
+      } @else {
+        <span class="current">{{ crumb.label }}</span>
+      }
+    }
+  </nav>
+
+  @if (loading()) {
+    <mat-spinner diameter="24"></mat-spinner>
+  }
+
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  }
+
+  @if (!loading() && !errorMessage() && entries().length === 0) {
+    <p class="empty-state">No generated files here.</p>
+  }
+
+  @if (previewEntry(); as entry) {
+    <app-pdf-preview [fileUrl]="fileUrl(entry)" [fileName]="entry.name" />
+  } @else {
+    @if (folders().length > 0) {
+      <app-folder-list [folders]="folders()" (open)="openFolder($event)" />
+    }
+    @if (files().length > 0) {
+      <app-file-list
+        [files]="files()"
+        (preview)="previewPdf($event)"
+        (view)="viewText($event)"
+        (download)="downloadFile($event)"
+      />
+    }
+  }
+</div>

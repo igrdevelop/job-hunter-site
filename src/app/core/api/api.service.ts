@@ -49,10 +49,12 @@ export class ApiService {
     );
   }
 
-  getFiles(path: string): Promise<(FolderInfo | FileInfo)[]> {
-    return firstValueFrom(
-      this.http.get<(FolderInfo | FileInfo)[]>(`${this.baseUrl}/files/${path}`),
-    );
+  /** List candidate/ (personal assets). Empty path = root. */
+  getFiles(path = ''): Promise<(FolderInfo | FileInfo)[]> {
+    const url = path
+      ? `${this.baseUrl}/files/${path}`
+      : `${this.baseUrl}/files`;
+    return firstValueFrom(this.http.get<(FolderInfo | FileInfo)[]>(url));
   }
 
   getFileContent(path: string): Promise<string> {
@@ -63,6 +65,33 @@ export class ApiService {
 
   getFileUrl(path: string): string {
     return `${this.baseUrl}/files/${path}`;
+  }
+
+  uploadFile(file: File, path?: string): Promise<FileInfo> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const url = path
+      ? `${this.baseUrl}/files/${path}`
+      : `${this.baseUrl}/files`;
+    return firstValueFrom(this.http.post<FileInfo>(url, formData));
+  }
+
+  /** Browse Applications/{date}/{company}/ generated docs. */
+  getGenerated(path = ''): Promise<(FolderInfo | FileInfo)[]> {
+    const url = path
+      ? `${this.baseUrl}/generated/${path}`
+      : `${this.baseUrl}/generated`;
+    return firstValueFrom(this.http.get<(FolderInfo | FileInfo)[]>(url));
+  }
+
+  getGeneratedContent(path: string): Promise<string> {
+    return firstValueFrom(
+      this.http.get(`${this.baseUrl}/generated/${path}`, { responseType: 'text' }),
+    );
+  }
+
+  getGeneratedUrl(path: string): string {
+    return `${this.baseUrl}/generated/${path}`;
   }
 
   getFunnel(days?: number): Promise<FunnelData> {

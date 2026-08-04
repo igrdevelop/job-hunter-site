@@ -1,14 +1,27 @@
 <div class="page">
-  <nav class="breadcrumbs">
-    @for (crumb of breadcrumbs(); track crumb.label; let last = $last) {
-      @if (crumb.path && !last) {
-        <a [routerLink]="crumb.path">{{ crumb.label }}</a>
-        <span class="sep">/</span>
-      } @else {
-        <span class="current">{{ crumb.label }}</span>
+  <div class="header-row">
+    <nav class="breadcrumbs">
+      @for (crumb of breadcrumbs(); track crumb.label; let last = $last) {
+        @if (crumb.path && !last) {
+          <a [routerLink]="crumb.path">{{ crumb.label }}</a>
+          <span class="sep">/</span>
+        } @else {
+          <span class="current">{{ crumb.label }}</span>
+        }
       }
-    }
-  </nav>
+    </nav>
+
+    <button
+      mat-stroked-button
+      type="button"
+      [disabled]="uploading()"
+      (click)="fileInput.click()"
+    >
+      <mat-icon>upload</mat-icon>
+      {{ uploading() ? 'Uploading…' : 'Upload' }}
+    </button>
+    <input #fileInput type="file" hidden (change)="onUpload($event)" />
+  </div>
 
   @if (loading()) {
     <mat-spinner diameter="24"></mat-spinner>
@@ -19,7 +32,7 @@
   }
 
   @if (!loading() && !errorMessage() && entries().length === 0) {
-    <p class="empty-state">No files here.</p>
+    <p class="empty-state">No files in candidate/ yet.</p>
   }
 
   @if (previewEntry(); as entry) {

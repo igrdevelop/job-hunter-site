@@ -31,6 +31,6 @@ export class FolderCellRendererComponent implements ICellRendererAngularComp {
 
   openFolder(): void {
     if (!this.data) return;
-    void this.router.navigate(['/files', this.data.date, this.data.company]);
+    void this.router.navigate(['/generated', this.data.date, this.data.company]);
   }
 }

@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
+import { candidateFilesMatcher } from './features/files/files.routes';
 
 export const routes: Routes = [
   {
@@ -18,16 +19,24 @@ export const routes: Routes = [
           ),
       },
       {
-        path: 'files',
-        loadComponent: () => import('./features/files/files.component').then((m) => m.FilesComponent),
+        matcher: candidateFilesMatcher,
+        loadComponent: () =>
+          import('./features/files/files.component').then((m) => m.FilesComponent),
       },
       {
-        path: 'files/:date',
-        loadComponent: () => import('./features/files/files.component').then((m) => m.FilesComponent),
+        path: 'generated',
+        loadComponent: () =>
+          import('./features/generated/generated.component').then((m) => m.GeneratedComponent),
       },
       {
-        path: 'files/:date/:company',
-        loadComponent: () => import('./features/files/files.component').then((m) => m.FilesComponent),
+        path: 'generated/:date',
+        loadComponent: () =>
+          import('./features/generated/generated.component').then((m) => m.GeneratedComponent),
+      },
+      {
+        path: 'generated/:date/:company',
+        loadComponent: () =>
+          import('./features/generated/generated.component').then((m) => m.GeneratedComponent),
       },
       {
         path: 'templates',

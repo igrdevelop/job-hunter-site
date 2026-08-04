@@ -1,7 +1,9 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
+import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ApiService } from '../../core/api/api.service';
@@ -16,11 +18,17 @@ interface Breadcrumb {
   path: string | null;
 }
 
+function isFolderInfo(entry: FolderInfo | FileInfo): entry is FolderInfo {
+  return 'itemCount' in entry;
+}
+
 @Component({
   selector: 'app-files',
   standalone: true,
   imports: [
     RouterLink,
+    MatButtonModule,
+    MatIconModule,
     MatProgressSpinnerModule,
     FolderListComponent,
     FileListComponent,
@@ -38,45 +46,37 @@ export class FilesComponent {
 
   private readonly params = toSignal(this.route.paramMap, { requireSync: true });
 
-  readonly date = computed(() => this.params().get('date'));
-  readonly company = computed(() => this.params().get('company'));
-
-  // The API returns date/company folders as FolderInfo[] and, once inside a
-  // company folder, a flat FileInfo[] (which may itself include folder-typed
-  // "shadow" entries) — never a mix of both shapes in one response.
-  private readonly atFileLevel = computed(() => this.company() !== null);
-
+  /** Path under candidate/, e.g. "" | "examples" | "notes". */
   readonly currentPath = computed(() => {
-    const date = this.date();
-    const company = this.company();
-    if (date && company) return `${date}/${company}`;
-    if (date) return date;
-    return '';
+    const raw = this.params().get('path');
+    return raw ? decodeURIComponent(raw).replace(/^\/+|\/+$/g, '') : '';
   });
 
   readonly breadcrumbs = computed<Breadcrumb[]>(() => {
-    const crumbs: Breadcrumb[] = [{ label: 'Files', path: null }];
-    const date = this.date();
-    const company = this.company();
-    if (date) crumbs.push({ label: date, path: `/files/${date}` });
-    if (date && company) crumbs.push({ label: company, path: `/files/${date}/${company}` });
+    const crumbs: Breadcrumb[] = [{ label: 'Files', path: '/files' }];
+    const parts = this.currentPath().split('/').filter(Boolean);
+    let acc = '';
+    for (const part of parts) {
+      acc = acc ? `${acc}/${part}` : part;
+      crumbs.push({ label: part, path: `/files/${acc}` });
+    }
     return crumbs;
   });
 
   readonly entries = signal<(FolderInfo | FileInfo)[]>([]);
   readonly loading = signal(false);
+  readonly uploading = signal(false);
   readonly errorMessage = signal<string | null>(null);
   readonly previewEntry = signal<FileInfo | null>(null);
 
-  readonly folders = computed<FolderInfo[]>(() =>
-    this.atFileLevel() ? [] : (this.entries() as FolderInfo[]),
-  );
-  readonly files = computed<FileInfo[]>(() =>
-    this.atFileLevel() ? (this.entries() as FileInfo[]) : [],
-  );
+  readonly folders = computed(() => this.entries().filter(isFolderInfo));
+  readonly files = computed(() => this.entries().filter((e): e is FileInfo => !isFolderInfo(e)));
 
   constructor() {
-    void this.reload();
+    effect(() => {
+      this.currentPath();
+      void this.reload();
+    });
   }
 
   async reload(): Promise<void> {
@@ -87,7 +87,7 @@ export class FilesComponent {
     try {
       this.entries.set(await this.api.getFiles(this.currentPath()));
     } catch {
-      this.errorMessage.set('Could not load files. Is the API reachable?');
+      this.errorMessage.set('Could not load candidate files. Is the API reachable?');
       this.entries.set([]);
     } finally {
       this.loading.set(false);
@@ -95,12 +95,8 @@ export class FilesComponent {
   }
 
   openFolder(folder: FolderInfo): void {
-    const date = this.date();
-    if (!date) {
-      this.router.navigate(['/files', folder.name]);
-      return;
-    }
-    this.router.navigate(['/files', date, folder.name]);
+    const next = this.currentPath() ? `${this.currentPath()}/${folder.name}` : folder.name;
+    void this.router.navigateByUrl(`/files/${next}`);
   }
 
   previewPdf(entry: FileInfo): void {
@@ -108,7 +104,8 @@ export class FilesComponent {
   }
 
   fileUrl(entry: FileInfo): string {
-    return this.api.getFileUrl(`${this.currentPath()}/${entry.name}`);
+    const path = this.currentPath() ? `${this.currentPath()}/${entry.name}` : entry.name;
+    return this.api.getFileUrl(path);
   }
 
   downloadFile(entry: FileInfo): void {
@@ -117,14 +114,36 @@ export class FilesComponent {
 
   async viewText(entry: FileInfo): Promise<void> {
     try {
-      const raw = await this.api.getFileContent(`${this.currentPath()}/${entry.name}`);
-      const content = entry.name.endsWith('.json') ? this.tryPrettyPrint(raw) : raw;
+      const path = this.currentPath() ? `${this.currentPath()}/${entry.name}` : entry.name;
+      const raw = await this.api.getFileContent(path);
+      const content =
+        entry.name.endsWith('.json') || entry.name.endsWith('.yaml') || entry.name.endsWith('.yml')
+          ? this.tryPrettyPrint(raw)
+          : raw;
       this.dialog.open(TextPreviewDialogComponent, {
         data: { fileName: entry.name, content },
-        width: '600px',
+        width: '720px',
       });
     } catch {
       this.snackBar.open(`Could not load ${entry.name}.`, 'Dismiss', { duration: 4000 });
+    }
+  }
+
+  async onUpload(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+
+    this.uploading.set(true);
+    try {
+      await this.api.uploadFile(file, this.currentPath() || undefined);
+      this.snackBar.open(`Uploaded ${file.name}`, 'Dismiss', { duration: 3000 });
+      await this.reload();
+    } catch {
+      this.snackBar.open('Upload failed.', 'Dismiss', { duration: 4000 });
+    } finally {
+      this.uploading.set(false);
     }
   }
 
