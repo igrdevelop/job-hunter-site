@@ -1,19 +1,22 @@
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
-import { BreakpointObserver } from '@angular/cdk/layout';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { map } from 'rxjs';
-import { MatTableModule } from '@angular/material/table';
-import { MatSortModule, Sort } from '@angular/material/sort';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { AgGridAngular } from 'ag-grid-angular';
+import {
+  AllCommunityModule,
+  CellValueChangedEvent,
+  ColDef,
+  GridApi,
+  GridReadyEvent,
+  IDatasource,
+  IGetRowsParams,
+  ModuleRegistry,
+} from 'ag-grid-community';
 import { ApiService } from '../../core/api/api.service';
 import {
   Application,
@@ -21,46 +24,26 @@ import {
   ApplicationStatus,
   SortableColumn,
 } from '../../core/api/models';
-import { StatusBadgeComponent } from './status-badge/status-badge.component';
-import { InlineEditCellComponent } from './inline-edit-cell/inline-edit-cell.component';
+import { StatusCellRendererComponent } from './cell-renderers/status-cell-renderer.component';
+import { UrlCellRendererComponent } from './cell-renderers/url-cell-renderer.component';
+import { FolderCellRendererComponent } from './cell-renderers/folder-cell-renderer.component';
+
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 const REFRESH_INTERVAL_MS = 30_000;
 const SEARCH_DEBOUNCE_MS = 400;
-
-const ALL_COLUMNS = [
-  'date',
-  'company',
-  'title',
-  'stack',
-  'atsStatus',
-  'status',
-  'url',
-  'folder',
-  'sent',
-  'toLearn',
-  'atsVerdict',
-  'costUsd',
-] as const;
-
-const TABLET_HIDDEN = new Set(['stack', 'costUsd']);
 
 @Component({
   selector: 'app-applications',
   standalone: true,
   imports: [
     FormsModule,
-    RouterLink,
-    MatTableModule,
-    MatSortModule,
-    MatPaginatorModule,
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
     MatIconModule,
-    MatButtonModule,
     MatProgressSpinnerModule,
-    StatusBadgeComponent,
-    InlineEditCellComponent,
+    AgGridAngular,
   ],
   templateUrl: './applications.component.html',
   styleUrl: './applications.component.scss',
@@ -68,33 +51,12 @@ const TABLET_HIDDEN = new Set(['stack', 'costUsd']);
 export class ApplicationsComponent {
   private readonly api = inject(ApiService);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly breakpointObserver = inject(BreakpointObserver);
   private readonly snackBar = inject(MatSnackBar);
 
-  private readonly isMobile = toSignal(
-    this.breakpointObserver.observe('(max-width: 599px)').pipe(map((r) => r.matches)),
-    { initialValue: false },
-  );
-  private readonly isTablet = toSignal(
-    this.breakpointObserver.observe('(max-width: 900px)').pipe(map((r) => r.matches)),
-    { initialValue: false },
-  );
+  private gridApi?: GridApi<Application>;
 
-  readonly displayedColumns = computed(() => {
-    if (this.isTablet()) {
-      return ALL_COLUMNS.filter((c) => !TABLET_HIDDEN.has(c));
-    }
-    return [...ALL_COLUMNS];
-  });
-  readonly cardLayout = this.isMobile;
-
-  readonly applications = signal<Application[]>([]);
-  readonly total = signal(0);
-  readonly page = signal(0);
   readonly limit = signal(50);
-  readonly sort = signal<SortableColumn | undefined>(undefined);
-  readonly order = signal<'asc' | 'desc' | undefined>(undefined);
-  readonly statusFilter = signal<ApplicationStatus | 'all'>('all');
+  readonly statusFilter = signal<ApplicationStatus | 'all'>('unsent');
   readonly search = signal('');
   readonly stats = signal<ApplicationStats | null>(null);
 
@@ -103,6 +65,7 @@ export class ApplicationsComponent {
 
   readonly statusOptions: Array<ApplicationStatus | 'all'> = [
     'all',
+    'unsent',
     'applied',
     'sent',
     'failed',
@@ -110,41 +73,88 @@ export class ApplicationsComponent {
     'pending',
   ];
 
+  readonly defaultColDef: ColDef = {
+    sortable: false,
+    resizable: true,
+    suppressMovable: true,
+  };
+
+  readonly columnDefs: ColDef<Application>[] = [
+    { field: 'date', sortable: true, headerName: 'Date', width: 110 },
+    { field: 'company', sortable: true, headerName: 'Company', minWidth: 140 },
+    { field: 'title', sortable: true, headerName: 'Job Title', minWidth: 180, flex: 1 },
+    { field: 'stack', headerName: 'Stack', minWidth: 120 },
+    {
+      field: 'atsStatus',
+      sortable: true,
+      headerName: 'ATS %',
+      width: 90,
+      valueFormatter: (p) => p.value || '—',
+    },
+    { field: 'status', headerName: 'Status', width: 100, cellRenderer: StatusCellRendererComponent },
+    { field: 'url', headerName: 'URL', width: 70, cellRenderer: UrlCellRendererComponent },
+    { field: 'folder', headerName: 'Folder', width: 80, cellRenderer: FolderCellRendererComponent },
+    { field: 'sent', sortable: true, headerName: 'Sent', width: 130, editable: true },
+    { field: 'toLearn', headerName: 'To Learn', width: 140, editable: true },
+    {
+      field: 'atsVerdict',
+      sortable: true,
+      headerName: 'ATS Verdict',
+      width: 110,
+      valueFormatter: (p) => p.value ?? '—',
+    },
+    {
+      field: 'costUsd',
+      sortable: true,
+      headerName: 'Cost $',
+      width: 90,
+      valueFormatter: (p) => p.value ?? '—',
+    },
+  ];
+
+  readonly datasource: IDatasource = {
+    getRows: (params: IGetRowsParams) => {
+      const page = Math.floor(params.startRow / this.limit()) + 1;
+      const sortModel = params.sortModel[0];
+
+      this.loading.set(true);
+      this.errorMessage.set(null);
+
+      this.api
+        .getApplications({
+          page,
+          limit: this.limit(),
+          sort: sortModel?.colId as SortableColumn | undefined,
+          order: sortModel?.sort as 'asc' | 'desc' | undefined,
+          status: this.statusFilter(),
+          search: this.search() || undefined,
+        })
+        .then((result) => {
+          params.successCallback(result.data, result.meta.total);
+        })
+        .catch(() => {
+          this.errorMessage.set('Could not load applications. Is the API reachable?');
+          params.failCallback();
+        })
+        .finally(() => {
+          this.loading.set(false);
+        });
+    },
+  };
+
   private searchDebounceHandle?: ReturnType<typeof setTimeout>;
 
   constructor() {
-    this.load();
     this.loadStats();
 
-    const intervalId = setInterval(() => this.load({ silent: true }), REFRESH_INTERVAL_MS);
+    const intervalId = setInterval(
+      () => this.gridApi?.purgeInfiniteCache(),
+      REFRESH_INTERVAL_MS,
+    );
     this.destroyRef.onDestroy(() => {
       clearInterval(intervalId);
       clearTimeout(this.searchDebounceHandle);
     });
-  }
-
-  async load(opts: { silent?: boolean } = {}): Promise<void> {
-    if (!opts.silent) {
-      this.loading.set(true);
-    }
-    this.errorMessage.set(null);
-
-    try {
-      const result = await this.api.getApplications({
-        page: this.page() + 1,
-        limit: this.limit(),
-        sort: this.sort(),
-        order: this.order(),
-        status: this.statusFilter(),
-        search: this.search() || undefined,
-      });
-      this.applications.set(result.data);
-      this.total.set(result.meta.total);
-    } catch {
-      this.errorMessage.set('Could not load applications. Is the API reachable?');
-    } finally {
-      this.loading.set(false);
-    }
   }
 
   async loadStats(): Promise<void> {
@@ -155,53 +165,37 @@ export class ApplicationsComponent {
     }
   }
 
-  onSortChange(sort: Sort): void {
-    this.sort.set(sort.direction ? (sort.active as SortableColumn) : undefined);
-    this.order.set(sort.direction || undefined);
-    this.load();
-  }
-
-  onPageChange(event: PageEvent): void {
-    this.page.set(event.pageIndex);
-    this.limit.set(event.pageSize);
-    this.load();
-  }
-
   onStatusFilterChange(status: ApplicationStatus | 'all'): void {
     this.statusFilter.set(status);
-    this.page.set(0);
-    this.load();
+    this.gridApi?.setGridOption('datasource', this.datasource);
   }
 
   onSearchInput(value: string): void {
     this.search.set(value);
     clearTimeout(this.searchDebounceHandle);
     this.searchDebounceHandle = setTimeout(() => {
-      this.page.set(0);
-      this.load();
+      this.gridApi?.setGridOption('datasource', this.datasource);
     }, SEARCH_DEBOUNCE_MS);
   }
 
-  async onSentChange(app: Application, value: string): Promise<void> {
-    await this.patch(app, { sent: value });
+  onGridReady(event: GridReadyEvent<Application>): void {
+    this.gridApi = event.api;
+    this.gridApi.setGridOption('datasource', this.datasource);
   }
 
-  async onToLearnChange(app: Application, value: string): Promise<void> {
-    await this.patch(app, { toLearn: value });
+  onCellValueChanged(event: CellValueChangedEvent<Application>): void {
+    const field = event.colDef.field as keyof Application;
+    if ((field === 'sent' || field === 'toLearn') && event.data) {
+      void this.patchFromGrid(event);
+    }
   }
 
-  private async patch(app: Application, changes: Partial<Application>): Promise<void> {
-    const previous = { ...app };
-    this.applications.update((items) =>
-      items.map((a) => (a.id === app.id ? { ...a, ...changes } : a)),
-    );
-
+  private async patchFromGrid(event: CellValueChangedEvent<Application>): Promise<void> {
+    const field = event.colDef.field!;
     try {
-      await this.api.patchApplication(app.id, changes);
+      await this.api.patchApplication(event.data!.id, { [field]: event.newValue });
     } catch {
-      this.applications.update((items) =>
-        items.map((a) => (a.id === app.id ? previous : a)),
-      );
+      event.node.setDataValue(field, event.oldValue);
       this.snackBar.open('Failed to save change.', 'Dismiss', { duration: 4000 });
     }
   }

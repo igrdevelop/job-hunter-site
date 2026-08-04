@@ -49,49 +49,8 @@
   color: #c62828;
 }
 
-.empty-state {
-  color: rgba(0, 0, 0, 0.6);
-  text-align: center;
-  padding: 32px 0;
-}
-
-.applications-table {
+.applications-grid {
   width: 100%;
-}
-
-.card-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.app-card {
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 8px;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-title {
-  color: rgba(0, 0, 0, 0.7);
-}
-
-.card-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-}
-
-.card-label {
-  font-size: 0.75rem;
-  color: rgba(0, 0, 0, 0.5);
+  height: calc(100vh - 240px);
+  min-height: 400px;
 }
