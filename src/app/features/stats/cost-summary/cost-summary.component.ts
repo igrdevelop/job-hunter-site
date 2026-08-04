@@ -7,20 +7,16 @@ import { CostSummary } from '../../../core/api/models';
   template: `
     <div class="cards">
       <div class="card">
-        <span class="value">&dollar;{{ summary().totalSpend.toFixed(2) }}</span>
+        <span class="value">&dollar;{{ summary().totalCostUsd.toFixed(2) }}</span>
         <span class="label">Total spend</span>
       </div>
       <div class="card">
-        <span class="value">&dollar;{{ summary().medianPerApply.toFixed(3) }}</span>
-        <span class="label">Median per apply</span>
+        <span class="value">&dollar;{{ summary().averageCostUsd.toFixed(3) }}</span>
+        <span class="label">Average per apply</span>
       </div>
       <div class="card">
-        <span class="value">&dollar;{{ summary().last7Days.toFixed(2) }}</span>
-        <span class="label">Last 7 days</span>
-      </div>
-      <div class="card">
-        <span class="value">&dollar;{{ summary().last30Days.toFixed(2) }}</span>
-        <span class="label">Last 30 days</span>
+        <span class="value">{{ summary().applicationsWithCost }}</span>
+        <span class="label">Applications with cost</span>
       </div>
     </div>
   `,

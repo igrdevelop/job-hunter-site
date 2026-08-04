@@ -1,6 +1,6 @@
 import { Component, input, output } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { FileEntry } from '../../../core/api/models';
+import { FolderInfo } from '../../../core/api/models';
 
 @Component({
   selector: 'app-folder-list',
@@ -8,7 +8,7 @@ import { FileEntry } from '../../../core/api/models';
   imports: [MatIconModule],
   template: `
     <div class="folder-grid">
-      @for (folder of folders(); track folder.path) {
+      @for (folder of folders(); track folder.name) {
         <button type="button" class="folder-card" (click)="open.emit(folder)">
           <mat-icon>folder</mat-icon>
           <span>{{ folder.name }}</span>
@@ -53,6 +53,6 @@ import { FileEntry } from '../../../core/api/models';
   ],
 })
 export class FolderListComponent {
-  readonly folders = input.required<FileEntry[]>();
-  readonly open = output<FileEntry>();
+  readonly folders = input.required<FolderInfo[]>();
+  readonly open = output<FolderInfo>();
 }

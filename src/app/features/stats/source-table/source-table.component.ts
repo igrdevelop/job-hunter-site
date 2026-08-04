@@ -1,15 +1,19 @@
-import { Component, input } from '@angular/core';
+import { Component, computed, input } from '@angular/core';
 import { MatTableModule } from '@angular/material/table';
-import { SourceStat } from '../../../core/api/models';
+import { SourceStats } from '../../../core/api/models';
 
-const COLUMNS = ['source', 'tracked', 'applied', 'sent', 'conversion'];
+const COLUMNS = ['source', 'tracked', 'generated', 'sent', 'confirmed', 'answered', 'conversion'];
+
+interface SourceRow extends SourceStats {
+  conversion: number;
+}
 
 @Component({
   selector: 'app-source-table',
   standalone: true,
   imports: [MatTableModule],
   template: `
-    <table mat-table [dataSource]="sources()" class="source-table">
+    <table mat-table [dataSource]="rows()" class="source-table">
       <ng-container matColumnDef="source">
         <th mat-header-cell *matHeaderCellDef>Source</th>
         <td mat-cell *matCellDef="let row">{{ row.source }}</td>
@@ -20,14 +24,24 @@ const COLUMNS = ['source', 'tracked', 'applied', 'sent', 'conversion'];
         <td mat-cell *matCellDef="let row">{{ row.tracked }}</td>
       </ng-container>
 
-      <ng-container matColumnDef="applied">
-        <th mat-header-cell *matHeaderCellDef>Applied</th>
-        <td mat-cell *matCellDef="let row">{{ row.applied }}</td>
+      <ng-container matColumnDef="generated">
+        <th mat-header-cell *matHeaderCellDef>Generated</th>
+        <td mat-cell *matCellDef="let row">{{ row.generated }}</td>
       </ng-container>
 
       <ng-container matColumnDef="sent">
         <th mat-header-cell *matHeaderCellDef>Sent</th>
         <td mat-cell *matCellDef="let row">{{ row.sent }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="confirmed">
+        <th mat-header-cell *matHeaderCellDef>Confirmed</th>
+        <td mat-cell *matCellDef="let row">{{ row.confirmed }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="answered">
+        <th mat-header-cell *matHeaderCellDef>Answered</th>
+        <td mat-cell *matCellDef="let row">{{ row.answered }}</td>
       </ng-container>
 
       <ng-container matColumnDef="conversion">
@@ -48,6 +62,13 @@ const COLUMNS = ['source', 'tracked', 'applied', 'sent', 'conversion'];
   ],
 })
 export class SourceTableComponent {
-  readonly sources = input.required<SourceStat[]>();
+  readonly sources = input.required<SourceStats[]>();
   readonly columns = COLUMNS;
+
+  readonly rows = computed<SourceRow[]>(() =>
+    this.sources().map((s) => ({
+      ...s,
+      conversion: s.tracked > 0 ? (s.sent / s.tracked) * 100 : 0,
+    })),
+  );
 }

@@ -33,7 +33,9 @@ export class AuthService {
     const response = await firstValueFrom(
       this.http.post<LoginResponse>(`${environment.authBaseUrl}/login`, { email, password }),
     );
-    this.setSession(response);
+    localStorage.setItem(TOKEN_KEY, response.accessToken);
+    this.token.set(response.accessToken);
+    await this.fetchCurrentUser();
   }
 
   async fetchCurrentUser(): Promise<User | null> {
@@ -52,9 +54,4 @@ export class AuthService {
     this.router.navigate(['/login']);
   }
 
-  private setSession(response: LoginResponse): void {
-    localStorage.setItem(TOKEN_KEY, response.accessToken);
-    this.token.set(response.accessToken);
-    this.user.set(response.user);
-  }
 }

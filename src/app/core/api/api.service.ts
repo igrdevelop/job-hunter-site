@@ -6,13 +6,13 @@ import {
   Application,
   ApplicationPatch,
   ApplicationsQuery,
-  ApplicationsStats,
-  AnalyticsPeriod,
+  ApplicationStats,
   CostSummary,
-  FileEntry,
-  FunnelPoint,
+  FileInfo,
+  FolderInfo,
+  FunnelData,
   PaginatedResult,
-  SourceStat,
+  SourceStats,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -23,10 +23,10 @@ export class ApiService {
   getApplications(query: ApplicationsQuery): Promise<PaginatedResult<Application>> {
     let params = new HttpParams()
       .set('page', query.page)
-      .set('pageSize', query.pageSize);
+      .set('limit', query.limit);
 
-    if (query.sortBy) params = params.set('sortBy', query.sortBy);
-    if (query.sortDirection) params = params.set('sortDirection', query.sortDirection);
+    if (query.sort) params = params.set('sort', query.sort);
+    if (query.order) params = params.set('order', query.order);
     if (query.status && query.status !== 'all') params = params.set('status', query.status);
     if (query.search) params = params.set('search', query.search);
 
@@ -35,9 +35,9 @@ export class ApiService {
     );
   }
 
-  getApplicationsStats(): Promise<ApplicationsStats> {
+  getApplicationStats(): Promise<ApplicationStats> {
     return firstValueFrom(
-      this.http.get<ApplicationsStats>(`${this.baseUrl}/applications/stats`),
+      this.http.get<ApplicationStats>(`${this.baseUrl}/applications/stats`),
     );
   }
 
@@ -47,9 +47,9 @@ export class ApiService {
     );
   }
 
-  getFiles(path: string): Promise<FileEntry[]> {
+  getFiles(path: string): Promise<(FolderInfo | FileInfo)[]> {
     return firstValueFrom(
-      this.http.get<FileEntry[]>(`${this.baseUrl}/files/${path}`),
+      this.http.get<(FolderInfo | FileInfo)[]>(`${this.baseUrl}/files/${path}`),
     );
   }
 
@@ -63,21 +63,24 @@ export class ApiService {
     return `${this.baseUrl}/files/${path}`;
   }
 
-  getFunnel(period: AnalyticsPeriod): Promise<FunnelPoint[]> {
+  getFunnel(days?: number): Promise<FunnelData> {
+    const params = days ? new HttpParams().set('days', days) : undefined;
     return firstValueFrom(
-      this.http.get<FunnelPoint[]>(`${this.baseUrl}/analytics/funnel`, { params: { period } }),
+      this.http.get<FunnelData>(`${this.baseUrl}/analytics/funnel`, { params }),
     );
   }
 
-  getSourceStats(period: AnalyticsPeriod): Promise<SourceStat[]> {
+  getSourceStats(days?: number): Promise<SourceStats[]> {
+    const params = days ? new HttpParams().set('days', days) : undefined;
     return firstValueFrom(
-      this.http.get<SourceStat[]>(`${this.baseUrl}/analytics/sources`, { params: { period } }),
+      this.http.get<SourceStats[]>(`${this.baseUrl}/analytics/sources`, { params }),
     );
   }
 
-  getCostSummary(): Promise<CostSummary> {
+  getCostSummary(days?: number): Promise<CostSummary> {
+    const params = days ? new HttpParams().set('days', days) : undefined;
     return firstValueFrom(
-      this.http.get<CostSummary>(`${this.baseUrl}/analytics/cost`),
+      this.http.get<CostSummary>(`${this.baseUrl}/analytics/cost`, { params }),
     );
   }
 }

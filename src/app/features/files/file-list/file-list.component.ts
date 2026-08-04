@@ -1,39 +1,29 @@
 import { Component, computed, input, output } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
-import { FileEntry } from '../../../core/api/models';
+import { FileInfo, FileType } from '../../../core/api/models';
 
-type FileKind = 'pdf' | 'docx' | 'txt' | 'json' | 'other';
-
-const ICONS: Record<FileKind, string> = {
+const ICONS: Record<FileType, string> = {
   pdf: 'picture_as_pdf',
   docx: 'description',
   txt: 'article',
   json: 'data_object',
   other: 'insert_drive_file',
+  folder: 'folder',
 };
 
-function kindOf(name: string): FileKind {
-  const ext = name.split('.').pop()?.toLowerCase();
-  if (ext === 'pdf') return 'pdf';
-  if (ext === 'docx') return 'docx';
-  if (ext === 'txt') return 'txt';
-  if (ext === 'json') return 'json';
-  return 'other';
-}
-
-function formatSize(bytes: number | null): string {
-  if (bytes === null) return '';
+function formatSize(bytes: number, isFolder: boolean): string {
+  if (isFolder) return '';
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 interface FileRow {
-  entry: FileEntry;
-  kind: FileKind;
+  entry: FileInfo;
   icon: string;
   sizeLabel: string;
+  clickable: boolean;
 }
 
 @Component({
@@ -42,8 +32,12 @@ interface FileRow {
   imports: [MatIconModule, MatListModule],
   template: `
     <mat-nav-list>
-      @for (row of rows(); track row.entry.path) {
-        <a mat-list-item (click)="handleClick(row)" class="file-row">
+      @for (row of rows(); track row.entry.name) {
+        <a
+          mat-list-item
+          [class.clickable]="row.clickable"
+          (click)="row.clickable && handleClick(row)"
+        >
           <mat-icon matListItemIcon>{{ row.icon }}</mat-icon>
           <span matListItemTitle>{{ row.entry.name }}</span>
           <span matListItemLine class="size">{{ row.sizeLabel }}</span>
@@ -53,7 +47,7 @@ interface FileRow {
   `,
   styles: [
     `
-      .file-row {
+      .clickable {
         cursor: pointer;
       }
       .size {
@@ -64,22 +58,24 @@ interface FileRow {
   ],
 })
 export class FileListComponent {
-  readonly files = input.required<FileEntry[]>();
-  readonly preview = output<FileEntry>();
-  readonly view = output<FileEntry>();
-  readonly download = output<FileEntry>();
+  readonly files = input.required<FileInfo[]>();
+  readonly preview = output<FileInfo>();
+  readonly view = output<FileInfo>();
+  readonly download = output<FileInfo>();
 
   readonly rows = computed<FileRow[]>(() =>
-    this.files().map((entry) => {
-      const kind = kindOf(entry.name);
-      return { entry, kind, icon: ICONS[kind], sizeLabel: formatSize(entry.sizeBytes) };
-    }),
+    this.files().map((entry) => ({
+      entry,
+      icon: ICONS[entry.type],
+      sizeLabel: formatSize(entry.size, entry.type === 'folder'),
+      clickable: entry.type !== 'folder',
+    })),
   );
 
   handleClick(row: FileRow): void {
-    if (row.kind === 'pdf') {
+    if (row.entry.type === 'pdf') {
       this.preview.emit(row.entry);
-    } else if (row.kind === 'txt' || row.kind === 'json') {
+    } else if (row.entry.type === 'txt' || row.entry.type === 'json') {
       this.view.emit(row.entry);
     } else {
       this.download.emit(row.entry);

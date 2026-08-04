@@ -15,7 +15,12 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ApiService } from '../../core/api/api.service';
-import { Application, ApplicationStatus, ApplicationsStats } from '../../core/api/models';
+import {
+  Application,
+  ApplicationStats,
+  ApplicationStatus,
+  SortableColumn,
+} from '../../core/api/models';
 import { StatusBadgeComponent } from './status-badge/status-badge.component';
 import { InlineEditCellComponent } from './inline-edit-cell/inline-edit-cell.component';
 
@@ -25,13 +30,13 @@ const SEARCH_DEBOUNCE_MS = 400;
 const ALL_COLUMNS = [
   'date',
   'company',
-  'jobTitle',
+  'title',
   'stack',
-  'atsPercent',
+  'atsStatus',
+  'status',
   'url',
   'folder',
   'sent',
-  'reApplication',
   'toLearn',
   'atsVerdict',
   'costUsd',
@@ -86,12 +91,12 @@ export class ApplicationsComponent {
   readonly applications = signal<Application[]>([]);
   readonly total = signal(0);
   readonly page = signal(0);
-  readonly pageSize = signal(50);
-  readonly sortBy = signal<string | undefined>(undefined);
-  readonly sortDirection = signal<'asc' | 'desc' | undefined>(undefined);
+  readonly limit = signal(50);
+  readonly sort = signal<SortableColumn | undefined>(undefined);
+  readonly order = signal<'asc' | 'desc' | undefined>(undefined);
   readonly statusFilter = signal<ApplicationStatus | 'all'>('all');
   readonly search = signal('');
-  readonly stats = signal<ApplicationsStats | null>(null);
+  readonly stats = signal<ApplicationStats | null>(null);
 
   readonly loading = signal(false);
   readonly errorMessage = signal<string | null>(null);
@@ -127,14 +132,14 @@ export class ApplicationsComponent {
     try {
       const result = await this.api.getApplications({
         page: this.page() + 1,
-        pageSize: this.pageSize(),
-        sortBy: this.sortBy(),
-        sortDirection: this.sortDirection(),
+        limit: this.limit(),
+        sort: this.sort(),
+        order: this.order(),
         status: this.statusFilter(),
         search: this.search() || undefined,
       });
-      this.applications.set(result.items);
-      this.total.set(result.total);
+      this.applications.set(result.data);
+      this.total.set(result.meta.total);
     } catch {
       this.errorMessage.set('Could not load applications. Is the API reachable?');
     } finally {
@@ -144,21 +149,21 @@ export class ApplicationsComponent {
 
   async loadStats(): Promise<void> {
     try {
-      this.stats.set(await this.api.getApplicationsStats());
+      this.stats.set(await this.api.getApplicationStats());
     } catch {
       this.stats.set(null);
     }
   }
 
   onSortChange(sort: Sort): void {
-    this.sortBy.set(sort.direction ? sort.active : undefined);
-    this.sortDirection.set(sort.direction || undefined);
+    this.sort.set(sort.direction ? (sort.active as SortableColumn) : undefined);
+    this.order.set(sort.direction || undefined);
     this.load();
   }
 
   onPageChange(event: PageEvent): void {
     this.page.set(event.pageIndex);
-    this.pageSize.set(event.pageSize);
+    this.limit.set(event.pageSize);
     this.load();
   }
 
@@ -178,15 +183,11 @@ export class ApplicationsComponent {
   }
 
   async onSentChange(app: Application, value: string): Promise<void> {
-    await this.patch(app, { sent: value || null });
+    await this.patch(app, { sent: value });
   }
 
   async onToLearnChange(app: Application, value: string): Promise<void> {
     await this.patch(app, { toLearn: value });
-  }
-
-  async onToggleReApplication(app: Application): Promise<void> {
-    await this.patch(app, { reApplication: !app.reApplication });
   }
 
   private async patch(app: Application, changes: Partial<Application>): Promise<void> {

@@ -5,7 +5,8 @@
       <div class="stat"><span class="stat-value">{{ s.applied }}</span><span class="stat-label">Applied</span></div>
       <div class="stat"><span class="stat-value">{{ s.sent }}</span><span class="stat-label">Sent</span></div>
       <div class="stat"><span class="stat-value">{{ s.failed }}</span><span class="stat-label">Failed</span></div>
-      <div class="stat"><span class="stat-value">{{ s.unsent }}</span><span class="stat-label">Unsent</span></div>
+      <div class="stat"><span class="stat-value">{{ s.expired }}</span><span class="stat-label">Expired</span></div>
+      <div class="stat"><span class="stat-value">{{ s.pending }}</span><span class="stat-label">Pending</span></div>
     </div>
   }
 
@@ -52,16 +53,12 @@
               <strong>{{ app.company }}</strong>
               <app-status-badge [status]="app.status" />
             </div>
-            <div class="card-title">{{ app.jobTitle }}</div>
-            <div class="card-row">
-              <span class="card-label">Date</span>
-              <span>{{ app.date }}</span>
-            </div>
+            <div class="card-title">{{ app.title }}</div>
             <div class="card-row">
               <span class="card-label">Sent</span>
               <app-inline-edit-cell
                 type="date"
-                [value]="app.sent ?? ''"
+                [value]="app.sent"
                 (saved)="onSentChange(app, $event)"
               />
             </div>
@@ -90,9 +87,9 @@
           <td mat-cell *matCellDef="let app">{{ app.company }}</td>
         </ng-container>
 
-        <ng-container matColumnDef="jobTitle">
+        <ng-container matColumnDef="title">
           <th mat-header-cell *matHeaderCellDef mat-sort-header>Job Title</th>
-          <td mat-cell *matCellDef="let app">{{ app.jobTitle }}</td>
+          <td mat-cell *matCellDef="let app">{{ app.title }}</td>
         </ng-container>
 
         <ng-container matColumnDef="stack">
@@ -100,8 +97,13 @@
           <td mat-cell *matCellDef="let app">{{ app.stack }}</td>
         </ng-container>
 
-        <ng-container matColumnDef="atsPercent">
-          <th mat-header-cell *matHeaderCellDef>ATS %</th>
+        <ng-container matColumnDef="atsStatus">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>ATS %</th>
+          <td mat-cell *matCellDef="let app">{{ app.atsStatus || '—' }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Status</th>
           <td mat-cell *matCellDef="let app">
             <app-status-badge [status]="app.status" />
           </td>
@@ -130,22 +132,9 @@
           <td mat-cell *matCellDef="let app">
             <app-inline-edit-cell
               type="date"
-              [value]="app.sent ?? ''"
+              [value]="app.sent"
               (saved)="onSentChange(app, $event)"
             />
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="reApplication">
-          <th mat-header-cell *matHeaderCellDef>Re-app</th>
-          <td mat-cell *matCellDef="let app">
-            <button mat-icon-button (click)="onToggleReApplication(app)">
-              @if (app.reApplication) {
-                <mat-icon>check_box</mat-icon>
-              } @else {
-                <mat-icon>check_box_outline_blank</mat-icon>
-              }
-            </button>
           </td>
         </ng-container>
 
@@ -177,7 +166,7 @@
 
     <mat-paginator
       [length]="total()"
-      [pageSize]="pageSize()"
+      [pageSize]="limit()"
       [pageIndex]="page()"
       [pageSizeOptions]="[25, 50, 100]"
       (page)="onPageChange($event)"

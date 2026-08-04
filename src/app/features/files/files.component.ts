@@ -5,7 +5,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ApiService } from '../../core/api/api.service';
-import { FileEntry } from '../../core/api/models';
+import { FileInfo, FolderInfo } from '../../core/api/models';
 import { FolderListComponent } from './folder-list/folder-list.component';
 import { FileListComponent } from './file-list/file-list.component';
 import { PdfPreviewComponent } from './pdf-preview/pdf-preview.component';
@@ -41,6 +41,11 @@ export class FilesComponent {
   readonly date = computed(() => this.params().get('date'));
   readonly company = computed(() => this.params().get('company'));
 
+  // The API returns date/company folders as FolderInfo[] and, once inside a
+  // company folder, a flat FileInfo[] (which may itself include folder-typed
+  // "shadow" entries) — never a mix of both shapes in one response.
+  private readonly atFileLevel = computed(() => this.company() !== null);
+
   readonly currentPath = computed(() => {
     const date = this.date();
     const company = this.company();
@@ -58,13 +63,17 @@ export class FilesComponent {
     return crumbs;
   });
 
-  readonly entries = signal<FileEntry[]>([]);
+  readonly entries = signal<(FolderInfo | FileInfo)[]>([]);
   readonly loading = signal(false);
   readonly errorMessage = signal<string | null>(null);
-  readonly previewEntry = signal<FileEntry | null>(null);
+  readonly previewEntry = signal<FileInfo | null>(null);
 
-  readonly folders = computed(() => this.entries().filter((e) => e.isDirectory));
-  readonly files = computed(() => this.entries().filter((e) => !e.isDirectory));
+  readonly folders = computed<FolderInfo[]>(() =>
+    this.atFileLevel() ? [] : (this.entries() as FolderInfo[]),
+  );
+  readonly files = computed<FileInfo[]>(() =>
+    this.atFileLevel() ? (this.entries() as FileInfo[]) : [],
+  );
 
   constructor() {
     void this.reload();
@@ -85,25 +94,30 @@ export class FilesComponent {
     }
   }
 
-  openFolder(entry: FileEntry): void {
-    this.router.navigate(['/files', ...entry.path.split('/')]);
+  openFolder(folder: FolderInfo): void {
+    const date = this.date();
+    if (!date) {
+      this.router.navigate(['/files', folder.name]);
+      return;
+    }
+    this.router.navigate(['/files', date, folder.name]);
   }
 
-  previewPdf(entry: FileEntry): void {
+  previewPdf(entry: FileInfo): void {
     this.previewEntry.set(entry);
   }
 
-  fileUrl(entry: FileEntry): string {
-    return this.api.getFileUrl(entry.path);
+  fileUrl(entry: FileInfo): string {
+    return this.api.getFileUrl(`${this.currentPath()}/${entry.name}`);
   }
 
-  downloadFile(entry: FileEntry): void {
+  downloadFile(entry: FileInfo): void {
     window.open(this.fileUrl(entry), '_blank', 'noopener');
   }
 
-  async viewText(entry: FileEntry): Promise<void> {
+  async viewText(entry: FileInfo): Promise<void> {
     try {
-      const raw = await this.api.getFileContent(entry.path);
+      const raw = await this.api.getFileContent(`${this.currentPath()}/${entry.name}`);
       const content = entry.name.endsWith('.json') ? this.tryPrettyPrint(raw) : raw;
       this.dialog.open(TextPreviewDialogComponent, {
         data: { fileName: entry.name, content },
