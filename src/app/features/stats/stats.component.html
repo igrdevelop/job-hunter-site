@@ -1,0 +1,39 @@
+<div class="page">
+  <div class="toolbar">
+    <mat-button-toggle-group
+      [value]="period()"
+      (change)="onPeriodChange($event.value)"
+    >
+      @for (p of periods; track p) {
+        <mat-button-toggle [value]="p">{{ p }}</mat-button-toggle>
+      }
+    </mat-button-toggle-group>
+
+    @if (loading()) {
+      <mat-spinner diameter="24"></mat-spinner>
+    }
+  </div>
+
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  }
+
+  @if (!errorMessage() && !loading()) {
+    <section class="block">
+      <h2>Funnel</h2>
+      <app-funnel-chart [points]="funnel()" />
+    </section>
+
+    <section class="block">
+      <h2>Per source</h2>
+      <app-source-table [sources]="sources()" />
+    </section>
+
+    @if (costSummary(); as summary) {
+      <section class="block">
+        <h2>Cost</h2>
+        <app-cost-summary [summary]="summary" />
+      </section>
+    }
+  }
+</div>

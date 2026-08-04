@@ -1,0 +1,175 @@
+<div class="page">
+  @if (stats(); as s) {
+    <div class="stats-bar">
+      <div class="stat"><span class="stat-value">{{ s.total }}</span><span class="stat-label">Total</span></div>
+      <div class="stat"><span class="stat-value">{{ s.applied }}</span><span class="stat-label">Applied</span></div>
+      <div class="stat"><span class="stat-value">{{ s.sent }}</span><span class="stat-label">Sent</span></div>
+      <div class="stat"><span class="stat-value">{{ s.failed }}</span><span class="stat-label">Failed</span></div>
+      <div class="stat"><span class="stat-value">{{ s.expired }}</span><span class="stat-label">Expired</span></div>
+      <div class="stat"><span class="stat-value">{{ s.pending }}</span><span class="stat-label">Pending</span></div>
+    </div>
+  }
+
+  <div class="toolbar">
+    <mat-form-field appearance="outline" class="search-field">
+      <mat-label>Search</mat-label>
+      <input
+        matInput
+        [ngModel]="search()"
+        (ngModelChange)="onSearchInput($event)"
+        placeholder="Company or title"
+      />
+      <mat-icon matPrefix>search</mat-icon>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="status-field">
+      <mat-label>Status</mat-label>
+      <mat-select [ngModel]="statusFilter()" (ngModelChange)="onStatusFilterChange($event)">
+        @for (option of statusOptions; track option) {
+          <mat-option [value]="option">{{ option === 'all' ? 'All' : option }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    @if (loading()) {
+      <mat-spinner diameter="24"></mat-spinner>
+    }
+  </div>
+
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  }
+
+  @if (!loading() && applications().length === 0 && !errorMessage()) {
+    <p class="empty-state">No applications yet.</p>
+  }
+
+  @if (applications().length > 0) {
+    @if (cardLayout()) {
+      <div class="card-list">
+        @for (app of applications(); track app.id) {
+          <div class="app-card">
+            <div class="card-header">
+              <strong>{{ app.company }}</strong>
+              <app-status-badge [status]="app.status" />
+            </div>
+            <div class="card-title">{{ app.title }}</div>
+            <div class="card-row">
+              <span class="card-label">Sent</span>
+              <app-inline-edit-cell
+                type="date"
+                [value]="app.sent"
+                (saved)="onSentChange(app, $event)"
+              />
+            </div>
+            <div class="card-row">
+              <a [routerLink]="['/files', app.date, app.company]">Files</a>
+              <a [href]="app.url" target="_blank" rel="noopener">Job posting</a>
+            </div>
+          </div>
+        }
+      </div>
+    } @else {
+      <table
+        mat-table
+        [dataSource]="applications()"
+        matSort
+        (matSortChange)="onSortChange($event)"
+        class="applications-table"
+      >
+        <ng-container matColumnDef="date">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Date</th>
+          <td mat-cell *matCellDef="let app">{{ app.date }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="company">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Company</th>
+          <td mat-cell *matCellDef="let app">{{ app.company }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="title">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Job Title</th>
+          <td mat-cell *matCellDef="let app">{{ app.title }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="stack">
+          <th mat-header-cell *matHeaderCellDef>Stack</th>
+          <td mat-cell *matCellDef="let app">{{ app.stack }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="atsStatus">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>ATS %</th>
+          <td mat-cell *matCellDef="let app">{{ app.atsStatus || '—' }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Status</th>
+          <td mat-cell *matCellDef="let app">
+            <app-status-badge [status]="app.status" />
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="url">
+          <th mat-header-cell *matHeaderCellDef>URL</th>
+          <td mat-cell *matCellDef="let app">
+            <a [href]="app.url" target="_blank" rel="noopener">
+              <mat-icon>open_in_new</mat-icon>
+            </a>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="folder">
+          <th mat-header-cell *matHeaderCellDef>Folder</th>
+          <td mat-cell *matCellDef="let app">
+            <a [routerLink]="['/files', app.date, app.company]">
+              <mat-icon>folder</mat-icon>
+            </a>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="sent">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Sent</th>
+          <td mat-cell *matCellDef="let app">
+            <app-inline-edit-cell
+              type="date"
+              [value]="app.sent"
+              (saved)="onSentChange(app, $event)"
+            />
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="toLearn">
+          <th mat-header-cell *matHeaderCellDef>To Learn</th>
+          <td mat-cell *matCellDef="let app">
+            <app-inline-edit-cell
+              type="text"
+              [value]="app.toLearn"
+              (saved)="onToLearnChange(app, $event)"
+            />
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="atsVerdict">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>ATS Verdict</th>
+          <td mat-cell *matCellDef="let app">{{ app.atsVerdict ?? '—' }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="costUsd">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Cost $</th>
+          <td mat-cell *matCellDef="let app">{{ app.costUsd ?? '—' }}</td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns()"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns()"></tr>
+      </table>
+    }
+
+    <mat-paginator
+      [length]="total()"
+      [pageSize]="limit()"
+      [pageIndex]="page()"
+      [pageSizeOptions]="[25, 50, 100]"
+      (page)="onPageChange($event)"
+    ></mat-paginator>
+  }
+</div>

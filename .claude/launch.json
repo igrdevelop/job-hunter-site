@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "job-hunter-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "port": 4200
+    },
+    {
+      "name": "job-hunter-dev-proxy",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start:proxy"],
+      "port": 4200
+    }
+  ]
+}
