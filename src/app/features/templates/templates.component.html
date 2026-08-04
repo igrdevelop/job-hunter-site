@@ -1,0 +1,96 @@
+<div class="page">
+  <div class="toolbar">
+    <mat-chip-listbox
+      aria-label="Template category"
+      [value]="selectedCategory()"
+      (change)="onCategoryChange($event.value)"
+    >
+      @for (filter of categoryFilters; track filter.value) {
+        <mat-chip-option [value]="filter.value">{{ filter.label }}</mat-chip-option>
+      }
+    </mat-chip-listbox>
+
+    <span class="spacer"></span>
+
+    <button mat-raised-button color="primary" type="button" (click)="onUpload()">
+      <mat-icon>upload</mat-icon>
+      Upload Template
+    </button>
+  </div>
+
+  @if (loading()) {
+    <div class="loading">
+      <mat-spinner diameter="40"></mat-spinner>
+    </div>
+  }
+
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  }
+
+  @if (!loading() && !errorMessage() && filteredTemplates().length === 0) {
+    <p class="empty-state">No templates yet. Upload one to get started.</p>
+  }
+
+  @if (!loading() && filteredTemplates().length > 0) {
+    <div class="template-grid">
+      @for (template of filteredTemplates(); track template.id) {
+        <mat-card class="template-card">
+          <mat-card-header>
+            <mat-icon mat-card-avatar class="file-icon">{{ iconFor(template.fileType) }}</mat-icon>
+            <mat-card-title>{{ template.name }}</mat-card-title>
+            <mat-card-subtitle>
+              <mat-chip class="category-chip">{{ categoryLabel(template.category) }}</mat-chip>
+            </mat-card-subtitle>
+          </mat-card-header>
+
+          <mat-card-content>
+            @if (template.description) {
+              <p class="description">{{ template.description }}</p>
+            }
+            <p class="meta">
+              {{ formatSize(template.size) }} · {{ template.modified | date: 'mediumDate' }}
+            </p>
+          </mat-card-content>
+
+          <mat-card-actions align="end">
+            <button
+              mat-icon-button
+              type="button"
+              aria-label="Preview"
+              (click)="onPreview(template)"
+            >
+              <mat-icon>visibility</mat-icon>
+            </button>
+            <button
+              mat-icon-button
+              type="button"
+              aria-label="Download"
+              (click)="onDownload(template)"
+            >
+              <mat-icon>download</mat-icon>
+            </button>
+            <button
+              mat-icon-button
+              type="button"
+              aria-label="Delete"
+              (click)="onDelete(template)"
+            >
+              <mat-icon>delete</mat-icon>
+            </button>
+          </mat-card-actions>
+        </mat-card>
+      }
+    </div>
+  }
+
+  @if (previewPdf(); as pdf) {
+    <div class="pdf-preview-panel">
+      <div class="pdf-preview-header">
+        <strong>{{ pdf.name }}</strong>
+        <button mat-button type="button" (click)="closePdfPreview()">Close</button>
+      </div>
+      <app-pdf-preview [fileUrl]="contentUrl(pdf)" [fileName]="pdf.name" />
+    </div>
+  }
+</div>

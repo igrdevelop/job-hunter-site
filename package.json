@@ -21,6 +21,8 @@
     "@angular/material": "^22.1.0",
     "@angular/platform-browser": "^22.0.0",
     "@angular/router": "^22.0.0",
+    "ag-grid-angular": "^36.0.2",
+    "ag-grid-community": "^36.0.2",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },

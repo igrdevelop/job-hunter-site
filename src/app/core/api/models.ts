@@ -1,4 +1,4 @@
-export type ApplicationStatus = 'applied' | 'sent' | 'failed' | 'expired' | 'pending';
+export type ApplicationStatus = 'applied' | 'sent' | 'failed' | 'expired' | 'pending' | 'unsent';
 
 export interface Application {
   id: string;
@@ -94,4 +94,16 @@ export type AnalyticsPeriod = '7d' | '30d' | '90d' | 'all';
 export function periodToDays(period: AnalyticsPeriod): number | undefined {
   if (period === 'all') return undefined;
   return { '7d': 7, '30d': 30, '90d': 90 }[period];
+}
+
+export type TemplateCategory = 'resume' | 'cover-letter' | 'portfolio' | 'other';
+
+export interface Template {
+  id: string;
+  name: string;
+  category: TemplateCategory;
+  fileType: FileType;
+  size: number;
+  modified: string;
+  description?: string;
 }

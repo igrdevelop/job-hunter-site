@@ -13,6 +13,8 @@ import {
   FunnelData,
   PaginatedResult,
   SourceStats,
+  Template,
+  TemplateCategory,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -81,6 +83,43 @@ export class ApiService {
     const params = days ? new HttpParams().set('days', days) : undefined;
     return firstValueFrom(
       this.http.get<CostSummary>(`${this.baseUrl}/analytics/cost`, { params }),
+    );
+  }
+
+  getTemplates(category?: TemplateCategory): Promise<Template[]> {
+    const params = category ? new HttpParams().set('category', category) : undefined;
+    return firstValueFrom(
+      this.http.get<Template[]>(`${this.baseUrl}/templates`, { params }),
+    );
+  }
+
+  getTemplateContentUrl(id: string): string {
+    return `${this.baseUrl}/templates/${id}/content`;
+  }
+
+  getTemplateContent(id: string): Promise<string> {
+    return firstValueFrom(
+      this.http.get(this.getTemplateContentUrl(id), { responseType: 'text' }),
+    );
+  }
+
+  uploadTemplate(
+    file: File,
+    meta: { name: string; category: TemplateCategory; description?: string },
+  ): Promise<Template> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('name', meta.name);
+    formData.append('category', meta.category);
+    if (meta.description) formData.append('description', meta.description);
+    return firstValueFrom(
+      this.http.post<Template>(`${this.baseUrl}/templates`, formData),
+    );
+  }
+
+  deleteTemplate(id: string): Promise<void> {
+    return firstValueFrom(
+      this.http.delete<void>(`${this.baseUrl}/templates/${id}`),
     );
   }
 }
