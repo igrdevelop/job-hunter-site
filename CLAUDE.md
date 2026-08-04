@@ -25,16 +25,16 @@ with a self-hosted web UI.
 ## Architecture
 
 ```
-Browser → job-hunter.igrflex.work → Cloudflare Tunnel → VPS Docker
+Browser → job-hunter.igrflex.work → Cloudflare Tunnel (path routing)
          │
-         ├── NestJS serves Angular dist/ (static files)
-         ├── NestJS serves /api/* and /auth/* (REST API)
-         ├── NestJS reads tracker.db (SQLite, written by Python bot)
-         └── NestJS serves files from Applications/ folder
+         ├── /api/*, /auth/* → job-hunter-api container (NestJS, :3000)
+         └── everything else → job-hunter-frontend container (nginx, :80)
 ```
 
-NestJS serves both the Angular SPA and the API from ONE process, ONE domain.
-No CORS. The Angular app calls `/api/*` on the same origin.
+Frontend and backend are separate containers, separate images, separate CI
+pipelines — each repo builds and deploys independently. Same hostname, same
+origin (no CORS) via Cloudflare Tunnel path-based routing. The Angular app
+still calls `/api/*` and `/auth/*` on the same origin as always.
 
 ### Pages
 
@@ -75,14 +75,16 @@ ng serve --proxy-config proxy.conf.json
 
 ## Deployment
 
-**Production:** NestJS (in `job-hunter-api` repo) builds Angular as part of its
-Docker image (multi-stage build). The built `dist/job-hunter-site/browser/` is
-copied into the NestJS container and served as static files. Deployed via
-`docker-compose` on the VPS (178.105.131.107), exposed via Cloudflare Tunnel
-as `job-hunter.igrflex.work`.
+**Production:** this repo builds its own Docker image (`Dockerfile`: `npm run
+build` → nginx serving `dist/job-hunter-site/browser/`), pushes to
+`ghcr.io/igrdevelop/job-hunter-site`, and deploys via `.github/workflows/deploy.yml`
+on push to `master`. Deploy only touches the `frontend` service in the shared
+`docker-compose.prod.yml` on the VPS (178.105.131.107) — it does not rewrite
+that file; `job-hunter-api`'s CI owns it. Exposed via Cloudflare Tunnel path
+routing on `job-hunter.igrflex.work` (catch-all → this container; `/api`,
+`/auth` → `job-hunter-api`).
 
-**No Cloudflare Pages** — the old `.github/workflows/deploy.yml` that deployed
-to Cloudflare Pages will be removed. NestJS serves everything.
+**No Cloudflare Pages** — not used.
 
 **Domain:** `job-hunter.igrflex.work` — DNS currently points to Cloudflare Pages
 (default starter page). Will be switched to the Cloudflare Tunnel CNAME when the
@@ -129,3 +131,4 @@ Frontend-specific plan: `docs/IMPLEMENTATION_PLAN.md` in this repo.
 | 2026-06-15 | opus | Project bootstrapped: scaffolded Angular 22 app, deployed to Cloudflare Pages, attached `igrflex.work` (HTTPS auto), set up GitHub Actions auto-deploy on push to master. |
 | 2026-08-04 | opus | Rewrote CLAUDE.md for new web app direction (replace Google Sheets/Drive). Created `docs/IMPLEMENTATION_PLAN.md` — 6-step frontend plan (auth, table, files, stats). Deployment model changed from Cloudflare Pages to NestJS-served static files via Cloudflare Tunnel on VPS. |
 | 2026-08-04 | sonnet | Implemented all 6 steps of `docs/IMPLEMENTATION_PLAN.md` on branch `claude/plan-and-progress-61053c` (worktree, uncommitted): Angular Material, core auth (service/guard/interceptor) + typed `ApiService`, login page, applications table (sort/filter/search/inline-edit/stats/auto-refresh/responsive), files browser (breadcrumbs/folders/PDF preview/text-JSON modal), stats page (funnel/source table/cost cards, no chart lib — DIY SVG bars). Pulled SSR removal forward from Step 6 (removed `@angular/ssr`/`platform-server`/`express`) because the client-only JWT-in-localStorage auth guard doesn't work under SSR — guard always redirected to `/login` on first paint. Removed `.github/workflows/deploy.yml` (Cloudflare Pages) per plan. Added `proxy.conf.json` + `npm run start:proxy`. No backend exists yet, so all API calls are unverified against a real server — verified only via build/tests/mocked-fetch in browser. |
+| 2026-08-04 | sonnet | Split from combined-image deploy into a standalone containerized frontend: added `Dockerfile` (node build → nginx serve, SPA fallback via `nginx.conf`) and `.github/workflows/deploy.yml` (build+push to `ghcr.io/igrdevelop/job-hunter-site`, deploy only the `frontend` service on the VPS — does not own `docker-compose.prod.yml`, `job-hunter-api`'s CI does). Companion change in `job-hunter-api`: dropped the named-Docker-build-context checkout of this repo and its `ServeStaticModule`/SPA-fallback middleware. See `job-hunter-api/CLAUDE.md` for the compose/Cloudflare Tunnel routing side. |
