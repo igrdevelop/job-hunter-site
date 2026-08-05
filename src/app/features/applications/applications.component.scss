@@ -65,4 +65,11 @@
   border: 1px solid var(--color-neutral-300);
 
   @include mixins.ag-grid-industry-theme;
+
+  // AG Grid duplicates the `ag-theme-material` class onto an internal
+  // `.ag-styled-root` wrapper, which re-declares the --ag-* defaults and
+  // shadows the values set above for everything AG Grid actually renders.
+  ::ng-deep .ag-styled-root {
+    @include mixins.ag-grid-industry-theme;
+  }
 }
