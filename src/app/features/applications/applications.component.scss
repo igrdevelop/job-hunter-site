@@ -1,13 +1,25 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
 .page {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
 }
 
 .stats-bar {
   display: flex;
   gap: 24px;
   flex-wrap: wrap;
+  flex-shrink: 0;
   padding: 12px 16px;
   background: rgba(0, 0, 0, 0.04);
   border-radius: 8px;
@@ -35,6 +47,7 @@
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .search-field {
@@ -47,10 +60,12 @@
 
 .error {
   color: #c62828;
+  flex-shrink: 0;
 }
 
 .applications-grid {
+  flex: 1 1 0;
   width: 100%;
-  height: calc(100vh - 240px);
-  min-height: 400px;
+  min-width: 0;
+  min-height: 280px;
 }
