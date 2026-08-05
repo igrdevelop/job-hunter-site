@@ -1,15 +1,23 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  resource,
+  signal,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { ApiService } from '../../core/api/api.service';
+import { FilesApi } from '../../core/api/files.api';
 import { FileInfo, FolderInfo } from '../../core/api/models';
-import { FolderListComponent } from './folder-list/folder-list.component';
-import { FileListComponent } from './file-list/file-list.component';
-import { PdfPreviewComponent } from './pdf-preview/pdf-preview.component';
-import { TextPreviewDialogComponent } from './text-preview-dialog/text-preview-dialog.component';
+import { FolderListComponent } from '../../shared/folder-list/folder-list.component';
+import { FileListComponent } from '../../shared/file-list/file-list.component';
+import { PdfPreviewComponent } from '../../shared/pdf-preview/pdf-preview.component';
+import { TextPreviewDialogComponent } from '../../shared/text-preview-dialog/text-preview-dialog.component';
 
 interface Breadcrumb {
   label: string;
@@ -18,7 +26,6 @@ interface Breadcrumb {
 
 @Component({
   selector: 'app-files',
-  standalone: true,
   imports: [
     RouterLink,
     MatProgressSpinnerModule,
@@ -28,9 +35,10 @@ interface Breadcrumb {
   ],
   templateUrl: './files.component.html',
   styleUrl: './files.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FilesComponent {
-  private readonly api = inject(ApiService);
+  private readonly api = inject(FilesApi);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
@@ -63,13 +71,19 @@ export class FilesComponent {
     return crumbs;
   });
 
-  readonly entries = signal<(FolderInfo | FileInfo)[]>([]);
-  readonly loading = signal(false);
-  readonly errorMessage = signal<string | null>(null);
-  readonly previewEntry = signal<FileInfo | null>(null);
+  private readonly entriesResource = resource({
+    params: () => this.currentPath(),
+    loader: ({ params: path }) => this.api.getGenerated(path),
+  });
 
-  /** Ignores stale responses when the user navigates before a prior load finishes. */
-  private loadSeq = 0;
+  readonly entries = computed(() => this.entriesResource.value() ?? []);
+  readonly loading = this.entriesResource.isLoading;
+  readonly errorMessage = computed(() =>
+    this.entriesResource.error()
+      ? 'Could not load files. Is the API reachable?'
+      : null,
+  );
+  readonly previewEntry = signal<FileInfo | null>(null);
 
   readonly folders = computed<FolderInfo[]>(() =>
     this.atFileLevel() ? [] : (this.entries() as FolderInfo[]),
@@ -81,27 +95,8 @@ export class FilesComponent {
   constructor() {
     effect(() => {
       this.currentPath();
-      void this.reload();
+      this.previewEntry.set(null);
     });
-  }
-
-  async reload(): Promise<void> {
-    const seq = ++this.loadSeq;
-    this.loading.set(true);
-    this.errorMessage.set(null);
-    this.previewEntry.set(null);
-
-    try {
-      const entries = await this.api.getGenerated(this.currentPath());
-      if (seq !== this.loadSeq) return;
-      this.entries.set(entries);
-    } catch {
-      if (seq !== this.loadSeq) return;
-      this.errorMessage.set('Could not load files. Is the API reachable?');
-      this.entries.set([]);
-    } finally {
-      if (seq === this.loadSeq) this.loading.set(false);
-    }
   }
 
   openFolder(folder: FolderInfo): void {

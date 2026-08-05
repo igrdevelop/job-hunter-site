@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { FunnelPoint } from '../../../core/api/models';
 
 interface FunnelBar {
@@ -7,8 +7,7 @@ interface FunnelBar {
 }
 
 @Component({
-  selector: 'app-funnel-chart',
-  standalone: true,
+  selector: 'app-funnel-chart',
   template: `
     <div class="funnel">
       @for (bar of bars(); track bar.point.stage) {
@@ -58,6 +57,7 @@ interface FunnelBar {
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FunnelChartComponent {
   readonly points = input.required<FunnelPoint[]>();
