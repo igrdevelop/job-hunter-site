@@ -1,4 +1,4 @@
-export type ApplicationStatus = 'applied' | 'sent' | 'failed' | 'expired' | 'pending' | 'unsent';
+export type SentFilter = 'all' | 'unsent' | 'filled';
 
 export interface Application {
   id: string;
@@ -13,7 +13,6 @@ export interface Application {
   toLearn: string;
   costUsd: number | null;
   atsVerdict: number | null;
-  status: ApplicationStatus;
 }
 
 export type ApplicationPatch = Partial<Pick<Application, 'sent' | 'toLearn'>>;
@@ -35,7 +34,7 @@ export interface ApplicationsQuery {
   limit: number;
   sort?: SortableColumn;
   order?: 'asc' | 'desc';
-  status?: ApplicationStatus | 'all';
+  status?: SentFilter;
   search?: string;
 }
 
@@ -44,7 +43,11 @@ export interface PaginatedResult<T> {
   meta: { page: number; limit: number; total: number; totalPages: number };
 }
 
-export type ApplicationStats = Record<ApplicationStatus, number> & { total: number };
+export interface ApplicationStats {
+  total: number;
+  unsent: number;
+  filled: number;
+}
 
 export interface FolderInfo {
   name: string;
