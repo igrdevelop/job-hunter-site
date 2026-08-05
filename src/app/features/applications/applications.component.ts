@@ -21,10 +21,9 @@ import { ApplicationsApi } from '../../core/api/applications.api';
 import {
   Application,
   ApplicationStats,
-  ApplicationStatus,
+  SentFilter,
   SortableColumn,
 } from '../../core/api/models';
-import { StatusCellRendererComponent } from './cell-renderers/status-cell-renderer.component';
 import { UrlCellRendererComponent } from './cell-renderers/url-cell-renderer.component';
 import { FolderCellRendererComponent } from './cell-renderers/folder-cell-renderer.component';
 
@@ -56,22 +55,14 @@ export class ApplicationsComponent {
   private gridApi?: GridApi<Application>;
 
   readonly limit = signal(50);
-  readonly statusFilter = signal<ApplicationStatus | 'all'>('unsent');
+  readonly statusFilter = signal<SentFilter>('unsent');
   readonly search = signal('');
   readonly stats = signal<ApplicationStats | null>(null);
 
   readonly loading = signal(false);
   readonly errorMessage = signal<string | null>(null);
 
-  readonly statusOptions: Array<ApplicationStatus | 'all'> = [
-    'all',
-    'unsent',
-    'applied',
-    'sent',
-    'failed',
-    'expired',
-    'pending',
-  ];
+  readonly statusOptions: SentFilter[] = ['all', 'unsent', 'filled'];
 
   readonly defaultColDef: ColDef = {
     sortable: false,
@@ -91,7 +82,6 @@ export class ApplicationsComponent {
       width: 90,
       valueFormatter: (p) => p.value || '—',
     },
-    { field: 'status', headerName: 'Status', width: 100, cellRenderer: StatusCellRendererComponent },
     { field: 'url', headerName: 'URL', width: 70, cellRenderer: UrlCellRendererComponent },
     { field: 'folder', headerName: 'Folder', width: 80, cellRenderer: FolderCellRendererComponent },
     { field: 'sent', sortable: true, headerName: 'Sent', width: 130, editable: true },
@@ -165,7 +155,7 @@ export class ApplicationsComponent {
     }
   }
 
-  onStatusFilterChange(status: ApplicationStatus | 'all'): void {
+  onStatusFilterChange(status: SentFilter): void {
     this.statusFilter.set(status);
     this.gridApi?.setGridOption('datasource', this.datasource);
   }

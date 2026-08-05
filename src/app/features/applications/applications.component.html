@@ -3,11 +3,7 @@
     <div class="stats-bar">
       <div class="stat"><span class="stat-value">{{ s.total }}</span><span class="stat-label">Total</span></div>
       <div class="stat"><span class="stat-value">{{ s.unsent }}</span><span class="stat-label">Unsent</span></div>
-      <div class="stat"><span class="stat-value">{{ s.applied }}</span><span class="stat-label">Applied</span></div>
-      <div class="stat"><span class="stat-value">{{ s.sent }}</span><span class="stat-label">Sent</span></div>
-      <div class="stat"><span class="stat-value">{{ s.failed }}</span><span class="stat-label">Failed</span></div>
-      <div class="stat"><span class="stat-value">{{ s.expired }}</span><span class="stat-label">Expired</span></div>
-      <div class="stat"><span class="stat-value">{{ s.pending }}</span><span class="stat-label">Pending</span></div>
+      <div class="stat"><span class="stat-value">{{ s.filled }}</span><span class="stat-label">Filled</span></div>
     </div>
   }
 
@@ -27,7 +23,7 @@
       <mat-label>Status</mat-label>
       <mat-select [ngModel]="statusFilter()" (ngModelChange)="onStatusFilterChange($event)">
         @for (option of statusOptions; track option) {
-          <mat-option [value]="option">{{ option === 'all' ? 'All' : option }}</mat-option>
+          <mat-option [value]="option">{{ option === 'all' ? 'All' : option === 'unsent' ? 'Unsent' : 'Filled' }}</mat-option>
         }
       </mat-select>
     </mat-form-field>
