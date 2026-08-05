@@ -31,6 +31,9 @@ export class ProfileComponent {
   readonly loading = signal(false);
   readonly errorMessage = signal<string | null>(null);
 
+  /** Ignores stale responses when the user navigates before a prior load finishes. */
+  private loadSeq = 0;
+
   readonly folders = computed(() => this.entries().filter(isFolderInfo));
   readonly files = computed(() =>
     this.entries().filter((e): e is FileInfo => !isFolderInfo(e)),
@@ -44,16 +47,20 @@ export class ProfileComponent {
   }
 
   async reload(): Promise<void> {
+    const seq = ++this.loadSeq;
     this.loading.set(true);
     this.errorMessage.set(null);
 
     try {
-      this.entries.set(await this.api.getProfileFiles(this.currentPath()));
+      const entries = await this.api.getProfileFiles(this.currentPath());
+      if (seq !== this.loadSeq) return;
+      this.entries.set(entries);
     } catch {
+      if (seq !== this.loadSeq) return;
       this.errorMessage.set('Could not load profile files. Is the API reachable?');
       this.entries.set([]);
     } finally {
-      this.loading.set(false);
+      if (seq === this.loadSeq) this.loading.set(false);
     }
   }
 

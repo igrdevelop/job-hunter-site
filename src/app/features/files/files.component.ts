@@ -68,6 +68,9 @@ export class FilesComponent {
   readonly errorMessage = signal<string | null>(null);
   readonly previewEntry = signal<FileInfo | null>(null);
 
+  /** Ignores stale responses when the user navigates before a prior load finishes. */
+  private loadSeq = 0;
+
   readonly folders = computed<FolderInfo[]>(() =>
     this.atFileLevel() ? [] : (this.entries() as FolderInfo[]),
   );
@@ -83,17 +86,21 @@ export class FilesComponent {
   }
 
   async reload(): Promise<void> {
+    const seq = ++this.loadSeq;
     this.loading.set(true);
     this.errorMessage.set(null);
     this.previewEntry.set(null);
 
     try {
-      this.entries.set(await this.api.getGenerated(this.currentPath()));
+      const entries = await this.api.getGenerated(this.currentPath());
+      if (seq !== this.loadSeq) return;
+      this.entries.set(entries);
     } catch {
+      if (seq !== this.loadSeq) return;
       this.errorMessage.set('Could not load files. Is the API reachable?');
       this.entries.set([]);
     } finally {
-      this.loading.set(false);
+      if (seq === this.loadSeq) this.loading.set(false);
     }
   }
 
