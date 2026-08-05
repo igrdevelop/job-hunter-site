@@ -1,0 +1,375 @@
+// Industry design system tokens, ported from Design/README.md.
+// Accent ramp derived from base steel-blue #5980a6 (~hsl(210 30% 50%)).
+// Neutral ramp derived from base text #1d1f20 / bg #f2f2f3.
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/assets/fonts/barlow-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/assets/fonts/barlow-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/assets/fonts/barlow-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/assets/fonts/barlow-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/assets/fonts/barlow-condensed-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/assets/fonts/barlow-condensed-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/assets/fonts/barlow-condensed-700.woff2') format('woff2');
+}
+
+:root {
+  --font-heading: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --font-body: 'Barlow', 'Helvetica Neue', Arial, sans-serif;
+
+  --color-bg: #f2f2f3;
+  --color-text: #1d1f20;
+
+  --color-accent-100: #eaf0f5;
+  --color-accent-200: #d7e2eb;
+  --color-accent-300: #b9cbdb;
+  --color-accent-400: #8fa9c1;
+  --color-accent-500: #5980a6;
+  --color-accent-600: #4c6f92;
+  --color-accent-700: #405d7a;
+  --color-accent-800: #324a61;
+  --color-accent-900: #223342;
+
+  --color-neutral-050: #f9f9fa;
+  --color-neutral-100: #f2f2f3;
+  --color-neutral-200: #e4e4e6;
+  --color-neutral-300: #cfd0d3;
+  --color-neutral-400: #b3b5b9;
+  --color-neutral-500: #8b8e93;
+  --color-neutral-600: #6b6e73;
+  --color-neutral-700: #4d4f53;
+  --color-neutral-800: #303234;
+  --color-neutral-900: #1d1f20;
+
+  --radius: 4px;
+
+  --shadow-sm: 0 1px 2px rgba(29, 31, 32, 0.06);
+  --shadow-md: 0 2px 10px rgba(29, 31, 32, 0.1);
+  --shadow-lg: 0 12px 32px rgba(29, 31, 32, 0.18);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+h1 {
+  font-size: 32px;
+  margin: 0 0 var(--space-1);
+}
+
+.page-subtitle {
+  margin: 0 0 var(--space-5);
+  color: var(--color-neutral-700);
+  font-size: 14px;
+}
+
+.text-muted {
+  color: var(--color-neutral-600);
+}
+
+// Corner registration marks — small "+" at each corner of a .blueprint element.
+.blueprint {
+  position: relative;
+}
+
+.corner {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  pointer-events: none;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    background: var(--color-neutral-400);
+  }
+
+  &::before {
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    transform: translateY(-50%);
+  }
+
+  &::after {
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    transform: translateX(-50%);
+  }
+}
+
+.corner.tl {
+  top: -5px;
+  left: -5px;
+}
+.corner.tr {
+  top: -5px;
+  right: -5px;
+}
+.corner.bl {
+  bottom: -5px;
+  left: -5px;
+}
+.corner.br {
+  bottom: -5px;
+  right: -5px;
+}
+
+// Cards
+.card {
+  background: #fff;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: 0;
+}
+
+.elev-sm {
+  box-shadow: var(--shadow-sm);
+}
+.elev-md {
+  box-shadow: var(--shadow-md);
+}
+.elev-lg {
+  box-shadow: var(--shadow-lg);
+}
+
+.card-kicker {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent-600);
+  margin: 0 0 var(--space-1);
+}
+
+.card-title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 18px;
+  margin: 0;
+}
+
+.card-body {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--color-neutral-700);
+  margin: var(--space-1) 0 0;
+}
+
+.card-meta {
+  font-size: 12px;
+  color: var(--color-neutral-500);
+  margin-top: var(--space-3);
+}
+
+// Tags
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 0;
+  border: 1px solid transparent;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.tag-accent {
+  background: var(--color-accent-100);
+  color: var(--color-accent-800);
+}
+
+.tag-neutral {
+  background: var(--color-neutral-800);
+  color: #fff;
+}
+
+.tag-outline {
+  background: transparent;
+  border-color: var(--color-accent-400);
+  color: var(--color-accent-700);
+}
+
+// Buttons
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  padding: var(--space-2) var(--space-4);
+  border-radius: 0;
+  border: 1px solid var(--color-neutral-300);
+  background: #fff;
+  color: var(--color-text);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.btn-primary {
+  background: var(--color-accent-600);
+  border-color: var(--color-accent-600);
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    background: var(--color-accent-700);
+    border-color: var(--color-accent-700);
+  }
+}
+
+.btn-secondary {
+  background: #fff;
+  border-color: var(--color-neutral-300);
+  color: var(--color-text);
+
+  &:hover:not(:disabled) {
+    background: var(--color-neutral-100);
+  }
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-text);
+
+  &:hover:not(:disabled) {
+    background: var(--color-neutral-100);
+  }
+}
+
+.btn-icon {
+  padding: 0;
+  width: 32px;
+  height: 32px;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+// Form fields (native)
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+
+  label {
+    font-size: 13px;
+    color: var(--color-neutral-700);
+  }
+}
+
+.input {
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: 0;
+  background: var(--color-neutral-100);
+  color: var(--color-text);
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-accent-500);
+    background: #fff;
+  }
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+
+  th,
+  td {
+    text-align: left;
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--color-neutral-200);
+  }
+
+  th {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--color-neutral-700);
+    white-space: nowrap;
+  }
+}
