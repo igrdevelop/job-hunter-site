@@ -1,10 +1,9 @@
-import { Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { FolderInfo } from '../../../core/api/models';
+import { FolderInfo } from '../../core/api/models';
 
 @Component({
   selector: 'app-folder-list',
-  standalone: true,
   imports: [MatIconModule],
   template: `
     <div class="folder-grid">
@@ -51,6 +50,7 @@ import { FolderInfo } from '../../../core/api/models';
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FolderListComponent {
   readonly folders = input.required<FolderInfo[]>();

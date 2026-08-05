@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, inject } from '@angular/core';
 import { ICellRendererAngularComp } from 'ag-grid-angular';
 import { ICellRendererParams } from 'ag-grid-community';
 import { ApplicationStatus } from '../../../core/api/models';
@@ -14,7 +14,6 @@ const LABELS: Record<ApplicationStatus, string> = {
 
 @Component({
   selector: 'app-status-cell-renderer',
-  standalone: true,
   template: `<span class="badge" [class]="status">{{ label }}</span>`,
   styles: [
     `
@@ -35,14 +34,18 @@ const LABELS: Record<ApplicationStatus, string> = {
       .unsent { background: #9e9e9e; }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class StatusCellRendererComponent implements ICellRendererAngularComp {
+  private readonly cdr = inject(ChangeDetectorRef);
+
   status: ApplicationStatus = 'pending';
   label = '';
 
   agInit(params: ICellRendererParams): void {
     this.status = params.value as ApplicationStatus;
     this.label = LABELS[this.status] ?? String(params.value ?? '');
+    this.cdr.markForCheck();
   }
 
   refresh(params: ICellRendererParams): boolean {

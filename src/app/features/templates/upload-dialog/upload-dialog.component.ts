@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import {
   FormBuilder,
   ReactiveFormsModule,
@@ -9,12 +9,11 @@ import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { ApiService } from '../../../core/api/api.service';
+import { TemplatesApi } from '../../../core/api/templates.api';
 import { Template, TemplateCategory } from '../../../core/api/models';
 
 @Component({
   selector: 'app-upload-dialog',
-  standalone: true,
   imports: [
     ReactiveFormsModule,
     MatDialogModule,
@@ -121,9 +120,10 @@ import { Template, TemplateCategory } from '../../../core/api/models';
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class UploadDialogComponent {
-  private readonly api = inject(ApiService);
+  private readonly api = inject(TemplatesApi);
   private readonly dialogRef = inject(MatDialogRef<UploadDialogComponent, Template>);
   private readonly fb = inject(FormBuilder);
 
@@ -170,7 +170,7 @@ export class UploadDialogComponent {
     const { name, category, description } = this.form.getRawValue();
 
     try {
-      const template = await this.api.uploadTemplate(file, {
+      const template = await this.api.upload(file, {
         name,
         category,
         description: description.trim() || undefined,

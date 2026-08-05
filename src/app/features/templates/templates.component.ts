@@ -1,5 +1,12 @@
 import { DatePipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  resource,
+  signal,
+} from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
@@ -7,17 +14,16 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { ApiService } from '../../core/api/api.service';
+import { TemplatesApi } from '../../core/api/templates.api';
 import { FileType, Template, TemplateCategory } from '../../core/api/models';
-import { PdfPreviewComponent } from '../files/pdf-preview/pdf-preview.component';
-import { TextPreviewDialogComponent } from '../files/text-preview-dialog/text-preview-dialog.component';
+import { PdfPreviewComponent } from '../../shared/pdf-preview/pdf-preview.component';
+import { TextPreviewDialogComponent } from '../../shared/text-preview-dialog/text-preview-dialog.component';
 import { UploadDialogComponent } from './upload-dialog/upload-dialog.component';
 
 type CategoryFilter = TemplateCategory | 'all';
 
 @Component({
   selector: 'app-templates',
-  standalone: true,
   imports: [
     DatePipe,
     MatCardModule,
@@ -30,16 +36,25 @@ type CategoryFilter = TemplateCategory | 'all';
   ],
   templateUrl: './templates.component.html',
   styleUrl: './templates.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TemplatesComponent {
-  private readonly api = inject(ApiService);
+  private readonly api = inject(TemplatesApi);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
 
-  readonly templates = signal<Template[]>([]);
-  readonly loading = signal(false);
+  private readonly templatesResource = resource({
+    loader: () => this.api.getAll(),
+  });
+
+  readonly templates = computed(() => this.templatesResource.value() ?? []);
+  readonly loading = this.templatesResource.isLoading;
   readonly selectedCategory = signal<CategoryFilter>('all');
-  readonly errorMessage = signal<string | null>(null);
+  readonly errorMessage = computed(() =>
+    this.templatesResource.error()
+      ? 'Could not load templates. Is the API reachable?'
+      : null,
+  );
   readonly previewPdf = signal<Template | null>(null);
 
   readonly categoryFilters: Array<{ value: CategoryFilter; label: string }> = [
@@ -57,31 +72,14 @@ export class TemplatesComponent {
     return items.filter((t) => t.category === category);
   });
 
-  constructor() {
-    void this.loadTemplates();
-  }
-
   onCategoryChange(category: CategoryFilter): void {
     this.selectedCategory.set(category);
-  }
-
-  async loadTemplates(): Promise<void> {
-    this.loading.set(true);
-    this.errorMessage.set(null);
-    try {
-      this.templates.set(await this.api.getTemplates());
-    } catch {
-      this.errorMessage.set('Could not load templates. Is the API reachable?');
-      this.templates.set([]);
-    } finally {
-      this.loading.set(false);
-    }
   }
 
   onUpload(): void {
     const ref = this.dialog.open(UploadDialogComponent, { width: '480px' });
     ref.afterClosed().subscribe((result: Template | undefined) => {
-      if (result) void this.loadTemplates();
+      if (result) this.templatesResource.reload();
     });
   }
 
@@ -89,11 +87,11 @@ export class TemplatesComponent {
     if (!confirm(`Delete ${template.name}?`)) return;
 
     try {
-      await this.api.deleteTemplate(template.id);
+      await this.api.delete(template.id);
       if (this.previewPdf()?.id === template.id) {
         this.previewPdf.set(null);
       }
-      await this.loadTemplates();
+      this.templatesResource.reload();
     } catch {
       this.snackBar.open('Failed to delete template.', 'Dismiss', { duration: 4000 });
     }
@@ -107,7 +105,7 @@ export class TemplatesComponent {
 
     if (template.fileType === 'txt' || template.fileType === 'json') {
       try {
-        const content = await this.api.getTemplateContent(template.id);
+        const content = await this.api.getContent(template.id);
         this.dialog.open(TextPreviewDialogComponent, {
           width: '720px',
           data: { fileName: template.name, content },
@@ -122,7 +120,7 @@ export class TemplatesComponent {
   }
 
   onDownload(template: Template): void {
-    window.open(this.api.getTemplateContentUrl(template.id), '_blank', 'noopener');
+    window.open(this.api.getContentUrl(template.id), '_blank', 'noopener');
   }
 
   closePdfPreview(): void {
@@ -154,6 +152,6 @@ export class TemplatesComponent {
   }
 
   contentUrl(template: Template): string {
-    return this.api.getTemplateContentUrl(template.id);
+    return this.api.getContentUrl(template.id);
   }
 }

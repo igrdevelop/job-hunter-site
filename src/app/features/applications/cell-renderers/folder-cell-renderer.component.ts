@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -7,14 +7,14 @@ import { ICellRendererParams } from 'ag-grid-community';
 import { Application } from '../../../core/api/models';
 
 @Component({
-  selector: 'app-folder-cell-renderer',
-  standalone: true,
+  selector: 'app-folder-cell-renderer',
   imports: [MatIconModule, MatButtonModule],
   template: `
     <button mat-icon-button type="button" aria-label="Open folder" (click)="openFolder()">
       <mat-icon>folder</mat-icon>
     </button>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FolderCellRendererComponent implements ICellRendererAngularComp {
   private readonly router = inject(Router);

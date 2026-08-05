@@ -1,7 +1,7 @@
-import { Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
-import { FileInfo, FileType } from '../../../core/api/models';
+import { FileInfo, FileType } from '../../core/api/models';
 
 const ICONS: Record<FileType, string> = {
   pdf: 'picture_as_pdf',
@@ -28,7 +28,6 @@ interface FileRow {
 
 @Component({
   selector: 'app-file-list',
-  standalone: true,
   imports: [MatIconModule, MatListModule],
   template: `
     <mat-nav-list>
@@ -56,6 +55,7 @@ interface FileRow {
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FileListComponent {
   readonly files = input.required<FileInfo[]>();
