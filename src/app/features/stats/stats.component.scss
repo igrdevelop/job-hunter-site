@@ -1,21 +1,23 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--space-5);
 }
 
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
-.block h2 {
-  font-size: 1rem;
-  font-weight: 600;
-  margin: 0 0 12px;
+.block {
+  padding: var(--space-4);
+}
+
+.block .card-title {
+  margin: 0 0 var(--space-4);
 }
 
 .error {
-  color: #c62828;
+  color: var(--color-error);
 }

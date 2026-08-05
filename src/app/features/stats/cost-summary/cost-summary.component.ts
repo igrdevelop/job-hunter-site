@@ -2,20 +2,23 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { CostSummary } from '../../../core/api/models';
 
 @Component({
-  selector: 'app-cost-summary',
+  selector: 'app-cost-summary',
   template: `
     <div class="cards">
-      <div class="card">
-        <span class="value">&dollar;{{ summary().totalCostUsd.toFixed(2) }}</span>
-        <span class="label">Total spend</span>
+      <div class="card blueprint stat">
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-title value">&dollar;{{ summary().totalCostUsd.toFixed(2) }}</div>
+        <div class="card-body">Total spend</div>
       </div>
-      <div class="card">
-        <span class="value">&dollar;{{ summary().averageCostUsd.toFixed(3) }}</span>
-        <span class="label">Average per apply</span>
+      <div class="card blueprint stat">
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-title value">&dollar;{{ summary().averageCostUsd.toFixed(3) }}</div>
+        <div class="card-body">Average per apply</div>
       </div>
-      <div class="card">
-        <span class="value">{{ summary().applicationsWithCost }}</span>
-        <span class="label">Applications with cost</span>
+      <div class="card blueprint stat">
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-title value">{{ summary().applicationsWithCost }}</div>
+        <div class="card-body">Applications with cost</div>
       </div>
     </div>
   `,
@@ -23,24 +26,14 @@ import { CostSummary } from '../../../core/api/models';
     `
       .cards {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: var(--space-3);
       }
-      .card {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        padding: 16px;
-        border-radius: 8px;
-        background: rgba(0, 0, 0, 0.04);
+      .stat {
+        padding: var(--space-3);
       }
       .value {
-        font-size: 1.5rem;
-        font-weight: 600;
-      }
-      .label {
-        font-size: 0.75rem;
-        color: rgba(0, 0, 0, 0.6);
+        font-size: 24px;
       }
     `,
   ],

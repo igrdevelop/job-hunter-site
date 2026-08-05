@@ -7,7 +7,7 @@ interface FunnelBar {
 }
 
 @Component({
-  selector: 'app-funnel-chart',
+  selector: 'app-funnel-chart',
   template: `
     <div class="funnel">
       @for (bar of bars(); track bar.point.stage) {
@@ -26,34 +26,34 @@ interface FunnelBar {
       .funnel {
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: var(--space-3);
       }
       .funnel-row {
         display: grid;
         grid-template-columns: 120px 1fr 56px;
         align-items: center;
-        gap: 12px;
+        gap: var(--space-3);
       }
       .stage {
-        font-size: 0.875rem;
-        color: rgba(0, 0, 0, 0.7);
+        font-size: 14px;
+        color: var(--color-neutral-700);
       }
       .track {
-        background: rgba(0, 0, 0, 0.06);
-        border-radius: 4px;
+        background: var(--color-neutral-100);
+        border: 1px solid var(--color-neutral-200);
         overflow: hidden;
         height: 20px;
       }
       .fill {
         height: 100%;
-        background: #1565c0;
-        border-radius: 4px;
+        background: var(--color-accent-500);
         transition: width 0.3s ease;
       }
       .count {
         text-align: right;
         font-weight: 600;
-        font-size: 0.875rem;
+        font-family: var(--font-heading);
+        font-size: 14px;
       }
     `,
   ],
