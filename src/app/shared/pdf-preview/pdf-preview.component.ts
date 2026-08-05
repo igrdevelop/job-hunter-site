@@ -4,7 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
 @Component({
-  selector: 'app-pdf-preview',
+  selector: 'app-pdf-preview',
   imports: [MatButtonModule, MatIconModule],
   template: `
     <div class="preview-header">
@@ -33,8 +33,7 @@ import { MatIconModule } from '@angular/material/icon';
         flex: 1;
         min-height: 480px;
         width: 100%;
-        border: 1px solid rgba(0, 0, 0, 0.12);
-        border-radius: 4px;
+        border: 1px solid var(--color-neutral-300);
       }
     `,
   ],

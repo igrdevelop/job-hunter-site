@@ -96,16 +96,15 @@ import { Template, TemplateCategory } from '../../../core/api/models';
         padding-top: 8px;
       }
       .drop-zone {
-        border: 2px dashed rgba(0, 0, 0, 0.24);
-        border-radius: 8px;
+        border: 2px dashed var(--color-neutral-400);
         padding: 24px;
         text-align: center;
         margin-bottom: 8px;
-        background: rgba(0, 0, 0, 0.02);
+        background: var(--color-neutral-050);
       }
       .drop-zone.has-file {
-        border-color: #1565c0;
-        background: rgba(21, 101, 192, 0.04);
+        border-color: var(--color-accent-500);
+        background: var(--color-accent-100);
       }
       .file-input {
         display: none;
@@ -115,7 +114,7 @@ import { Template, TemplateCategory } from '../../../core/api/models';
         word-break: break-all;
       }
       .error {
-        color: #c62828;
+        color: var(--color-error);
         margin: 0;
       }
     `,
