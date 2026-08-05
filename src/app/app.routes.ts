@@ -1,6 +1,9 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
 
+const loadFiles = () =>
+  import('./features/files/files.component').then((m) => m.FilesComponent);
+
 export const routes: Routes = [
   {
     path: 'login',
@@ -17,18 +20,9 @@ export const routes: Routes = [
             (m) => m.ApplicationsComponent,
           ),
       },
-      {
-        path: 'files',
-        loadComponent: () => import('./features/files/files.component').then((m) => m.FilesComponent),
-      },
-      {
-        path: 'files/:date',
-        loadComponent: () => import('./features/files/files.component').then((m) => m.FilesComponent),
-      },
-      {
-        path: 'files/:date/:company',
-        loadComponent: () => import('./features/files/files.component').then((m) => m.FilesComponent),
-      },
+      { path: 'files/:date/:company', loadComponent: loadFiles },
+      { path: 'files/:date', loadComponent: loadFiles },
+      { path: 'files', loadComponent: loadFiles },
       {
         path: 'templates',
         loadComponent: () =>

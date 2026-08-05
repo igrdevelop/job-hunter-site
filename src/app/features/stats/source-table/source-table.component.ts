@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { MatTableModule } from '@angular/material/table';
 import { SourceStats } from '../../../core/api/models';
 
@@ -9,8 +9,7 @@ interface SourceRow extends SourceStats {
 }
 
 @Component({
-  selector: 'app-source-table',
-  standalone: true,
+  selector: 'app-source-table',
   imports: [MatTableModule],
   template: `
     <table mat-table [dataSource]="rows()" class="source-table">
@@ -60,6 +59,7 @@ interface SourceRow extends SourceStats {
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SourceTableComponent {
   readonly sources = input.required<SourceStats[]>();

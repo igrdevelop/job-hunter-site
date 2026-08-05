@@ -1,14 +1,15 @@
-import { Component, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  resource,
+  signal,
+} from '@angular/core';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { ApiService } from '../../core/api/api.service';
-import {
-  AnalyticsPeriod,
-  CostSummary,
-  FunnelPoint,
-  SourceStats,
-  periodToDays,
-} from '../../core/api/models';
+import { AnalyticsApi } from '../../core/api/analytics.api';
+import { AnalyticsPeriod, periodToDays } from '../../core/api/models';
 import { FunnelChartComponent } from './funnel-chart/funnel-chart.component';
 import { SourceTableComponent } from './source-table/source-table.component';
 import { CostSummaryComponent } from './cost-summary/cost-summary.component';
@@ -26,7 +27,6 @@ const STAGE_ORDER = ['tracked', 'generated', 'sent', 'confirmed', 'answered'];
 
 @Component({
   selector: 'app-stats',
-  standalone: true,
   imports: [
     MatButtonToggleModule,
     MatProgressSpinnerModule,
@@ -36,52 +36,44 @@ const STAGE_ORDER = ['tracked', 'generated', 'sent', 'confirmed', 'answered'];
   ],
   templateUrl: './stats.component.html',
   styleUrl: './stats.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class StatsComponent {
-  private readonly api = inject(ApiService);
+  private readonly api = inject(AnalyticsApi);
 
   readonly period = signal<AnalyticsPeriod>('30d');
   readonly periods = PERIODS;
 
-  readonly funnel = signal<FunnelPoint[]>([]);
-  readonly sources = signal<SourceStats[]>([]);
-  readonly costSummary = signal<CostSummary | null>(null);
-
-  readonly loading = signal(false);
-  readonly errorMessage = signal<string | null>(null);
-
-  constructor() {
-    void this.load();
-  }
-
-  async load(): Promise<void> {
-    this.loading.set(true);
-    this.errorMessage.set(null);
-    const days = periodToDays(this.period());
-
-    try {
+  private readonly analyticsResource = resource({
+    params: () => periodToDays(this.period()),
+    loader: async ({ params: days }) => {
       const [funnel, sources, costSummary] = await Promise.all([
         this.api.getFunnel(days),
         this.api.getSourceStats(days),
         this.api.getCostSummary(days),
       ]);
-      this.funnel.set(
-        STAGE_ORDER.map((stage) => ({
+      return {
+        funnel: STAGE_ORDER.map((stage) => ({
           stage: STAGE_LABELS[stage],
           count: funnel[stage as keyof typeof funnel],
         })),
-      );
-      this.sources.set(sources);
-      this.costSummary.set(costSummary);
-    } catch {
-      this.errorMessage.set('Could not load statistics. Is the API reachable?');
-    } finally {
-      this.loading.set(false);
-    }
-  }
+        sources,
+        costSummary,
+      };
+    },
+  });
+
+  readonly funnel = computed(() => this.analyticsResource.value()?.funnel ?? []);
+  readonly sources = computed(() => this.analyticsResource.value()?.sources ?? []);
+  readonly costSummary = computed(() => this.analyticsResource.value()?.costSummary ?? null);
+  readonly loading = this.analyticsResource.isLoading;
+  readonly errorMessage = computed(() =>
+    this.analyticsResource.error()
+      ? 'Could not load statistics. Is the API reachable?'
+      : null,
+  );
 
   onPeriodChange(period: AnalyticsPeriod): void {
     this.period.set(period);
-    void this.load();
   }
 }

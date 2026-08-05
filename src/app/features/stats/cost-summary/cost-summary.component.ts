@@ -1,9 +1,8 @@
-import { Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { CostSummary } from '../../../core/api/models';
 
 @Component({
-  selector: 'app-cost-summary',
-  standalone: true,
+  selector: 'app-cost-summary',
   template: `
     <div class="cards">
       <div class="card">
@@ -45,6 +44,7 @@ import { CostSummary } from '../../../core/api/models';
       }
     `,
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CostSummaryComponent {
   readonly summary = input.required<CostSummary>();

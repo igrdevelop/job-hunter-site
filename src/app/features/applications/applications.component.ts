@@ -1,4 +1,4 @@
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -17,7 +17,7 @@ import {
   IGetRowsParams,
   ModuleRegistry,
 } from 'ag-grid-community';
-import { ApiService } from '../../core/api/api.service';
+import { ApplicationsApi } from '../../core/api/applications.api';
 import {
   Application,
   ApplicationStats,
@@ -35,7 +35,6 @@ const SEARCH_DEBOUNCE_MS = 400;
 
 @Component({
   selector: 'app-applications',
-  standalone: true,
   imports: [
     FormsModule,
     MatFormFieldModule,
@@ -47,9 +46,10 @@ const SEARCH_DEBOUNCE_MS = 400;
   ],
   templateUrl: './applications.component.html',
   styleUrl: './applications.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ApplicationsComponent {
-  private readonly api = inject(ApiService);
+  private readonly api = inject(ApplicationsApi);
   private readonly destroyRef = inject(DestroyRef);
   private readonly snackBar = inject(MatSnackBar);
 
@@ -159,7 +159,7 @@ export class ApplicationsComponent {
 
   async loadStats(): Promise<void> {
     try {
-      this.stats.set(await this.api.getApplicationStats());
+      this.stats.set(await this.api.getStats());
     } catch {
       this.stats.set(null);
     }
@@ -193,7 +193,7 @@ export class ApplicationsComponent {
   private async patchFromGrid(event: CellValueChangedEvent<Application>): Promise<void> {
     const field = event.colDef.field!;
     try {
-      await this.api.patchApplication(event.data!.id, { [field]: event.newValue });
+      await this.api.patch(event.data!.id, { [field]: event.newValue });
     } catch {
       event.node.setDataValue(field, event.oldValue);
       this.snackBar.open('Failed to save change.', 'Dismiss', { duration: 4000 });
