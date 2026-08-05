@@ -47,6 +47,7 @@ still calls `/api/*` and `/auth/*` on the same origin as always.
 | `/files/:date/:company` | `/api/generated/:date/:company` | — | Files in a company folder |
 | `/templates` | `/api/templates` | — | Upload/browse resume & cover-letter templates |
 | `/profile` | `/api/files` | — | Candidate base files (base_cv_*.md, candidate_profile.md, candidate.yaml) |
+| `/settings` | `/api/settings` | bot `.env` | Read-only tabbed view of bot config (secrets masked) |
 | `/stats` | `/api/analytics/*` | Telegram `/funnel` | Funnel chart, per-source stats, cost summary |
 
 ---
@@ -139,3 +140,4 @@ Frontend-specific plan: `docs/IMPLEMENTATION_PLAN.md` in this repo.
 | 2026-08-04 | grok | Implemented 3 features from `implementation-prompt.md` on branch `claude/relaxed-swanson-ff067c`: (1) `unsent` status + default filter + stats bar; (2) replaced mat-table with AG Grid Community infinite-row model (cell renderers for status/url/folder, editable Sent/To Learn); (3) Templates page (`/templates`) with upload dialog, category chips, preview/download/delete + API methods. `npm run build` and `npm test` pass. |
 | 2026-08-05 | grok | Implemented `docs/FIX_URL_ROUTING.md`: `/files` now calls `/api/generated` (Applications tree); added `/profile` page for `/api/files` (candidate assets); Profile nav link; text preview via blob for generated files; `.md`/`.yaml` click-to-preview in file list. |
 | 2026-08-05 | grok | App shell layout on `docs/app-shell-layout` worktree: plan in `docs/APP_SHELL_LAYOUT_PLAN.md`; extracted `shared/header` + `shared/footer`; flex `100dvh` shell so header/footer are full width and footer sits at viewport bottom; Applications AG Grid fills main instead of `calc(100vh - 240px)`. |
+| 2026-08-05 | grok | Added Settings page (`/settings`): Material tabs by category, key/value/description with type badges, boolean icons, masked secrets; `ApiService.getSettings()` → `GET /api/settings`. |

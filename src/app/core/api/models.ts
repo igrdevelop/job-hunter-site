@@ -107,3 +107,22 @@ export interface Template {
   modified: string;
   description?: string;
 }
+
+export interface SettingItem {
+  key: string;
+  value: string | null;
+  type: string;
+  description: string;
+  isDefault: boolean;
+  isSecret: boolean;
+}
+
+export interface SettingsCategory {
+  name: string;
+  icon: string;
+  settings: SettingItem[];
+}
+
+export interface SettingsResponse {
+  categories: SettingsCategory[];
+}
