@@ -40,6 +40,11 @@ export const routes: Routes = [
         path: 'stats',
         loadComponent: () => import('./features/stats/stats.component').then((m) => m.StatsComponent),
       },
+      {
+        path: 'profile',
+        loadComponent: () =>
+          import('./features/profile/profile.component').then((m) => m.ProfileComponent),
+      },
       { path: '', redirectTo: 'applications', pathMatch: 'full' },
     ],
   },

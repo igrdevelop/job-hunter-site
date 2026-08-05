@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
@@ -68,6 +68,9 @@ export class FilesComponent {
   readonly errorMessage = signal<string | null>(null);
   readonly previewEntry = signal<FileInfo | null>(null);
 
+  /** Ignores stale responses when the user navigates before a prior load finishes. */
+  private loadSeq = 0;
+
   readonly folders = computed<FolderInfo[]>(() =>
     this.atFileLevel() ? [] : (this.entries() as FolderInfo[]),
   );
@@ -76,21 +79,28 @@ export class FilesComponent {
   );
 
   constructor() {
-    void this.reload();
+    effect(() => {
+      this.currentPath();
+      void this.reload();
+    });
   }
 
   async reload(): Promise<void> {
+    const seq = ++this.loadSeq;
     this.loading.set(true);
     this.errorMessage.set(null);
     this.previewEntry.set(null);
 
     try {
-      this.entries.set(await this.api.getFiles(this.currentPath()));
+      const entries = await this.api.getGenerated(this.currentPath());
+      if (seq !== this.loadSeq) return;
+      this.entries.set(entries);
     } catch {
+      if (seq !== this.loadSeq) return;
       this.errorMessage.set('Could not load files. Is the API reachable?');
       this.entries.set([]);
     } finally {
-      this.loading.set(false);
+      if (seq === this.loadSeq) this.loading.set(false);
     }
   }
 
@@ -108,7 +118,7 @@ export class FilesComponent {
   }
 
   fileUrl(entry: FileInfo): string {
-    return this.api.getFileUrl(`${this.currentPath()}/${entry.name}`);
+    return this.api.getGeneratedFileUrl(`${this.currentPath()}/${entry.name}`);
   }
 
   downloadFile(entry: FileInfo): void {
@@ -117,7 +127,7 @@ export class FilesComponent {
 
   async viewText(entry: FileInfo): Promise<void> {
     try {
-      const raw = await this.api.getFileContent(`${this.currentPath()}/${entry.name}`);
+      const raw = await this.api.getGeneratedFileContent(`${this.currentPath()}/${entry.name}`);
       const content = entry.name.endsWith('.json') ? this.tryPrettyPrint(raw) : raw;
       this.dialog.open(TextPreviewDialogComponent, {
         data: { fileName: entry.name, content },

@@ -1,0 +1,37 @@
+<div class="page">
+  <nav class="breadcrumbs">
+    @if (currentPath()) {
+      <a href="#" (click)="$event.preventDefault(); goRoot()">Profile</a>
+      <span class="sep">/</span>
+      <span class="current">{{ currentPath() }}</span>
+    } @else {
+      <span class="current">Profile</span>
+    }
+  </nav>
+
+  @if (loading()) {
+    <mat-spinner diameter="24"></mat-spinner>
+  }
+
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  }
+
+  @if (!loading() && !errorMessage() && entries().length === 0) {
+    <p class="empty-state">No profile files.</p>
+  }
+
+  @if (!loading() && !errorMessage()) {
+    @if (folders().length > 0) {
+      <app-folder-list [folders]="folders()" (open)="openFolder($event)" />
+    }
+    @if (files().length > 0) {
+      <app-file-list
+        [files]="files()"
+        (preview)="previewPdf($event)"
+        (view)="viewText($event)"
+        (download)="downloadFile($event)"
+      />
+    }
+  }
+</div>

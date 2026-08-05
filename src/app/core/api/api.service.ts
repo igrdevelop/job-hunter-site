@@ -49,19 +49,41 @@ export class ApiService {
     );
   }
 
-  getFiles(path: string): Promise<(FolderInfo | FileInfo)[]> {
-    return firstValueFrom(
-      this.http.get<(FolderInfo | FileInfo)[]>(`${this.baseUrl}/files/${path}`),
-    );
+  /** Browse Applications/{date}/{company}/ generated docs. */
+  getGenerated(path = ''): Promise<(FolderInfo | FileInfo)[]> {
+    const url = path
+      ? `${this.baseUrl}/generated/${path}`
+      : `${this.baseUrl}/generated`;
+    return firstValueFrom(this.http.get<(FolderInfo | FileInfo)[]>(url));
   }
 
-  getFileContent(path: string): Promise<string> {
+  /** Text preview via blob (generated endpoint streams files, not text). */
+  async getGeneratedFileContent(path: string): Promise<string> {
+    const blob = await firstValueFrom(
+      this.http.get(`${this.baseUrl}/generated/${path}`, { responseType: 'blob' }),
+    );
+    return blob.text();
+  }
+
+  getGeneratedFileUrl(path: string): string {
+    return `${this.baseUrl}/generated/${path}`;
+  }
+
+  /** List candidate/ personal assets (base CVs, profile, yaml). */
+  getProfileFiles(path = ''): Promise<(FolderInfo | FileInfo)[]> {
+    const url = path
+      ? `${this.baseUrl}/files/${path}`
+      : `${this.baseUrl}/files`;
+    return firstValueFrom(this.http.get<(FolderInfo | FileInfo)[]>(url));
+  }
+
+  getProfileFileContent(path: string): Promise<string> {
     return firstValueFrom(
       this.http.get(`${this.baseUrl}/files/${path}`, { responseType: 'text' }),
     );
   }
 
-  getFileUrl(path: string): string {
+  getProfileFileUrl(path: string): string {
     return `${this.baseUrl}/files/${path}`;
   }
 
