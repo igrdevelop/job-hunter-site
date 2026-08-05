@@ -6,7 +6,6 @@ import {
   resource,
   signal,
 } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTabsModule } from '@angular/material/tabs';
 import { SettingsApi } from '../../core/api/settings.api';
@@ -14,7 +13,7 @@ import { SettingItem } from '../../core/api/models';
 
 @Component({
   selector: 'app-settings',
-  imports: [MatTabsModule, MatProgressSpinnerModule, MatIconModule],
+  imports: [MatTabsModule, MatProgressSpinnerModule],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -43,5 +42,11 @@ export class SettingsComponent {
   displayValue(item: SettingItem): string {
     if (item.value === null) return '(not set)';
     return item.value;
+  }
+
+  tagClassFor(item: SettingItem): string {
+    if (item.isSecret) return 'tag tag-neutral';
+    if (item.type === 'boolean') return 'tag tag-accent';
+    return 'tag tag-outline';
   }
 }

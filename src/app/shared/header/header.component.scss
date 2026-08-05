@@ -38,12 +38,19 @@
   }
 }
 
-.nav-brand {
+.nav a.nav-brand {
   font-family: var(--font-heading);
   font-weight: 700;
   font-size: 20px;
   margin-right: var(--space-3);
   white-space: nowrap;
+  color: var(--color-text);
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    color: var(--color-accent-700);
+  }
 }
 
 .spacer {
