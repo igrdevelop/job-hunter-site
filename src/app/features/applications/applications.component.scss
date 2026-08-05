@@ -1,3 +1,5 @@
+@use '../../../styles/mixins';
+
 :host {
   display: flex;
   flex-direction: column;
@@ -51,7 +53,7 @@
 }
 
 .error {
-  color: #c62828;
+  color: var(--color-error);
   flex-shrink: 0;
 }
 
@@ -62,21 +64,5 @@
   min-height: 280px;
   border: 1px solid var(--color-neutral-300);
 
-  --ag-font-family: var(--font-body);
-  --ag-font-size: 13px;
-  --ag-background-color: #fff;
-  --ag-foreground-color: var(--color-text);
-  --ag-header-background-color: #fff;
-  --ag-header-foreground-color: var(--color-neutral-700);
-  --ag-border-color: var(--color-neutral-300);
-  --ag-row-border-color: var(--color-neutral-200);
-  --ag-secondary-border-color: var(--color-neutral-200);
-  --ag-row-hover-color: var(--color-accent-100);
-  --ag-selected-row-background-color: var(--color-accent-100);
-  --ag-input-focus-border-color: var(--color-accent-500);
-  --ag-range-selection-border-color: var(--color-accent-500);
-  --ag-checkbox-checked-color: var(--color-accent-600);
-  --ag-borders: solid 1px;
-  --ag-wrapper-border-radius: 0;
-  --ag-card-radius: 0;
+  @include mixins.ag-grid-industry-theme;
 }

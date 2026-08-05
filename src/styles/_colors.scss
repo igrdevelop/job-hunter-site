@@ -1,0 +1,33 @@
+// Industry design system palette — single source of truth for color values.
+// Accent ramp derived from base steel-blue #5980a6 (~hsl(210 30% 50%)).
+// Neutral ramp derived from base text #1d1f20 / bg #f2f2f3.
+
+$bg: #f2f2f3;
+$text: #1d1f20;
+
+$accent: (
+  100: #eaf0f5,
+  200: #d7e2eb,
+  300: #b9cbdb,
+  400: #8fa9c1,
+  500: #5980a6,
+  600: #4c6f92,
+  700: #405d7a,
+  800: #324a61,
+  900: #223342,
+);
+
+$neutral: (
+  050: #f9f9fa,
+  100: #f2f2f3,
+  200: #e4e4e6,
+  300: #cfd0d3,
+  400: #b3b5b9,
+  500: #8b8e93,
+  600: #6b6e73,
+  700: #4d4f53,
+  800: #303234,
+  900: #1d1f20,
+);
+
+$error: #a4373a;

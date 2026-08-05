@@ -1,4 +1,5 @@
 @use '@angular/material' as mat;
+@use './styles/colors';
 @use './styles/tokens';
 
 html {
@@ -27,7 +28,7 @@ html {
   --mat-sys-on-surface-variant: var(--color-neutral-700);
   --mat-sys-outline: var(--color-neutral-400);
   --mat-sys-outline-variant: var(--color-neutral-300);
-  --mat-sys-error: #a4373a;
+  --mat-sys-error: #{colors.$error};
 
   --mat-sys-corner-none: 0;
   --mat-sys-corner-extra-small: 0;

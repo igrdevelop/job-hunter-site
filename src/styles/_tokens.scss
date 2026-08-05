@@ -1,6 +1,6 @@
-// Industry design system tokens, ported from Design/README.md.
-// Accent ramp derived from base steel-blue #5980a6 (~hsl(210 30% 50%)).
-// Neutral ramp derived from base text #1d1f20 / bg #f2f2f3.
+@use 'sass:map';
+@use './colors';
+@use './mixins';
 
 @font-face {
   font-family: 'Barlow';
@@ -56,29 +56,16 @@
   --font-heading: 'Barlow Condensed', 'Arial Narrow', sans-serif;
   --font-body: 'Barlow', 'Helvetica Neue', Arial, sans-serif;
 
-  --color-bg: #f2f2f3;
-  --color-text: #1d1f20;
+  --color-bg: #{colors.$bg};
+  --color-text: #{colors.$text};
+  --color-error: #{colors.$error};
 
-  --color-accent-100: #eaf0f5;
-  --color-accent-200: #d7e2eb;
-  --color-accent-300: #b9cbdb;
-  --color-accent-400: #8fa9c1;
-  --color-accent-500: #5980a6;
-  --color-accent-600: #4c6f92;
-  --color-accent-700: #405d7a;
-  --color-accent-800: #324a61;
-  --color-accent-900: #223342;
-
-  --color-neutral-050: #f9f9fa;
-  --color-neutral-100: #f2f2f3;
-  --color-neutral-200: #e4e4e6;
-  --color-neutral-300: #cfd0d3;
-  --color-neutral-400: #b3b5b9;
-  --color-neutral-500: #8b8e93;
-  --color-neutral-600: #6b6e73;
-  --color-neutral-700: #4d4f53;
-  --color-neutral-800: #303234;
-  --color-neutral-900: #1d1f20;
+  @each $step, $value in colors.$accent {
+    --color-accent-#{$step}: #{$value};
+  }
+  @each $step, $value in colors.$neutral {
+    --color-neutral-#{$step}: #{$value};
+  }
 
   --radius: 4px;
 
@@ -133,33 +120,7 @@ h1 {
 }
 
 .corner {
-  position: absolute;
-  width: 9px;
-  height: 9px;
-  pointer-events: none;
-
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    background: var(--color-neutral-400);
-  }
-
-  &::before {
-    top: 50%;
-    left: 0;
-    right: 0;
-    height: 1px;
-    transform: translateY(-50%);
-  }
-
-  &::after {
-    left: 50%;
-    top: 0;
-    bottom: 0;
-    width: 1px;
-    transform: translateX(-50%);
-  }
+  @include mixins.corner-mark;
 }
 
 .corner.tl {
@@ -242,19 +203,15 @@ h1 {
 }
 
 .tag-accent {
-  background: var(--color-accent-100);
-  color: var(--color-accent-800);
+  @include mixins.tag-variant(var(--color-accent-100), var(--color-accent-800));
 }
 
 .tag-neutral {
-  background: var(--color-neutral-800);
-  color: #fff;
+  @include mixins.tag-variant(var(--color-neutral-800), #fff);
 }
 
 .tag-outline {
-  background: transparent;
-  border-color: var(--color-accent-400);
-  color: var(--color-accent-700);
+  @include mixins.tag-variant(transparent, var(--color-accent-700), var(--color-accent-400));
 }
 
 // Buttons
@@ -285,20 +242,15 @@ h1 {
 }
 
 .btn-primary {
-  background: var(--color-accent-600);
-  border-color: var(--color-accent-600);
-  color: #fff;
+  @include mixins.button-variant(var(--color-accent-600), var(--color-accent-600), #fff);
 
   &:hover:not(:disabled) {
-    background: var(--color-accent-700);
-    border-color: var(--color-accent-700);
+    @include mixins.button-variant(var(--color-accent-700), var(--color-accent-700), #fff);
   }
 }
 
 .btn-secondary {
-  background: #fff;
-  border-color: var(--color-neutral-300);
-  color: var(--color-text);
+  @include mixins.button-variant(#fff, var(--color-neutral-300), var(--color-text));
 
   &:hover:not(:disabled) {
     background: var(--color-neutral-100);
@@ -306,9 +258,7 @@ h1 {
 }
 
 .btn-ghost {
-  background: transparent;
-  border-color: transparent;
-  color: var(--color-text);
+  @include mixins.button-variant(transparent, transparent, var(--color-text));
 
   &:hover:not(:disabled) {
     background: var(--color-neutral-100);
