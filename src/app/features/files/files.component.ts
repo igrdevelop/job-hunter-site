@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
@@ -76,7 +76,10 @@ export class FilesComponent {
   );
 
   constructor() {
-    void this.reload();
+    effect(() => {
+      this.currentPath();
+      void this.reload();
+    });
   }
 
   async reload(): Promise<void> {
@@ -85,7 +88,7 @@ export class FilesComponent {
     this.previewEntry.set(null);
 
     try {
-      this.entries.set(await this.api.getFiles(this.currentPath()));
+      this.entries.set(await this.api.getGenerated(this.currentPath()));
     } catch {
       this.errorMessage.set('Could not load files. Is the API reachable?');
       this.entries.set([]);
@@ -108,7 +111,7 @@ export class FilesComponent {
   }
 
   fileUrl(entry: FileInfo): string {
-    return this.api.getFileUrl(`${this.currentPath()}/${entry.name}`);
+    return this.api.getGeneratedFileUrl(`${this.currentPath()}/${entry.name}`);
   }
 
   downloadFile(entry: FileInfo): void {
@@ -117,7 +120,7 @@ export class FilesComponent {
 
   async viewText(entry: FileInfo): Promise<void> {
     try {
-      const raw = await this.api.getFileContent(`${this.currentPath()}/${entry.name}`);
+      const raw = await this.api.getGeneratedFileContent(`${this.currentPath()}/${entry.name}`);
       const content = entry.name.endsWith('.json') ? this.tryPrettyPrint(raw) : raw;
       this.dialog.open(TextPreviewDialogComponent, {
         data: { fileName: entry.name, content },

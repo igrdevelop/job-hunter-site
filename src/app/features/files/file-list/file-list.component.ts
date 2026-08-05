@@ -75,10 +75,22 @@ export class FileListComponent {
   handleClick(row: FileRow): void {
     if (row.entry.type === 'pdf') {
       this.preview.emit(row.entry);
-    } else if (row.entry.type === 'txt' || row.entry.type === 'json') {
+    } else if (isTextPreviewable(row.entry)) {
       this.view.emit(row.entry);
     } else {
       this.download.emit(row.entry);
     }
   }
+}
+
+function isTextPreviewable(entry: FileInfo): boolean {
+  if (entry.type === 'txt' || entry.type === 'json') return true;
+  const name = entry.name.toLowerCase();
+  return (
+    name.endsWith('.md') ||
+    name.endsWith('.yaml') ||
+    name.endsWith('.yml') ||
+    name.endsWith('.txt') ||
+    name.endsWith('.json')
+  );
 }

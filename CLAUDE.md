@@ -38,13 +38,16 @@ still calls `/api/*` and `/auth/*` on the same origin as always.
 
 ### Pages
 
-| Route | What it replaces | Description |
-|-------|-----------------|-------------|
-| `/login` | — | Email + password auth |
-| `/applications` | Google Sheets | Tracker table (AG Grid), inline edit Sent/To Learn, default Unsent filter |
-| `/files` | Google Drive | Browse + download generated CVs, cover letters, PDFs |
-| `/templates` | — | Upload/browse resume & cover-letter templates |
-| `/stats` | Telegram `/funnel` | Funnel chart, per-source stats, cost summary |
+| Route | API endpoint | What it replaces | Description |
+|-------|-------------|-----------------|-------------|
+| `/login` | `/auth/*` | — | Email + password auth |
+| `/applications` | `/api/applications` | Google Sheets | Tracker table (AG Grid), inline edit Sent/To Learn, default Unsent filter |
+| `/files` | `/api/generated` | Google Drive | Browse + download generated CVs, cover letters, PDFs (Applications/{date}/{company}/) |
+| `/files/:date` | `/api/generated/:date` | — | Company folders under a date |
+| `/files/:date/:company` | `/api/generated/:date/:company` | — | Files in a company folder |
+| `/templates` | `/api/templates` | — | Upload/browse resume & cover-letter templates |
+| `/profile` | `/api/files` | — | Candidate base files (base_cv_*.md, candidate_profile.md, candidate.yaml) |
+| `/stats` | `/api/analytics/*` | Telegram `/funnel` | Funnel chart, per-source stats, cost summary |
 
 ---
 
@@ -134,3 +137,4 @@ Frontend-specific plan: `docs/IMPLEMENTATION_PLAN.md` in this repo.
 | 2026-08-04 | sonnet | Implemented all 6 steps of `docs/IMPLEMENTATION_PLAN.md` on branch `claude/plan-and-progress-61053c` (worktree, uncommitted): Angular Material, core auth (service/guard/interceptor) + typed `ApiService`, login page, applications table (sort/filter/search/inline-edit/stats/auto-refresh/responsive), files browser (breadcrumbs/folders/PDF preview/text-JSON modal), stats page (funnel/source table/cost cards, no chart lib — DIY SVG bars). Pulled SSR removal forward from Step 6 (removed `@angular/ssr`/`platform-server`/`express`) because the client-only JWT-in-localStorage auth guard doesn't work under SSR — guard always redirected to `/login` on first paint. Removed `.github/workflows/deploy.yml` (Cloudflare Pages) per plan. Added `proxy.conf.json` + `npm run start:proxy`. No backend exists yet, so all API calls are unverified against a real server — verified only via build/tests/mocked-fetch in browser. |
 | 2026-08-04 | sonnet | Split from combined-image deploy into a standalone containerized frontend: added `Dockerfile` (node build → nginx serve, SPA fallback via `nginx.conf`) and `.github/workflows/deploy.yml` (build+push to `ghcr.io/igrdevelop/job-hunter-site`, deploy only the `frontend` service on the VPS — does not own `docker-compose.prod.yml`, `job-hunter-api`'s CI does). Companion change in `job-hunter-api`: dropped the named-Docker-build-context checkout of this repo and its `ServeStaticModule`/SPA-fallback middleware. See `job-hunter-api/CLAUDE.md` for the compose/Cloudflare Tunnel routing side. |
 | 2026-08-04 | grok | Implemented 3 features from `implementation-prompt.md` on branch `claude/relaxed-swanson-ff067c`: (1) `unsent` status + default filter + stats bar; (2) replaced mat-table with AG Grid Community infinite-row model (cell renderers for status/url/folder, editable Sent/To Learn); (3) Templates page (`/templates`) with upload dialog, category chips, preview/download/delete + API methods. `npm run build` and `npm test` pass. |
+| 2026-08-05 | grok | Implemented `docs/FIX_URL_ROUTING.md`: `/files` now calls `/api/generated` (Applications tree); added `/profile` page for `/api/files` (candidate assets); Profile nav link; text preview via blob for generated files; `.md`/`.yaml` click-to-preview in file list. |
