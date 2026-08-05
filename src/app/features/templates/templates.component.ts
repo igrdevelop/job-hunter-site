@@ -7,15 +7,13 @@ import {
   resource,
   signal,
 } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { TemplatesApi } from '../../core/api/templates.api';
-import { FileType, Template, TemplateCategory } from '../../core/api/models';
+import { Template, TemplateCategory } from '../../core/api/models';
 import { PdfPreviewComponent } from '../../shared/pdf-preview/pdf-preview.component';
 import { TextPreviewDialogComponent } from '../../shared/text-preview-dialog/text-preview-dialog.component';
 import { UploadDialogComponent } from './upload-dialog/upload-dialog.component';
@@ -26,9 +24,7 @@ type CategoryFilter = TemplateCategory | 'all';
   selector: 'app-templates',
   imports: [
     DatePipe,
-    MatCardModule,
     MatChipsModule,
-    MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
     MatDialogModule,
@@ -125,20 +121,6 @@ export class TemplatesComponent {
 
   closePdfPreview(): void {
     this.previewPdf.set(null);
-  }
-
-  iconFor(fileType: FileType): string {
-    switch (fileType) {
-      case 'pdf':
-        return 'picture_as_pdf';
-      case 'txt':
-      case 'json':
-        return 'text_snippet';
-      case 'docx':
-        return 'description';
-      default:
-        return 'insert_drive_file';
-    }
   }
 
   categoryLabel(category: TemplateCategory): string {

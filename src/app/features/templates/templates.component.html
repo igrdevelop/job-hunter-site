@@ -1,4 +1,7 @@
 <div class="page">
+  <h1>Templates</h1>
+  <p class="page-subtitle">Reusable cover letter and outreach message templates.</p>
+
   <div class="toolbar">
     <mat-chip-listbox
       aria-label="Template category"
@@ -12,9 +15,9 @@
 
     <span class="spacer"></span>
 
-    <button mat-raised-button color="primary" type="button" (click)="onUpload()">
-      <mat-icon>upload</mat-icon>
-      Upload Template
+    <button type="button" class="btn btn-primary blueprint" (click)="onUpload()">
+      <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      + Upload template
     </button>
   </div>
 
@@ -35,60 +38,38 @@
   @if (!loading() && filteredTemplates().length > 0) {
     <div class="template-grid">
       @for (template of filteredTemplates(); track template.id) {
-        <mat-card class="template-card">
-          <mat-card-header>
-            <mat-icon mat-card-avatar class="file-icon">{{ iconFor(template.fileType) }}</mat-icon>
-            <mat-card-title>{{ template.name }}</mat-card-title>
-            <mat-card-subtitle>
-              <mat-chip class="category-chip">{{ categoryLabel(template.category) }}</mat-chip>
-            </mat-card-subtitle>
-          </mat-card-header>
+        <div class="card blueprint elev-sm template-card">
+          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          <div class="card-kicker">{{ categoryLabel(template.category) }}</div>
+          <div class="card-title">{{ template.name }}</div>
+          @if (template.description) {
+            <p class="card-body description">{{ template.description }}</p>
+          }
+          <div class="card-meta">
+            {{ formatSize(template.size) }} · {{ template.modified | date: 'mediumDate' }}
+          </div>
 
-          <mat-card-content>
-            @if (template.description) {
-              <p class="description">{{ template.description }}</p>
-            }
-            <p class="meta">
-              {{ formatSize(template.size) }} · {{ template.modified | date: 'mediumDate' }}
-            </p>
-          </mat-card-content>
-
-          <mat-card-actions align="end">
-            <button
-              mat-icon-button
-              type="button"
-              aria-label="Preview"
-              (click)="onPreview(template)"
-            >
+          <div class="template-actions">
+            <button type="button" class="btn btn-ghost btn-icon" aria-label="Preview" (click)="onPreview(template)">
               <mat-icon>visibility</mat-icon>
             </button>
-            <button
-              mat-icon-button
-              type="button"
-              aria-label="Download"
-              (click)="onDownload(template)"
-            >
+            <button type="button" class="btn btn-ghost btn-icon" aria-label="Download" (click)="onDownload(template)">
               <mat-icon>download</mat-icon>
             </button>
-            <button
-              mat-icon-button
-              type="button"
-              aria-label="Delete"
-              (click)="onDelete(template)"
-            >
+            <button type="button" class="btn btn-ghost btn-icon" aria-label="Delete" (click)="onDelete(template)">
               <mat-icon>delete</mat-icon>
             </button>
-          </mat-card-actions>
-        </mat-card>
+          </div>
+        </div>
       }
     </div>
   }
 
   @if (previewPdf(); as pdf) {
-    <div class="pdf-preview-panel">
+    <div class="pdf-preview-panel card">
       <div class="pdf-preview-header">
         <strong>{{ pdf.name }}</strong>
-        <button mat-button type="button" (click)="closePdfPreview()">Close</button>
+        <button type="button" class="btn btn-secondary" (click)="closePdfPreview()">Close</button>
       </div>
       <app-pdf-preview [fileUrl]="contentUrl(pdf)" [fileName]="pdf.name" />
     </div>
