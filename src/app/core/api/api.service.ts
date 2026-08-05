@@ -13,6 +13,7 @@ import {
   FunnelData,
   PaginatedResult,
   SourceStats,
+  SettingsResponse,
   Template,
   TemplateCategory,
 } from './models';
@@ -142,6 +143,12 @@ export class ApiService {
   deleteTemplate(id: string): Promise<void> {
     return firstValueFrom(
       this.http.delete<void>(`${this.baseUrl}/templates/${id}`),
+    );
+  }
+
+  getSettings(): Promise<SettingsResponse> {
+    return firstValueFrom(
+      this.http.get<SettingsResponse>(`${this.baseUrl}/settings`),
     );
   }
 }

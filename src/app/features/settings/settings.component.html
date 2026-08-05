@@ -1,0 +1,69 @@
+<div class="page">
+  <div class="toolbar">
+    <h1>Settings</h1>
+    @if (loading()) {
+      <mat-spinner diameter="24"></mat-spinner>
+    }
+  </div>
+
+  <p class="subtitle">Read-only view of the bot&rsquo;s .env configuration. Secrets are masked.</p>
+
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  }
+
+  @if (!errorMessage() && !loading() && categories().length) {
+    <mat-tab-group
+      [selectedIndex]="selectedTabIndex()"
+      (selectedIndexChange)="selectedTabIndex.set($event)"
+      animationDuration="200ms"
+    >
+      @for (category of categories(); track category.name) {
+        <mat-tab>
+          <ng-template mat-tab-label>
+            <mat-icon class="tab-icon">{{ category.icon }}</mat-icon>
+            <span>{{ category.name }}</span>
+          </ng-template>
+
+          <div class="settings-list">
+            @for (item of category.settings; track item.key) {
+              <div class="setting-row" [class.secret]="item.isSecret">
+                <div class="setting-main">
+                  <div class="setting-key-row">
+                    <code class="setting-key">{{ item.key }}</code>
+                    <span class="type-badge" [attr.data-type]="item.type">{{ item.type }}</span>
+                    @if (item.isDefault) {
+                      <span class="default-badge">default</span>
+                    }
+                  </div>
+                  <p class="setting-desc">{{ item.description }}</p>
+                </div>
+
+                <div class="setting-value">
+                  @if (item.type === 'boolean') {
+                    <mat-icon
+                      class="bool-icon"
+                      [class.on]="isTruthy(item.value)"
+                      [class.off]="!isTruthy(item.value)"
+                    >
+                      {{ isTruthy(item.value) ? 'check_circle' : 'cancel' }}
+                    </mat-icon>
+                    <span class="bool-label">{{ isTruthy(item.value) ? 'true' : 'false' }}</span>
+                  } @else if (item.isSecret) {
+                    <code class="masked" [class.unset]="item.isDefault">{{
+                      displayValue(item)
+                    }}</code>
+                  } @else if (item.value === null || (item.isDefault && item.value === '')) {
+                    <span class="unset">(not set)</span>
+                  } @else {
+                    <code [class.default-value]="item.isDefault">{{ item.value }}</code>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </mat-tab>
+      }
+    </mat-tab-group>
+  }
+</div>
