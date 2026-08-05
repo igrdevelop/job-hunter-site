@@ -18,7 +18,9 @@
 .app-content--chrome {
   display: flex;
   flex-direction: column;
-  padding: 16px;
+  padding: var(--space-6) var(--space-6) var(--space-8);
+  max-width: 1360px;
+  margin: 0 auto;
 }
 
 /* Routed page components are siblings of router-outlet — fill the shell main area */

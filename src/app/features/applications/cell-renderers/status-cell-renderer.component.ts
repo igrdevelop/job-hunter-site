@@ -12,28 +12,20 @@ const LABELS: Record<ApplicationStatus, string> = {
   unsent: 'Unsent',
 };
 
+// Applied/Sent read as forward progress (accent), Failed reads as stopped
+// (neutral/dark), everything else is an in-between/waiting state (outline).
+const TAG_CLASS: Record<ApplicationStatus, string> = {
+  applied: 'tag tag-accent',
+  sent: 'tag tag-accent',
+  failed: 'tag tag-neutral',
+  expired: 'tag tag-outline',
+  pending: 'tag tag-outline',
+  unsent: 'tag tag-outline',
+};
+
 @Component({
   selector: 'app-status-cell-renderer',
-  template: `<span class="badge" [class]="status">{{ label }}</span>`,
-  styles: [
-    `
-      .badge {
-        display: inline-block;
-        padding: 2px 10px;
-        border-radius: 12px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: white;
-        white-space: nowrap;
-      }
-      .sent { background: #2e7d32; }
-      .applied { background: #1565c0; }
-      .failed { background: #c62828; }
-      .expired { background: #757575; }
-      .pending { background: #ef6c00; }
-      .unsent { background: #9e9e9e; }
-    `,
-  ],
+  template: `<span [class]="tagClass">{{ label }}</span>`,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class StatusCellRendererComponent implements ICellRendererAngularComp {
@@ -41,10 +33,12 @@ export class StatusCellRendererComponent implements ICellRendererAngularComp {
 
   status: ApplicationStatus = 'pending';
   label = '';
+  tagClass = '';
 
   agInit(params: ICellRendererParams): void {
     this.status = params.value as ApplicationStatus;
     this.label = LABELS[this.status] ?? String(params.value ?? '');
+    this.tagClass = TAG_CLASS[this.status] ?? 'tag tag-outline';
     this.cdr.markForCheck();
   }
 

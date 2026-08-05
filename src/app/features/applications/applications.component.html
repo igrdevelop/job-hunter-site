@@ -1,13 +1,41 @@
 <div class="page">
   @if (stats(); as s) {
     <div class="stats-bar">
-      <div class="stat"><span class="stat-value">{{ s.total }}</span><span class="stat-label">Total</span></div>
-      <div class="stat"><span class="stat-value">{{ s.unsent }}</span><span class="stat-label">Unsent</span></div>
-      <div class="stat"><span class="stat-value">{{ s.applied }}</span><span class="stat-label">Applied</span></div>
-      <div class="stat"><span class="stat-value">{{ s.sent }}</span><span class="stat-label">Sent</span></div>
-      <div class="stat"><span class="stat-value">{{ s.failed }}</span><span class="stat-label">Failed</span></div>
-      <div class="stat"><span class="stat-value">{{ s.expired }}</span><span class="stat-label">Expired</span></div>
-      <div class="stat"><span class="stat-value">{{ s.pending }}</span><span class="stat-label">Pending</span></div>
+      <div class="card blueprint elev-sm stat">
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-title stat-value">{{ s.total }}</div>
+        <div class="card-body stat-label">Total</div>
+      </div>
+      <div class="card blueprint elev-sm stat">
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-title stat-value">{{ s.unsent }}</div>
+        <div class="card-body stat-label">Unsent</div>
+      </div>
+      <div class="card blueprint elev-sm stat">
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-title stat-value">{{ s.applied }}</div>
+        <div class="card-body stat-label">Applied</div>
+      </div>
+      <div class="card blueprint elev-sm stat">
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-title stat-value">{{ s.sent }}</div>
+        <div class="card-body stat-label">Sent</div>
+      </div>
+      <div class="card blueprint elev-sm stat">
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-title stat-value">{{ s.failed }}</div>
+        <div class="card-body stat-label">Failed</div>
+      </div>
+      <div class="card blueprint elev-sm stat">
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-title stat-value">{{ s.expired }}</div>
+        <div class="card-body stat-label">Expired</div>
+      </div>
+      <div class="card blueprint elev-sm stat">
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-title stat-value">{{ s.pending }}</div>
+        <div class="card-body stat-label">Pending</div>
+      </div>
     </div>
   }
 
@@ -18,7 +46,7 @@
         matInput
         [ngModel]="search()"
         (ngModelChange)="onSearchInput($event)"
-        placeholder="Company or title"
+        placeholder="Company, role, stack…"
       />
       <mat-icon matPrefix>search</mat-icon>
     </mat-form-field>
