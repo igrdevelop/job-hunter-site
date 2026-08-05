@@ -1,14 +1,19 @@
 <div class="page">
-  <nav class="breadcrumbs">
-    @for (crumb of breadcrumbs(); track crumb.label; let last = $last) {
-      @if (crumb.path && !last) {
-        <a [routerLink]="crumb.path">{{ crumb.label }}</a>
-        <span class="sep">/</span>
-      } @else {
-        <span class="current">{{ crumb.label }}</span>
+  <h1>Files</h1>
+  <p class="page-subtitle">Resumes, cover letters and generated documents attached to your applications.</p>
+
+  @if (date()) {
+    <nav class="breadcrumbs">
+      @for (crumb of breadcrumbs(); track crumb.label; let last = $last) {
+        @if (crumb.path && !last) {
+          <a [routerLink]="crumb.path">{{ crumb.label }}</a>
+          <span class="sep">/</span>
+        } @else {
+          <span class="current">{{ crumb.label }}</span>
+        }
       }
-    }
-  </nav>
+    </nav>
+  }
 
   @if (loading()) {
     <mat-spinner diameter="24"></mat-spinner>

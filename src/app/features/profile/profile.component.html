@@ -1,13 +1,14 @@
 <div class="page">
-  <nav class="breadcrumbs">
-    @if (currentPath()) {
+  <h1>Profile</h1>
+  <p class="page-subtitle">Base candidate files your applications and outreach are generated from.</p>
+
+  @if (currentPath()) {
+    <nav class="breadcrumbs">
       <a href="#" (click)="$event.preventDefault(); goRoot()">Profile</a>
       <span class="sep">/</span>
       <span class="current">{{ currentPath() }}</span>
-    } @else {
-      <span class="current">Profile</span>
-    }
-  </nav>
+    </nav>
+  }
 
   @if (loading()) {
     <mat-spinner diameter="24"></mat-spinner>

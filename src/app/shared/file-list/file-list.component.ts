@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { MatListModule } from '@angular/material/list';
 import { FileInfo, FileType } from '../../core/api/models';
 
 const ICONS: Record<FileType, string> = {
@@ -28,30 +27,64 @@ interface FileRow {
 
 @Component({
   selector: 'app-file-list',
-  imports: [MatIconModule, MatListModule],
+  imports: [MatIconModule],
   template: `
-    <mat-nav-list>
+    <div class="file-list card">
       @for (row of rows(); track row.entry.name) {
         <a
-          mat-list-item
+          class="file-row"
           [class.clickable]="row.clickable"
           (click)="row.clickable && handleClick(row)"
         >
-          <mat-icon matListItemIcon>{{ row.icon }}</mat-icon>
-          <span matListItemTitle>{{ row.entry.name }}</span>
-          <span matListItemLine class="size">{{ row.sizeLabel }}</span>
+          <mat-icon class="file-icon">{{ row.icon }}</mat-icon>
+          <span class="file-name">{{ row.entry.name }}</span>
+          <span class="size">{{ row.sizeLabel }}</span>
         </a>
       }
-    </mat-nav-list>
+    </div>
   `,
   styles: [
     `
+      .file-list {
+        display: flex;
+        flex-direction: column;
+      }
+      .file-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-3) var(--space-4);
+        border-bottom: 1px solid var(--color-neutral-200);
+        color: var(--color-text);
+        text-decoration: none;
+
+        &:last-child {
+          border-bottom: none;
+        }
+      }
       .clickable {
         cursor: pointer;
+
+        &:hover {
+          background: var(--color-neutral-050);
+        }
+      }
+      .file-icon {
+        color: var(--color-neutral-500);
+        flex-shrink: 0;
+      }
+      .file-name {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: 14px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .size {
-        color: rgba(0, 0, 0, 0.5);
-        font-size: 0.75rem;
+        color: var(--color-neutral-500);
+        font-size: 12px;
+        flex-shrink: 0;
       }
     `,
   ],
