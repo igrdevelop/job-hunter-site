@@ -1,32 +1,11 @@
 @if (authService.isLoggedIn()) {
-  <mat-toolbar color="primary" class="toolbar">
-    <span class="brand">Job Hunter</span>
-
-    <nav class="nav-links">
-      <a mat-button routerLink="/applications" routerLinkActive="active">Applications</a>
-      <a mat-button routerLink="/files" routerLinkActive="active">Files</a>
-      <a mat-button routerLink="/templates" routerLinkActive="active">Templates</a>
-      <a mat-button routerLink="/stats" routerLinkActive="active">Stats</a>
-      <a mat-button routerLink="/profile" routerLinkActive="active">Profile</a>
-    </nav>
-
-    <span class="spacer"></span>
-
-    <button mat-icon-button [matMenuTriggerFor]="userMenu" aria-label="User menu">
-      <mat-icon>account_circle</mat-icon>
-    </button>
-    <mat-menu #userMenu="matMenu">
-      @if (authService.currentUser(); as user) {
-        <div class="user-email">{{ user.email }}</div>
-      }
-      <button mat-menu-item (click)="authService.logout()">
-        <mat-icon>logout</mat-icon>
-        <span>Log out</span>
-      </button>
-    </mat-menu>
-  </mat-toolbar>
+  <app-header />
 }
 
-<main class="app-content">
+<main class="app-content" [class.app-content--chrome]="authService.isLoggedIn()">
   <router-outlet />
 </main>
+
+@if (authService.isLoggedIn()) {
+  <app-footer />
+}

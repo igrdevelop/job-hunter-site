@@ -1,9 +1,15 @@
+:host {
+  display: block;
+  min-height: 100%;
+}
+
 .login-page {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
+  min-height: 100dvh;
   padding: 16px;
+  box-sizing: border-box;
 }
 
 .login-card {
