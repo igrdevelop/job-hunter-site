@@ -22,21 +22,18 @@
   }
 
   @if (!errorMessage() && !loading()) {
-    <section class="card blueprint elev-sm block">
-      <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+    <section class="card elev-sm block">
       <div class="card-title">Funnel</div>
       <app-funnel-chart [points]="funnel()" />
     </section>
 
-    <section class="card blueprint elev-sm block">
-      <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+    <section class="card elev-sm block">
       <div class="card-title">Per source</div>
       <app-source-table [sources]="sources()" />
     </section>
 
     @if (costSummary(); as summary) {
-      <section class="card blueprint elev-sm block">
-        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <section class="card elev-sm block">
         <div class="card-title">Cost</div>
         <app-cost-summary [summary]="summary" />
       </section>

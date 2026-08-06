@@ -1,60 +1,61 @@
 <div class="page">
-  <div class="toolbar">
-    <h1>Settings</h1>
-    @if (loading()) {
-      <mat-spinner diameter="24"></mat-spinner>
-    }
-  </div>
-
+  <h1>Settings</h1>
   <p class="page-subtitle">Read-only view of the bot&rsquo;s .env configuration. Secrets are masked.</p>
+
+  @if (loading()) {
+    <mat-spinner diameter="24"></mat-spinner>
+  }
 
   @if (errorMessage()) {
     <p class="error">{{ errorMessage() }}</p>
   }
 
   @if (!errorMessage() && !loading() && categories().length) {
-    <mat-tab-group
-      [selectedIndex]="selectedTabIndex()"
-      (selectedIndexChange)="selectedTabIndex.set($event)"
-      animationDuration="200ms"
-    >
-      @for (category of categories(); track category.name) {
-        <mat-tab [label]="category.name">
-          <div class="settings-list">
-            @for (item of category.settings; track item.key) {
-              <div class="setting-row">
-                <div class="setting-main">
-                  <div class="setting-key-row">
-                    <code class="setting-key">{{ item.key }}</code>
-                    <span [class]="tagClassFor(item)">{{ item.type.toUpperCase() }}</span>
-                    @if (item.isDefault) {
-                      <span class="tag tag-outline">default</span>
-                    }
-                  </div>
-                  <p class="setting-desc">{{ item.description }}</p>
-                </div>
+    <div class="settings-layout">
+      <aside class="settings-nav" aria-label="Settings categories">
+        @for (category of categories(); track category.name; let i = $index) {
+          <button
+            type="button"
+            class="nav-item"
+            [class.active]="selectedTabIndex() === i"
+            (click)="selectedTabIndex.set(i)"
+          >
+            <mat-icon class="nav-icon">{{ category.icon || 'tune' }}</mat-icon>
+            <span>{{ category.name }}</span>
+          </button>
+        }
+      </aside>
 
-                <div class="setting-value">
-                  @if (item.type === 'boolean') {
-                    <span class="text-muted bool-value">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="m15 9-6 6" />
-                        <path d="m9 9 6 6" />
-                      </svg>
-                      {{ isTruthy(item.value) ? 'true' : 'false' }}
-                    </span>
-                  } @else if (item.value === null || (item.isDefault && item.value === '')) {
-                    <span class="text-muted">(not set)</span>
-                  } @else {
-                    <code class="value-box" [class.masked]="item.isSecret">{{ displayValue(item) }}</code>
+      @if (activeCategory(); as category) {
+        <div class="settings-panel card">
+          @for (item of category.settings; track item.key) {
+            <div class="setting-row">
+              <div class="setting-main">
+                <div class="setting-key-row">
+                  <code class="setting-key">{{ item.key }}</code>
+                  <span [class]="tagClassFor(item)">{{ item.isSecret ? 'SECRET' : item.type.toUpperCase() }}</span>
+                  @if (item.isDefault) {
+                    <span class="tag tag-outline">default</span>
                   }
                 </div>
+                <p class="setting-desc">{{ item.description }}</p>
               </div>
-            }
-          </div>
-        </mat-tab>
+
+              <div class="setting-value">
+                @if (item.type === 'boolean') {
+                  <span class="bool-toggle" [class.on]="isTruthy(item.value)" aria-hidden="true">
+                    <span class="bool-knob"></span>
+                  </span>
+                } @else if (item.value === null || (item.isDefault && item.value === '')) {
+                  <span class="text-muted">(not set)</span>
+                } @else {
+                  <code class="value-box" [class.masked]="item.isSecret">{{ displayValue(item) }}</code>
+                }
+              </div>
+            </div>
+          }
+        </div>
       }
-    </mat-tab-group>
+    </div>
   }
 </div>

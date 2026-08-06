@@ -1,25 +1,22 @@
 <nav class="nav">
   <a routerLink="/applications" class="nav-brand">Job Hunter</a>
 
-  <a routerLink="/applications" routerLinkActive="active">Applications</a>
-  <a routerLink="/files" routerLinkActive="active">Files</a>
-  <a routerLink="/templates" routerLinkActive="active">Templates</a>
-  <a routerLink="/stats" routerLinkActive="active">Stats</a>
-  <a routerLink="/profile" routerLinkActive="active">Profile</a>
-  <a routerLink="/settings" routerLinkActive="active">Settings</a>
-
-  <span class="spacer"></span>
+  <div class="nav-links">
+    <a routerLink="/applications" routerLinkActive="active">Applications</a>
+    <a routerLink="/files" routerLinkActive="active">Files</a>
+    <a routerLink="/templates" routerLinkActive="active">Templates</a>
+    <a routerLink="/stats" routerLinkActive="active">Stats</a>
+    <a routerLink="/profile" routerLinkActive="active">Profile</a>
+    <a routerLink="/settings" routerLinkActive="active">Settings</a>
+  </div>
 
   <button
     type="button"
-    class="btn btn-ghost btn-icon"
+    class="avatar-btn"
     [matMenuTriggerFor]="userMenu"
     aria-label="User menu"
   >
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 20c0-3.6 3.6-6 8-6s8 2.4 8 6" />
-    </svg>
+    <span class="avatar">{{ initials() }}</span>
   </button>
   <mat-menu #userMenu="matMenu">
     @if (authService.currentUser(); as user) {

@@ -1,33 +1,42 @@
-// Industry design system palette — single source of truth for color values.
-// Accent ramp derived from base steel-blue #5980a6 (~hsl(210 30% 50%)).
-// Neutral ramp derived from base text #1d1f20 / bg #f2f2f3.
+// Dark dashboard palette — single source of truth for color values.
+// Accent base #3b82f6 (bright blue). Neutrals inverted for near-black UI.
 
-$bg: #f2f2f3;
-$text: #1d1f20;
+$bg: #0a0a0a;
+$text: #f5f5f5;
 
 $accent: (
-  100: #eaf0f5,
-  200: #d7e2eb,
-  300: #b9cbdb,
-  400: #8fa9c1,
-  500: #5980a6,
-  600: #4c6f92,
-  700: #405d7a,
-  800: #324a61,
-  900: #223342,
+  100: #1e3a5f,
+  200: #1e4a7a,
+  300: #2563eb,
+  400: #3b82f6,
+  500: #3b82f6,
+  600: #60a5fa,
+  700: #93c5fd,
+  800: #bfdbfe,
+  900: #dbeafe,
 );
 
 $neutral: (
-  050: #f9f9fa,
-  100: #f2f2f3,
-  200: #e4e4e6,
-  300: #cfd0d3,
-  400: #b3b5b9,
-  500: #8b8e93,
-  600: #6b6e73,
-  700: #4d4f53,
-  800: #303234,
-  900: #1d1f20,
+  050: #141414,
+  100: #1a1a1a,
+  200: #242424,
+  300: #2e2e2e,
+  400: #3f3f46,
+  500: #71717a,
+  600: #a1a1aa,
+  700: #d4d4d8,
+  800: #e4e4e7,
+  900: #fafafa,
 );
 
-$error: #a4373a;
+$error: #ef4444;
+
+$status: (
+  applied: #22c55e,
+  sent: #3b82f6,
+  failed: #ef4444,
+  expired: #f97316,
+  pending: #a855f7,
+  unsent: #a1a1aa,
+  filled: #22c55e,
+);

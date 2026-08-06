@@ -1,18 +1,15 @@
 <div class="page">
   @if (stats(); as s) {
     <div class="stats-bar">
-      <div class="card blueprint elev-sm stat">
-        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <div class="card elev-sm stat">
         <div class="card-title stat-value">{{ s.total }}</div>
         <div class="card-body stat-label">Total</div>
       </div>
-      <div class="card blueprint elev-sm stat">
-        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <div class="card elev-sm stat stat--unsent">
         <div class="card-title stat-value">{{ s.unsent }}</div>
         <div class="card-body stat-label">Unsent</div>
       </div>
-      <div class="card blueprint elev-sm stat">
-        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <div class="card elev-sm stat stat--filled">
         <div class="card-title stat-value">{{ s.filled }}</div>
         <div class="card-body stat-label">Filled</div>
       </div>
@@ -20,25 +17,28 @@
   }
 
   <div class="toolbar">
-    <mat-form-field appearance="outline" class="search-field">
-      <mat-label>Search</mat-label>
+    <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic">
+      <mat-icon matPrefix>search</mat-icon>
       <input
         matInput
         [ngModel]="search()"
         (ngModelChange)="onSearchInput($event)"
         placeholder="Company, role, stack…"
       />
-      <mat-icon matPrefix>search</mat-icon>
     </mat-form-field>
 
-    <mat-form-field appearance="outline" class="status-field">
-      <mat-label>Status</mat-label>
-      <mat-select [ngModel]="statusFilter()" (ngModelChange)="onStatusFilterChange($event)">
-        @for (option of statusOptions; track option) {
-          <mat-option [value]="option">{{ option === 'all' ? 'All' : option === 'unsent' ? 'Unsent' : 'Filled' }}</mat-option>
-        }
-      </mat-select>
-    </mat-form-field>
+    <div class="filter-pills" role="group" aria-label="Sent filter">
+      @for (option of statusOptions; track option) {
+        <button
+          type="button"
+          class="filter-pill"
+          [class.active]="statusFilter() === option"
+          (click)="onStatusFilterChange(option)"
+        >
+          {{ option === 'all' ? 'All' : option === 'unsent' ? 'Unsent' : 'Filled' }}
+        </button>
+      }
+    </div>
 
     @if (loading()) {
       <mat-spinner diameter="24"></mat-spinner>

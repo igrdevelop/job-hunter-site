@@ -6,14 +6,14 @@ import {
   resource,
   signal,
 } from '@angular/core';
+import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatTabsModule } from '@angular/material/tabs';
 import { SettingsApi } from '../../core/api/settings.api';
 import { SettingItem } from '../../core/api/models';
 
 @Component({
   selector: 'app-settings',
-  imports: [MatTabsModule, MatProgressSpinnerModule],
+  imports: [MatIconModule, MatProgressSpinnerModule],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -34,6 +34,12 @@ export class SettingsComponent {
   );
   readonly selectedTabIndex = signal(0);
 
+  readonly activeCategory = computed(() => {
+    const list = this.categories();
+    const index = this.selectedTabIndex();
+    return list[index] ?? list[0] ?? null;
+  });
+
   isTruthy(value: string | null): boolean {
     if (!value) return false;
     return ['true', '1', 'yes'].includes(value.toLowerCase());
@@ -46,7 +52,7 @@ export class SettingsComponent {
 
   tagClassFor(item: SettingItem): string {
     if (item.isSecret) return 'tag tag-neutral';
-    if (item.type === 'boolean') return 'tag tag-accent';
+    if (item.type === 'boolean') return 'tag tag-boolean';
     return 'tag tag-outline';
   }
 }

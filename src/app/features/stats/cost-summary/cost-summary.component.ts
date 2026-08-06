@@ -5,18 +5,15 @@ import { CostSummary } from '../../../core/api/models';
   selector: 'app-cost-summary',
   template: `
     <div class="cards">
-      <div class="card blueprint stat">
-        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <div class="card elev-sm stat">
         <div class="card-title value">&dollar;{{ summary().totalCostUsd.toFixed(2) }}</div>
         <div class="card-body">Total spend</div>
       </div>
-      <div class="card blueprint stat">
-        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <div class="card elev-sm stat">
         <div class="card-title value">&dollar;{{ summary().averageCostUsd.toFixed(3) }}</div>
         <div class="card-body">Average per apply</div>
       </div>
-      <div class="card blueprint stat">
-        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <div class="card elev-sm stat">
         <div class="card-title value">{{ summary().applicationsWithCost }}</div>
         <div class="card-body">Applications with cost</div>
       </div>
@@ -30,7 +27,7 @@ import { CostSummary } from '../../../core/api/models';
         gap: var(--space-3);
       }
       .stat {
-        padding: var(--space-3);
+        padding: var(--space-4);
       }
       .value {
         font-size: 24px;

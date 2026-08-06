@@ -11,6 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { FilesApi } from '../../core/api/files.api';
 import { FileInfo, FolderInfo } from '../../core/api/models';
+import { AuthService } from '../../core/auth/auth.service';
 import { FolderListComponent } from '../../shared/folder-list/folder-list.component';
 import { FileListComponent } from '../../shared/file-list/file-list.component';
 import { TextPreviewDialogComponent } from '../../shared/text-preview-dialog/text-preview-dialog.component';
@@ -30,6 +31,17 @@ export class ProfileComponent {
   private readonly api = inject(FilesApi);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
+  protected readonly authService = inject(AuthService);
+
+  protected readonly initials = computed(() => {
+    const email = this.authService.currentUser()?.email ?? '';
+    const local = email.split('@')[0] ?? '';
+    const parts = local.split(/[._-]+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return local.slice(0, 2).toUpperCase() || '?';
+  });
 
   /** Optional subpath under candidate/ (shallow tree; no route params). */
   readonly currentPath = signal('');

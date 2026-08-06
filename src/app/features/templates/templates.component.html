@@ -15,8 +15,7 @@
 
     <span class="spacer"></span>
 
-    <button type="button" class="btn btn-primary blueprint" (click)="onUpload()">
-      <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+    <button type="button" class="btn btn-primary" (click)="onUpload()">
       + Upload template
     </button>
   </div>
@@ -38,9 +37,10 @@
   @if (!loading() && filteredTemplates().length > 0) {
     <div class="template-grid">
       @for (template of filteredTemplates(); track template.id) {
-        <div class="card blueprint elev-sm template-card">
-          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
-          <div class="card-kicker">{{ categoryLabel(template.category) }}</div>
+        <div class="card elev-sm template-card" [attr.data-category]="template.category">
+          <div class="card-kicker" [class.kicker-alt]="template.category !== 'cover-letter' && template.category !== 'resume'">
+            {{ categoryLabel(template.category) }}
+          </div>
           <div class="card-title">{{ template.name }}</div>
           @if (template.description) {
             <p class="card-body description">{{ template.description }}</p>
