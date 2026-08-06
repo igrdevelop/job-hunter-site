@@ -13,28 +13,8 @@
       </div>
       <div class="card blueprint elev-sm stat">
         <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
-        <div class="card-title stat-value">{{ s.applied }}</div>
-        <div class="card-body stat-label">Applied</div>
-      </div>
-      <div class="card blueprint elev-sm stat">
-        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
-        <div class="card-title stat-value">{{ s.sent }}</div>
-        <div class="card-body stat-label">Sent</div>
-      </div>
-      <div class="card blueprint elev-sm stat">
-        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
-        <div class="card-title stat-value">{{ s.failed }}</div>
-        <div class="card-body stat-label">Failed</div>
-      </div>
-      <div class="card blueprint elev-sm stat">
-        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
-        <div class="card-title stat-value">{{ s.expired }}</div>
-        <div class="card-body stat-label">Expired</div>
-      </div>
-      <div class="card blueprint elev-sm stat">
-        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
-        <div class="card-title stat-value">{{ s.pending }}</div>
-        <div class="card-body stat-label">Pending</div>
+        <div class="card-title stat-value">{{ s.filled }}</div>
+        <div class="card-body stat-label">Filled</div>
       </div>
     </div>
   }
@@ -55,7 +35,7 @@
       <mat-label>Status</mat-label>
       <mat-select [ngModel]="statusFilter()" (ngModelChange)="onStatusFilterChange($event)">
         @for (option of statusOptions; track option) {
-          <mat-option [value]="option">{{ option === 'all' ? 'All' : option }}</mat-option>
+          <mat-option [value]="option">{{ option === 'all' ? 'All' : option === 'unsent' ? 'Unsent' : 'Filled' }}</mat-option>
         }
       </mat-select>
     </mat-form-field>
