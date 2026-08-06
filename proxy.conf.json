@@ -1,4 +1,12 @@
 {
-  "/api": { "target": "http://localhost:3000", "secure": false },
-  "/auth": { "target": "http://localhost:3000", "secure": false }
+  "/api": {
+    "target": "https://job-hunter.igrflex.work",
+    "secure": true,
+    "changeOrigin": true
+  },
+  "/auth": {
+    "target": "https://job-hunter.igrflex.work",
+    "secure": true,
+    "changeOrigin": true
+  }
 }
