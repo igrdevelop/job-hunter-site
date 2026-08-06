@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { LoginResponse, User } from './user.model';
+import { DownloadTokenResponse, LoginResponse, User } from './user.model';
 
 const TOKEN_KEY = 'job-hunter-token';
 
@@ -45,6 +45,13 @@ export class AuthService {
     const user = await firstValueFrom(this.http.get<User>(`${environment.authBaseUrl}/me`));
     this.user.set(user);
     return user;
+  }
+
+  async getDownloadToken(): Promise<string> {
+    const res = await firstValueFrom(
+      this.http.get<DownloadTokenResponse>(`${environment.authBaseUrl}/download-token`),
+    );
+    return res.token;
   }
 
   logout(): void {
