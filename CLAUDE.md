@@ -13,11 +13,16 @@ with a self-hosted web UI.
 
 - **Owner:** Ihar Petrasheuski — Senior Frontend Developer (Angular, 10+ yrs), Wrocław, PL.
 - **Live URL:** https://job-hunter.igrflex.work
-- **Current state:** all 6 frontend steps built on branch `claude/plan-and-progress-61053c`
-  (uncommitted worktree) — auth, applications table, files browser, stats. Not yet merged
-  to master, and untested against a real backend (`job-hunter-api` doesn't exist yet).
-  Implementation plan in `docs/IMPLEMENTATION_PLAN.md`.
-- **Backend:** `job-hunter-api` (NestJS, separate repo — to be created)
+- **Current state:** all 6 frontend steps plus the subsequent feature/refactor/design PRs are
+  merged to `master` (see Agent Work Log for the full history). `job-hunter-api` is deployed
+  and reachable — confirmed 2026-08-06 via `curl https://job-hunter.igrflex.work/api/applications`,
+  which returns `401 Unauthorized` from a live Express-based server (not a 404/timeout), so
+  the routing + backend container are up. No valid credentials/token were available in that
+  session to verify a real (authenticated) response shape, so treat response shapes as
+  best-effort until confirmed against real data. Implementation plan in
+  `docs/IMPLEMENTATION_PLAN.md`.
+- **Backend:** `job-hunter-api` (NestJS, separate repo) — deployed and live at `/api/*`, `/auth/*`
+  on the domain above (see note above on unverified response shapes).
 - **Bot:** `job-hunter` (Python, separate repo — unchanged, writes tracker.db + Applications/)
 
 ---
@@ -91,10 +96,13 @@ routing on `job-hunter.igrflex.work` (catch-all → this container; `/api`,
 
 **No Cloudflare Pages** — not used.
 
-**Domain:** `job-hunter.igrflex.work` — DNS currently points to Cloudflare Pages
-(default starter page). Will be switched to the Cloudflare Tunnel CNAME when the
-app goes live. Domain managed in the `igrflex@gmail.com` Cloudflare account
-(Account ID `69db525dd53f363bb99b1e429fe52ca2`).
+**Domain:** `job-hunter.igrflex.work` — per earlier entries in this file, DNS was pointed at the
+Cloudflare Pages default starter page pending cutover to the Cloudflare Tunnel CNAME. Confirmed
+2026-08-06 that the cutover has happened: `/` returns this repo's real built `index.html`
+(title "Job Hunter", `<base href="/">`) with HTTP 200, and `/api/*` responds live (401 from a
+real backend) — both routes are live in production, not the Pages starter page or a DNS/timeout
+failure. Domain managed in the `igrflex@gmail.com` Cloudflare account (Account ID
+`69db525dd53f363bb99b1e429fe52ca2`).
 
 ---
 
@@ -143,3 +151,4 @@ Frontend-specific plan: `docs/IMPLEMENTATION_PLAN.md` in this repo.
 | 2026-08-05 | grok | Added Settings page (`/settings`): Material tabs by category, key/value/description with type badges, boolean icons, masked secrets; `ApiService.getSettings()` → `GET /api/settings`. |
 | 2026-08-05 | grok | Implemented `docs/STRUCTURE_REFACTOR_PLAN.md` steps 1–6: dropped redundant `standalone: true`, OnPush everywhere, moved file-browsing widgets to `shared/`, split `ApiService` into domain APIs (`applications`/`files`/`analytics`/`templates`/`settings`), consolidated `/files` route loaders, replaced manual loading with `resource()` (`params` API). Skipped optional zoneless (step 7). |
 | 2026-08-06 | sonnet | Applied the "Industry" design refresh from `Design/README.md` + `Design/JobHunter.dc.html` across all screens, on branch `claude/design-update-bbec01`. Added `src/styles/{_colors,_mixins,_tokens}.scss` (steel-blue accent + neutral ramps, spacing/shadow scale, `.card`/`.tag`/`.btn`/`.field`/`.blueprint` corner-mark classes) and self-hosted Barlow/Barlow Condensed (`public/assets/fonts/`) instead of Google Fonts. Retargeted Angular Material to the design via M3 system-token overrides (`mat.theme()` + `--mat-sys-*` in `styles.scss`) rather than replacing Material components. Restyled nav/footer, Applications (stat cards, filter bar, status tags, AG Grid retheme), Files/Profile (folder/file cards — Profile's copy was adapted since this repo already turned it into a candidate-file browser, not the editable form in the mock), Templates, Settings (tabs + setting rows), and Stats. Fixed an AG Grid 36 gotcha: it silently applies its new JS Theming API (Quartz) over an imported legacy CSS theme unless `[theme]="'legacy'"` is set, and even then duplicates the theme class onto an internal `.ag-styled-root` wrapper that needs its own `::ng-deep` override. Verified visually in-browser against a throwaway local mock API (no real backend exists yet, consistent with prior entries). `npm run build` and `npm test` pass. |
+| 2026-08-06 | sonnet | Merged `master` into `claude/design-update-bbec01` to pick up #10 (`fix: remove fictional status field, filter by sent column instead`), resolving conflicts by keeping the corrected `SentFilter` (`all`/`unsent`/`filled`) data model and reapplying the Industry `.card.blueprint` treatment to 3 stat cards instead of the old 7-status layout; deleted the now-unused `status-cell-renderer.component.ts`. While re-verifying, discovered the "no real backend exists yet" / "DNS points to Cloudflare Pages starter page" notes above were stale: `curl https://job-hunter.igrflex.work/` returns this repo's real built `index.html` (200) and `/api/applications` returns a live `401` from an Express-based backend — `job-hunter-api` is deployed and the domain cutover already happened. Updated the "Current state"/"Backend"/"Domain" sections accordingly. Did not attempt to authenticate against the live API (no credentials available, and brute-forcing/bypassing auth on a production service is out of bounds) — response shapes there remain unverified against real data. |
