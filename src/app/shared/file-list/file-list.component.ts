@@ -48,6 +48,7 @@ interface FileRow {
       .file-list {
         display: flex;
         flex-direction: column;
+        overflow: hidden;
       }
       .file-row {
         display: flex;
@@ -66,11 +67,11 @@ interface FileRow {
         cursor: pointer;
 
         &:hover {
-          background: var(--color-neutral-050);
+          background: var(--color-neutral-200);
         }
       }
       .file-icon {
-        color: var(--color-neutral-500);
+        color: var(--color-accent-600);
         flex-shrink: 0;
       }
       .file-name {

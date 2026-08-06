@@ -22,19 +22,30 @@
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-3);
   flex-shrink: 0;
-  max-width: 480px;
+  max-width: 520px;
 }
 
 .stat {
-  padding: var(--space-3);
+  padding: var(--space-4);
 }
 
 .stat-value {
   font-size: 28px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.stat--unsent .stat-value {
+  color: var(--color-status-unsent);
+}
+
+.stat--filled .stat-value {
+  color: var(--color-status-filled);
 }
 
 .stat-label {
   margin: 0;
+  color: var(--color-neutral-600);
 }
 
 .toolbar {
@@ -47,10 +58,7 @@
 
 .search-field {
   flex: 1 1 240px;
-}
-
-.status-field {
-  width: 160px;
+  max-width: 420px;
 }
 
 .error {
@@ -64,13 +72,26 @@
   min-width: 0;
   min-height: 280px;
   border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius);
+  overflow: hidden;
 
   @include mixins.ag-grid-industry-theme;
 
-  // AG Grid duplicates the `ag-theme-material` class onto an internal
-  // `.ag-styled-root` wrapper, which re-declares the --ag-* defaults and
-  // shadows the values set above for everything AG Grid actually renders.
   ::ng-deep .ag-styled-root {
     @include mixins.ag-grid-industry-theme;
+  }
+
+  ::ng-deep .ag-root-wrapper {
+    border-radius: var(--radius);
+    border: none;
+  }
+
+  ::ng-deep .ag-header {
+    border-bottom: 1px solid var(--color-neutral-300);
+  }
+
+  ::ng-deep .ag-paging-panel {
+    border-top: 1px solid var(--color-neutral-300);
+    color: var(--color-neutral-600);
   }
 }

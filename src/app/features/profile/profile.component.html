@@ -1,6 +1,19 @@
 <div class="page">
-  <h1>Profile</h1>
-  <p class="page-subtitle">Base candidate files your applications and outreach are generated from.</p>
+  <div class="profile-hero">
+    <div class="profile-avatar" aria-hidden="true">{{ initials() }}</div>
+    <div class="profile-copy">
+      <h1>Profile</h1>
+      <p class="page-subtitle">
+        @if (authService.currentUser(); as user) {
+          {{ user.email }}
+        } @else {
+          Base candidate files your applications and outreach are generated from.
+        }
+      </p>
+    </div>
+  </div>
+
+  <p class="section-label">Candidate files</p>
 
   @if (currentPath()) {
     <nav class="breadcrumbs">

@@ -36,24 +36,27 @@ interface FunnelBar {
       }
       .stage {
         font-size: 14px;
-        color: var(--color-neutral-700);
+        color: var(--color-neutral-600);
       }
       .track {
-        background: var(--color-neutral-100);
-        border: 1px solid var(--color-neutral-200);
+        background: var(--color-neutral-050);
+        border: 1px solid var(--color-neutral-300);
+        border-radius: var(--radius-pill);
         overflow: hidden;
-        height: 20px;
+        height: 12px;
       }
       .fill {
         height: 100%;
-        background: var(--color-accent-500);
+        background: linear-gradient(90deg, var(--color-accent-500), #a855f7);
+        border-radius: var(--radius-pill);
         transition: width 0.3s ease;
       }
       .count {
         text-align: right;
-        font-weight: 600;
+        font-weight: 700;
         font-family: var(--font-heading);
         font-size: 14px;
+        color: var(--color-text);
       }
     `,
   ],
