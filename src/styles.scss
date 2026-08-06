@@ -1,4 +1,43 @@
-@use '@angular/material/prebuilt-themes/indigo-pink.css';
+@use '@angular/material' as mat;
+@use './styles/colors';
+@use './styles/tokens';
+
+html {
+  @include mat.theme(
+    (
+      color: mat.$blue-palette,
+      typography: (
+        plain-family: 'Barlow',
+        brand-family: 'Barlow Condensed',
+      ),
+      density: 0,
+    )
+  );
+
+  // Override the generated M3 palette with the Industry steel-blue accent and
+  // square (0px) corners — this cascades to every Material component.
+  --mat-sys-primary: var(--color-accent-600);
+  --mat-sys-on-primary: #fff;
+  --mat-sys-primary-container: var(--color-accent-100);
+  --mat-sys-on-primary-container: var(--color-accent-900);
+  --mat-sys-secondary: var(--color-accent-700);
+  --mat-sys-on-secondary: #fff;
+  --mat-sys-surface: #fff;
+  --mat-sys-on-surface: var(--color-text);
+  --mat-sys-surface-variant: var(--color-neutral-100);
+  --mat-sys-on-surface-variant: var(--color-neutral-700);
+  --mat-sys-outline: var(--color-neutral-400);
+  --mat-sys-outline-variant: var(--color-neutral-300);
+  --mat-sys-error: #{colors.$error};
+
+  --mat-sys-corner-none: 0;
+  --mat-sys-corner-extra-small: 0;
+  --mat-sys-corner-small: 0;
+  --mat-sys-corner-medium: 0;
+  --mat-sys-corner-large: 0;
+  --mat-sys-corner-extra-large: 0;
+  --mat-sys-corner-full: 0;
+}
 
 /* You can add global styles to this file, and also import other style files */
 html,
@@ -7,5 +46,4 @@ body {
   width: 100%;
   max-width: 100%;
   margin: 0;
-  font-family: Roboto, 'Helvetica Neue', sans-serif;
 }

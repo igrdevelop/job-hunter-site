@@ -1,29 +1,24 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, inject } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
 import { ICellRendererAngularComp } from 'ag-grid-angular';
 import { ICellRendererParams } from 'ag-grid-community';
 
 @Component({
   selector: 'app-url-cell-renderer',
-  imports: [MatIconModule],
   template: `
     @if (url) {
-      <a [href]="url" target="_blank" rel="noopener">
-        <mat-icon>open_in_new</mat-icon>
+      <a [href]="url" target="_blank" rel="noopener" class="btn btn-ghost btn-icon" aria-label="Open listing">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M15 3h6v6" />
+          <path d="M10 14 21 3" />
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+        </svg>
       </a>
     }
   `,
   styles: [
     `
       a {
-        display: inline-flex;
-        align-items: center;
-        color: inherit;
-      }
-      mat-icon {
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
+        text-decoration: none;
       }
     `,
   ],

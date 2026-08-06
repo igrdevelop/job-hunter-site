@@ -1,0 +1,69 @@
+// Reusable style patterns for the Industry design system.
+// Components should @use this partial rather than re-declaring these rules.
+
+@mixin button-variant($bg, $border, $color) {
+  background: $bg;
+  border-color: $border;
+  color: $color;
+}
+
+@mixin tag-variant($bg, $color, $border: transparent) {
+  background: $bg;
+  color: $color;
+  border-color: $border;
+}
+
+// AG Grid theme-parameter overrides (legacy ag-theme-material CSS theme) that
+// bring a grid's colors/borders/typography in line with the design tokens.
+// Apply on the element carrying the `ag-theme-material` class.
+@mixin ag-grid-industry-theme {
+  --ag-font-family: var(--font-body);
+  --ag-font-size: 13px;
+  --ag-background-color: #fff;
+  --ag-foreground-color: var(--color-text);
+  --ag-header-background-color: #fff;
+  --ag-header-foreground-color: var(--color-neutral-700);
+  --ag-border-color: var(--color-neutral-300);
+  --ag-row-border-color: var(--color-neutral-200);
+  --ag-secondary-border-color: var(--color-neutral-200);
+  --ag-row-hover-color: var(--color-accent-100);
+  --ag-selected-row-background-color: var(--color-accent-100);
+  --ag-input-focus-border-color: var(--color-accent-500);
+  --ag-range-selection-border-color: var(--color-accent-500);
+  --ag-checkbox-checked-color: var(--color-accent-600);
+  --ag-borders: solid 1px;
+  --ag-wrapper-border-radius: 0;
+  --ag-card-radius: 0;
+}
+
+// Small "+" registration marks at each corner of a .blueprint element,
+// applied via <i class="corner tl/tr/bl/br">.
+@mixin corner-mark {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  pointer-events: none;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    background: var(--color-neutral-400);
+  }
+
+  &::before {
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    transform: translateY(-50%);
+  }
+
+  &::after {
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    transform: translateX(-50%);
+  }
+}

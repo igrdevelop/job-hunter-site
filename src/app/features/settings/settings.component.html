@@ -6,7 +6,7 @@
     }
   </div>
 
-  <p class="subtitle">Read-only view of the bot&rsquo;s .env configuration. Secrets are masked.</p>
+  <p class="page-subtitle">Read-only view of the bot&rsquo;s .env configuration. Secrets are masked.</p>
 
   @if (errorMessage()) {
     <p class="error">{{ errorMessage() }}</p>
@@ -19,21 +19,16 @@
       animationDuration="200ms"
     >
       @for (category of categories(); track category.name) {
-        <mat-tab>
-          <ng-template mat-tab-label>
-            <mat-icon class="tab-icon">{{ category.icon }}</mat-icon>
-            <span>{{ category.name }}</span>
-          </ng-template>
-
+        <mat-tab [label]="category.name">
           <div class="settings-list">
             @for (item of category.settings; track item.key) {
-              <div class="setting-row" [class.secret]="item.isSecret">
+              <div class="setting-row">
                 <div class="setting-main">
                   <div class="setting-key-row">
                     <code class="setting-key">{{ item.key }}</code>
-                    <span class="type-badge" [attr.data-type]="item.type">{{ item.type }}</span>
+                    <span [class]="tagClassFor(item)">{{ item.type.toUpperCase() }}</span>
                     @if (item.isDefault) {
-                      <span class="default-badge">default</span>
+                      <span class="tag tag-outline">default</span>
                     }
                   </div>
                   <p class="setting-desc">{{ item.description }}</p>
@@ -41,22 +36,18 @@
 
                 <div class="setting-value">
                   @if (item.type === 'boolean') {
-                    <mat-icon
-                      class="bool-icon"
-                      [class.on]="isTruthy(item.value)"
-                      [class.off]="!isTruthy(item.value)"
-                    >
-                      {{ isTruthy(item.value) ? 'check_circle' : 'cancel' }}
-                    </mat-icon>
-                    <span class="bool-label">{{ isTruthy(item.value) ? 'true' : 'false' }}</span>
-                  } @else if (item.isSecret) {
-                    <code class="masked" [class.unset]="item.isDefault">{{
-                      displayValue(item)
-                    }}</code>
+                    <span class="text-muted bool-value">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="m15 9-6 6" />
+                        <path d="m9 9 6 6" />
+                      </svg>
+                      {{ isTruthy(item.value) ? 'true' : 'false' }}
+                    </span>
                   } @else if (item.value === null || (item.isDefault && item.value === '')) {
-                    <span class="unset">(not set)</span>
+                    <span class="text-muted">(not set)</span>
                   } @else {
-                    <code [class.default-value]="item.isDefault">{{ item.value }}</code>
+                    <code class="value-box" [class.masked]="item.isSecret">{{ displayValue(item) }}</code>
                   }
                 </div>
               </div>

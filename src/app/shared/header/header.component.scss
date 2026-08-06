@@ -4,32 +4,53 @@
   flex-shrink: 0;
 }
 
-.toolbar {
+.nav {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-5);
   width: 100%;
   box-sizing: border-box;
+  padding: var(--space-3) var(--space-6);
+  background: #fff;
+  border-bottom: 1px solid var(--color-neutral-300);
   position: sticky;
   top: 0;
   z-index: 10;
+
+  a {
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text);
+    text-decoration: none;
+    padding: var(--space-1) 0;
+
+    &:hover {
+      color: var(--color-accent-700);
+    }
+
+    &.active {
+      color: var(--color-accent-700);
+      font-weight: 600;
+      text-decoration: underline;
+      text-underline-offset: 4px;
+    }
+  }
 }
 
-.brand {
-  font-weight: 500;
-  margin-right: 24px;
+.nav a.nav-brand {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 20px;
+  margin-right: var(--space-3);
   white-space: nowrap;
-}
+  color: var(--color-text);
+  cursor: pointer;
+  user-select: none;
 
-.nav-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.nav-links .active {
-  font-weight: 600;
-  text-decoration: underline;
+  &:hover {
+    color: var(--color-accent-700);
+  }
 }
 
 .spacer {
@@ -37,7 +58,7 @@
 }
 
 .user-email {
-  padding: 8px 16px;
-  font-size: 0.875rem;
-  color: rgba(0, 0, 0, 0.6);
+  padding: var(--space-2) var(--space-4);
+  font-size: 13px;
+  color: var(--color-neutral-600);
 }

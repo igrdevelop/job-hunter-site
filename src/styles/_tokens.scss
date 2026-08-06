@@ -1,0 +1,325 @@
+@use 'sass:map';
+@use './colors';
+@use './mixins';
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/assets/fonts/barlow-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/assets/fonts/barlow-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/assets/fonts/barlow-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/assets/fonts/barlow-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/assets/fonts/barlow-condensed-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/assets/fonts/barlow-condensed-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/assets/fonts/barlow-condensed-700.woff2') format('woff2');
+}
+
+:root {
+  --font-heading: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --font-body: 'Barlow', 'Helvetica Neue', Arial, sans-serif;
+
+  --color-bg: #{colors.$bg};
+  --color-text: #{colors.$text};
+  --color-error: #{colors.$error};
+
+  @each $step, $value in colors.$accent {
+    --color-accent-#{$step}: #{$value};
+  }
+  @each $step, $value in colors.$neutral {
+    --color-neutral-#{$step}: #{$value};
+  }
+
+  --radius: 4px;
+
+  --shadow-sm: 0 1px 2px rgba(29, 31, 32, 0.06);
+  --shadow-md: 0 2px 10px rgba(29, 31, 32, 0.1);
+  --shadow-lg: 0 12px 32px rgba(29, 31, 32, 0.18);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+h1 {
+  font-size: 32px;
+  margin: 0 0 var(--space-1);
+}
+
+.page-subtitle {
+  margin: 0 0 var(--space-5);
+  color: var(--color-neutral-700);
+  font-size: 14px;
+}
+
+.text-muted {
+  color: var(--color-neutral-600);
+}
+
+// Corner registration marks — small "+" at each corner of a .blueprint element.
+.blueprint {
+  position: relative;
+}
+
+.corner {
+  @include mixins.corner-mark;
+}
+
+.corner.tl {
+  top: -5px;
+  left: -5px;
+}
+.corner.tr {
+  top: -5px;
+  right: -5px;
+}
+.corner.bl {
+  bottom: -5px;
+  left: -5px;
+}
+.corner.br {
+  bottom: -5px;
+  right: -5px;
+}
+
+// Cards
+.card {
+  background: #fff;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: 0;
+}
+
+.elev-sm {
+  box-shadow: var(--shadow-sm);
+}
+.elev-md {
+  box-shadow: var(--shadow-md);
+}
+.elev-lg {
+  box-shadow: var(--shadow-lg);
+}
+
+.card-kicker {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent-600);
+  margin: 0 0 var(--space-1);
+}
+
+.card-title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 18px;
+  margin: 0;
+}
+
+.card-body {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--color-neutral-700);
+  margin: var(--space-1) 0 0;
+}
+
+.card-meta {
+  font-size: 12px;
+  color: var(--color-neutral-500);
+  margin-top: var(--space-3);
+}
+
+// Tags
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 0;
+  border: 1px solid transparent;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.tag-accent {
+  @include mixins.tag-variant(var(--color-accent-100), var(--color-accent-800));
+}
+
+.tag-neutral {
+  @include mixins.tag-variant(var(--color-neutral-800), #fff);
+}
+
+.tag-outline {
+  @include mixins.tag-variant(transparent, var(--color-accent-700), var(--color-accent-400));
+}
+
+// Buttons
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  padding: var(--space-2) var(--space-4);
+  border-radius: 0;
+  border: 1px solid var(--color-neutral-300);
+  background: #fff;
+  color: var(--color-text);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.btn-primary {
+  @include mixins.button-variant(var(--color-accent-600), var(--color-accent-600), #fff);
+
+  &:hover:not(:disabled) {
+    @include mixins.button-variant(var(--color-accent-700), var(--color-accent-700), #fff);
+  }
+}
+
+.btn-secondary {
+  @include mixins.button-variant(#fff, var(--color-neutral-300), var(--color-text));
+
+  &:hover:not(:disabled) {
+    background: var(--color-neutral-100);
+  }
+}
+
+.btn-ghost {
+  @include mixins.button-variant(transparent, transparent, var(--color-text));
+
+  &:hover:not(:disabled) {
+    background: var(--color-neutral-100);
+  }
+}
+
+.btn-icon {
+  padding: 0;
+  width: 32px;
+  height: 32px;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+// Form fields (native)
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+
+  label {
+    font-size: 13px;
+    color: var(--color-neutral-700);
+  }
+}
+
+.input {
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: 0;
+  background: var(--color-neutral-100);
+  color: var(--color-text);
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-accent-500);
+    background: #fff;
+  }
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+
+  th,
+  td {
+    text-align: left;
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--color-neutral-200);
+  }
+
+  th {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--color-neutral-700);
+    white-space: nowrap;
+  }
+}

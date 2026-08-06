@@ -1,16 +1,18 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
 import { FolderInfo } from '../../core/api/models';
 
 @Component({
   selector: 'app-folder-list',
-  imports: [MatIconModule],
   template: `
     <div class="folder-grid">
       @for (folder of folders(); track folder.name) {
-        <button type="button" class="folder-card" (click)="open.emit(folder)">
-          <mat-icon>folder</mat-icon>
-          <span>{{ folder.name }}</span>
+        <button type="button" class="card blueprint elev-sm folder-card" (click)="open.emit(folder)">
+          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="folder-icon">
+            <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+          </svg>
+          <div class="card-title">{{ folder.name }}</div>
+          <div class="card-body">{{ folder.itemCount }} files</div>
         </button>
       }
     </div>
@@ -19,34 +21,24 @@ import { FolderInfo } from '../../core/api/models';
     `
       .folder-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 12px;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: var(--space-4);
       }
       .folder-card {
         display: flex;
         flex-direction: column;
-        align-items: center;
-        gap: 8px;
-        padding: 16px 8px;
-        border: 1px solid rgba(0, 0, 0, 0.12);
-        border-radius: 8px;
-        background: none;
+        align-items: flex-start;
+        text-align: left;
+        padding: var(--space-4);
         cursor: pointer;
         font: inherit;
       }
       .folder-card:hover {
-        background: rgba(0, 0, 0, 0.04);
+        background: var(--color-neutral-050);
       }
-      .folder-card mat-icon {
-        font-size: 32px;
-        width: 32px;
-        height: 32px;
-        color: #f9a825;
-      }
-      .folder-card span {
-        text-align: center;
-        word-break: break-word;
-        font-size: 0.875rem;
+      .folder-icon {
+        color: var(--color-accent-700);
+        margin-bottom: var(--space-2);
       }
     `,
   ],

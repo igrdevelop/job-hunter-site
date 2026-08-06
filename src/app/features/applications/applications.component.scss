@@ -1,3 +1,5 @@
+@use '../../../styles/mixins';
+
 :host {
   display: flex;
   flex-direction: column;
@@ -16,30 +18,23 @@
 }
 
 .stats-bar {
-  display: flex;
-  gap: 24px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
   flex-shrink: 0;
-  padding: 12px 16px;
-  background: rgba(0, 0, 0, 0.04);
-  border-radius: 8px;
+  max-width: 480px;
 }
 
 .stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 64px;
+  padding: var(--space-3);
 }
 
 .stat-value {
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: 28px;
 }
 
 .stat-label {
-  font-size: 0.75rem;
-  color: rgba(0, 0, 0, 0.6);
+  margin: 0;
 }
 
 .toolbar {
@@ -59,7 +54,7 @@
 }
 
 .error {
-  color: #c62828;
+  color: var(--color-error);
   flex-shrink: 0;
 }
 
@@ -68,4 +63,14 @@
   width: 100%;
   min-width: 0;
   min-height: 280px;
+  border: 1px solid var(--color-neutral-300);
+
+  @include mixins.ag-grid-industry-theme;
+
+  // AG Grid duplicates the `ag-theme-material` class onto an internal
+  // `.ag-styled-root` wrapper, which re-declares the --ag-* defaults and
+  // shadows the values set above for everything AG Grid actually renders.
+  ::ng-deep .ag-styled-root {
+    @include mixins.ag-grid-industry-theme;
+  }
 }

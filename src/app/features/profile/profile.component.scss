@@ -1,18 +1,19 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .breadcrumbs {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.9rem;
+  font-size: 14px;
+  margin-top: calc(-1 * var(--space-2));
 }
 
 .breadcrumbs a {
-  color: inherit;
+  color: var(--color-accent-700);
   text-decoration: none;
 }
 
@@ -21,7 +22,7 @@
 }
 
 .sep {
-  color: rgba(0, 0, 0, 0.4);
+  color: var(--color-neutral-400);
 }
 
 .current {
@@ -29,11 +30,11 @@
 }
 
 .error {
-  color: #c62828;
+  color: var(--color-error);
 }
 
 .empty-state {
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--color-neutral-600);
   text-align: center;
   padding: 32px 0;
 }
