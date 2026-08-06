@@ -108,6 +108,7 @@ body {
     radial-gradient(ellipse 50% 40% at 100% 100%, var(--color-glow-purple), transparent 45%),
     radial-gradient(ellipse 45% 35% at 0% 100%, var(--color-glow-blue), transparent 40%);
   background-attachment: fixed;
+  @include mixins.dark-scrollbars;
 }
 
 h1,
