@@ -17,13 +17,14 @@
   }
 
   <div class="toolbar">
-    <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic">
+    <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic" floatLabel="always">
       <mat-icon matPrefix>search</mat-icon>
       <input
         matInput
         [ngModel]="search()"
         (ngModelChange)="onSearchInput($event)"
         placeholder="Company, role, stack…"
+        aria-label="Search applications"
       />
     </mat-form-field>
 

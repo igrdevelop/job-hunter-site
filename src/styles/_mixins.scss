@@ -12,27 +12,79 @@
   border-color: $border;
 }
 
+@mixin dark-scrollbars {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-neutral-400) transparent;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-neutral-400);
+    border-radius: var(--radius-pill);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--color-neutral-500);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
 // AG Grid theme-parameter overrides (legacy ag-theme-material CSS theme).
 @mixin ag-grid-industry-theme {
   --ag-font-family: var(--font-body);
   --ag-font-size: 13px;
+  --ag-browser-color-scheme: dark;
+  color-scheme: dark;
   --ag-background-color: var(--color-neutral-100);
   --ag-foreground-color: var(--color-text);
   --ag-header-background-color: var(--color-neutral-100);
-  --ag-header-foreground-color: var(--color-neutral-600);
-  --ag-border-color: var(--color-neutral-300);
+  --ag-header-foreground-color: var(--color-neutral-500);
+  --ag-border-color: transparent;
   --ag-row-border-color: var(--color-neutral-200);
   --ag-secondary-border-color: var(--color-neutral-200);
-  --ag-row-hover-color: var(--color-neutral-200);
+  --ag-row-hover-color: rgba(255, 255, 255, 0.04);
   --ag-selected-row-background-color: var(--color-accent-100);
   --ag-input-focus-border-color: var(--color-accent-500);
   --ag-range-selection-border-color: var(--color-accent-500);
   --ag-checkbox-checked-color: var(--color-accent-500);
   --ag-odd-row-background-color: var(--color-neutral-100);
-  --ag-borders: solid 1px;
+  --ag-control-panel-background-color: var(--color-neutral-100);
+  --ag-subheader-background-color: var(--color-neutral-100);
+  --ag-panel-background-color: var(--color-neutral-100);
+  --ag-modal-overlay-background-color: rgba(0, 0, 0, 0.55);
+  --ag-input-background-color: var(--color-neutral-050);
+  --ag-input-border-color: var(--color-neutral-300);
+  --ag-input-disabled-background-color: var(--color-neutral-200);
+  --ag-secondary-foreground-color: var(--color-neutral-600);
+  --ag-disabled-foreground-color: var(--color-neutral-500);
+  --ag-icon-color: var(--color-neutral-600);
+  --ag-active-color: var(--color-accent-500);
+  --ag-borders: none;
+  --ag-borders-row: solid 1px;
   --ag-wrapper-border-radius: var(--radius);
   --ag-card-radius: var(--radius);
+  --ag-border-radius: var(--radius-sm);
   --ag-header-column-resize-handle-color: var(--color-neutral-400);
+  --ag-header-column-separator-display: none;
+  --ag-cell-horizontal-padding: 16px;
+  --ag-header-height: 44px;
+  --ag-row-height: 48px;
+
+  @include dark-scrollbars;
 }
 
 @mixin corner-mark {

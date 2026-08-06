@@ -25,6 +25,7 @@ import {
 } from '../../core/api/models';
 import { UrlCellRendererComponent } from './cell-renderers/url-cell-renderer.component';
 import { FolderCellRendererComponent } from './cell-renderers/folder-cell-renderer.component';
+import { SentStatusCellRendererComponent } from './cell-renderers/sent-status-cell-renderer.component';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -69,35 +70,36 @@ export class ApplicationsComponent {
   };
 
   readonly columnDefs: ColDef<Application>[] = [
-    { field: 'date', sortable: true, headerName: 'Date', width: 110 },
-    { field: 'company', sortable: true, headerName: 'Company', minWidth: 140 },
-    { field: 'title', sortable: true, headerName: 'Job Title', minWidth: 180, flex: 1 },
-    { field: 'stack', headerName: 'Stack', minWidth: 120 },
+    { field: 'date', sortable: true, headerName: 'Date', width: 118 },
+    {
+      field: 'company',
+      sortable: true,
+      headerName: 'Company',
+      minWidth: 150,
+      flex: 1,
+      cellClass: 'cell-company',
+    },
+    { field: 'title', sortable: true, headerName: 'Job Title', minWidth: 200, flex: 1.4 },
+    { field: 'stack', headerName: 'Stack', minWidth: 110, flex: 0.7 },
     {
       field: 'atsStatus',
       sortable: true,
       headerName: 'ATS %',
-      width: 90,
+      width: 88,
       valueFormatter: (p) => p.value || '—',
-    },
-    { field: 'url', headerName: 'URL', width: 70, cellRenderer: UrlCellRendererComponent },
-    { field: 'folder', headerName: 'Folder', width: 80, cellRenderer: FolderCellRendererComponent },
-    { field: 'sent', sortable: true, headerName: 'Sent', width: 130, editable: true },
-    { field: 'toLearn', headerName: 'To Learn', width: 140, editable: true },
-    {
-      field: 'atsVerdict',
-      sortable: true,
-      headerName: 'ATS Verdict',
-      width: 110,
-      valueFormatter: (p) => p.value ?? '—',
+      cellClass: 'cell-ats',
     },
     {
-      field: 'costUsd',
+      field: 'sent',
       sortable: true,
-      headerName: 'Cost $',
-      width: 90,
-      valueFormatter: (p) => p.value ?? '—',
+      headerName: 'Status',
+      width: 130,
+      editable: true,
+      cellRenderer: SentStatusCellRendererComponent,
     },
+    { field: 'toLearn', headerName: 'To Learn', minWidth: 120, flex: 0.6, editable: true },
+    { field: 'folder', headerName: '', width: 52, cellRenderer: FolderCellRendererComponent },
+    { field: 'url', headerName: '', width: 52, cellRenderer: UrlCellRendererComponent, pinned: 'right' },
   ];
 
   readonly datasource: IDatasource = {

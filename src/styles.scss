@@ -48,4 +48,128 @@ body {
   width: 100%;
   max-width: 100%;
   margin: 0;
+  color-scheme: dark;
 }
+
+/* Dark AG Grid chrome — applied globally so component budgets stay lean.
+   Targets both the host theme class and AG Grid's duplicated .ag-styled-root. */
+.ag-theme-material.applications-grid,
+.ag-theme-material.applications-grid .ag-styled-root {
+  --ag-browser-color-scheme: dark;
+  color-scheme: dark;
+  --ag-font-family: var(--font-body);
+  --ag-font-size: 13px;
+  --ag-background-color: var(--color-neutral-100);
+  --ag-foreground-color: var(--color-text);
+  --ag-header-background-color: var(--color-neutral-100);
+  --ag-header-foreground-color: var(--color-neutral-500);
+  --ag-border-color: transparent;
+  --ag-row-border-color: var(--color-neutral-200);
+  --ag-secondary-border-color: var(--color-neutral-200);
+  --ag-row-hover-color: rgba(255, 255, 255, 0.04);
+  --ag-selected-row-background-color: var(--color-accent-100);
+  --ag-odd-row-background-color: var(--color-neutral-100);
+  --ag-control-panel-background-color: var(--color-neutral-100);
+  --ag-input-background-color: var(--color-neutral-050);
+  --ag-input-border-color: var(--color-neutral-300);
+  --ag-secondary-foreground-color: var(--color-neutral-600);
+  --ag-icon-color: var(--color-neutral-600);
+  --ag-active-color: var(--color-accent-500);
+  --ag-borders: none;
+  --ag-borders-row: solid 1px;
+  --ag-wrapper-border-radius: var(--radius);
+  --ag-card-radius: var(--radius);
+  --ag-cell-horizontal-padding: 16px;
+  --ag-header-height: 44px;
+  --ag-row-height: 48px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-neutral-400) transparent;
+}
+
+.applications-grid .ag-root-wrapper {
+  border: none;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.applications-grid .ag-header {
+  border-bottom: 1px solid var(--color-neutral-300);
+}
+
+.applications-grid .ag-header-cell-text {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+}
+
+.applications-grid .cell-company {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.applications-grid .cell-ats {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-status-filled);
+}
+
+.applications-grid .ag-paging-panel {
+  border-top: 1px solid var(--color-neutral-300);
+  color: var(--color-neutral-600);
+  background: var(--color-surface);
+}
+
+.applications-grid .ag-picker-field-wrapper {
+  background: var(--color-neutral-050) !important;
+  border: 1px solid var(--color-neutral-300) !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--color-text) !important;
+}
+
+.applications-grid .ag-body-horizontal-scroll,
+.applications-grid .ag-body-vertical-scroll,
+.applications-grid .ag-horizontal-left-spacer,
+.applications-grid .ag-horizontal-right-spacer {
+  background: var(--color-surface) !important;
+}
+
+.applications-grid .ag-body-viewport::-webkit-scrollbar,
+.applications-grid .ag-center-cols-viewport::-webkit-scrollbar,
+.applications-grid .ag-body-horizontal-scroll-viewport::-webkit-scrollbar,
+.applications-grid .ag-body-vertical-scroll-viewport::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.applications-grid .ag-body-viewport::-webkit-scrollbar-thumb,
+.applications-grid .ag-center-cols-viewport::-webkit-scrollbar-thumb,
+.applications-grid .ag-body-horizontal-scroll-viewport::-webkit-scrollbar-thumb,
+.applications-grid .ag-body-vertical-scroll-viewport::-webkit-scrollbar-thumb {
+  background: var(--color-neutral-400);
+  border-radius: 999px;
+}
+
+.applications-grid .search-field,
+.search-field .mat-mdc-text-field-wrapper {
+  background: var(--color-surface);
+}
+
+.search-field .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}
+
+.search-field .mat-mdc-text-field-wrapper {
+  background: var(--color-surface) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+.search-field .mat-mdc-form-field-flex {
+  height: 44px;
+  align-items: center;
+}
+
+.search-field .mat-mdc-floating-label {
+  display: none;
+}
+
