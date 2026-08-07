@@ -129,3 +129,35 @@ export interface SettingsCategory {
 export interface SettingsResponse {
   categories: SettingsCategory[];
 }
+
+export interface UserSettingItem {
+  key: string;
+  value: string | boolean | number | null;
+  type: 'boolean' | 'number' | 'string' | 'select';
+  description: string;
+  options?: string[];
+}
+
+export interface UserSettingsResponse {
+  settings: UserSettingItem[];
+}
+
+export interface TelegramStatus {
+  linked: boolean;
+  chatId?: string;
+}
+
+export interface TelegramLinkCode {
+  code: string;
+  expiresAt: string;
+  botHandle: string;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  role: 'admin' | 'user';
+  emailVerified: boolean;
+  disabled: boolean;
+  createdAt: string;
+}

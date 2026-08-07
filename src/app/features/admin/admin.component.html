@@ -1,0 +1,80 @@
+<div class="page">
+  <h1>Admin</h1>
+  <p class="page-subtitle">Manage user accounts.</p>
+
+  @if (loading()) {
+    <mat-spinner diameter="24"></mat-spinner>
+  }
+
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  }
+
+  @if (!loading() && !errorMessage()) {
+    <div class="card elev-sm users-card">
+      @if (users().length === 0) {
+        <p class="empty">No users found.</p>
+      } @else {
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Verified</th>
+              <th>Created</th>
+              <th>Status</th>
+              <th class="actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (user of users(); track user.id) {
+              <tr [class.row-disabled]="user.disabled">
+                <td class="email-cell">{{ user.email }}</td>
+                <td>
+                  <span class="tag" [class.tag-accent]="user.role === 'admin'" [class.tag-outline]="user.role !== 'admin'">
+                    {{ user.role }}
+                  </span>
+                </td>
+                <td>
+                  @if (user.emailVerified) {
+                    <mat-icon class="icon-ok">check_circle</mat-icon>
+                  } @else {
+                    <mat-icon class="icon-warn">schedule</mat-icon>
+                  }
+                </td>
+                <td class="date-cell">{{ user.createdAt | date: 'mediumDate' }}</td>
+                <td>
+                  <span class="tag" [class.tag-error]="user.disabled" [class.tag-success]="!user.disabled">
+                    {{ user.disabled ? 'Disabled' : 'Active' }}
+                  </span>
+                </td>
+                <td class="actions-cell">
+                  @if (user.id !== authService.currentUser()?.id) {
+                    <button
+                      type="button"
+                      class="btn btn-ghost btn-sm"
+                      [disabled]="actionInProgress() === user.id"
+                      (click)="toggleDisabled(user)"
+                    >
+                      {{ user.disabled ? 'Enable' : 'Disable' }}
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-ghost btn-sm btn-danger"
+                      [disabled]="actionInProgress() === user.id"
+                      (click)="deleteUser(user)"
+                    >
+                      Delete
+                    </button>
+                  } @else {
+                    <span class="self-label">You</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  }
+</div>

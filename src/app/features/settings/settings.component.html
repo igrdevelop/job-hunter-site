@@ -1,61 +1,169 @@
 <div class="page">
-  <h1>Settings</h1>
-  <p class="page-subtitle">Read-only view of the bot&rsquo;s .env configuration. Secrets are masked.</p>
+  <div class="page-header">
+    <h1>Settings</h1>
+    @if (isDirty()) {
+      <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="save()">
+        @if (saving()) { Saving… } @else { Save changes }
+      </button>
+    }
+  </div>
+  <p class="page-subtitle">Your personal preferences for the Job Hunter bot.</p>
 
-  @if (loading()) {
+  <!-- ── User editable settings ─────────────────────────────────── -->
+
+  @if (userSettingsLoading()) {
     <mat-spinner diameter="24"></mat-spinner>
   }
 
-  @if (errorMessage()) {
-    <p class="error">{{ errorMessage() }}</p>
+  @if (userSettingsError()) {
+    <p class="error">{{ userSettingsError() }}</p>
   }
 
-  @if (!errorMessage() && !loading() && categories().length) {
-    <div class="settings-layout">
-      <aside class="settings-nav" aria-label="Settings categories">
-        @for (category of categories(); track category.name; let i = $index) {
-          <button
-            type="button"
-            class="nav-item"
-            [class.active]="selectedTabIndex() === i"
-            (click)="selectedTabIndex.set(i)"
-          >
-            <mat-icon class="nav-icon">{{ category.icon || 'tune' }}</mat-icon>
-            <span>{{ category.name }}</span>
-          </button>
-        }
-      </aside>
-
-      @if (activeCategory(); as category) {
-        <div class="settings-panel card">
-          @for (item of category.settings; track item.key) {
-            <div class="setting-row">
-              <div class="setting-main">
-                <div class="setting-key-row">
-                  <code class="setting-key">{{ item.key }}</code>
-                  <span [class]="tagClassFor(item)">{{ item.isSecret ? 'SECRET' : item.type.toUpperCase() }}</span>
-                  @if (item.isDefault) {
-                    <span class="tag tag-outline">default</span>
-                  }
-                </div>
-                <p class="setting-desc">{{ item.description }}</p>
-              </div>
-
-              <div class="setting-value">
-                @if (item.type === 'boolean') {
-                  <span class="bool-toggle" [class.on]="isTruthy(item.value)" aria-hidden="true">
-                    <span class="bool-knob"></span>
-                  </span>
-                } @else if (item.value === null || (item.isDefault && item.value === '')) {
-                  <span class="text-muted">(not set)</span>
-                } @else {
-                  <code class="value-box" [class.masked]="item.isSecret">{{ displayValue(item) }}</code>
-                }
-              </div>
+  @if (!userSettingsLoading() && !userSettingsError() && userSettings().length) {
+    <form [formGroup]="form" class="card elev-sm settings-panel">
+      @for (setting of userSettings(); track setting.key) {
+        <div class="setting-row">
+          <div class="setting-main">
+            <div class="setting-key-row">
+              <code class="setting-key">{{ setting.key }}</code>
+              <span class="tag tag-outline">{{ setting.type }}</span>
             </div>
-          }
+            <p class="setting-desc">{{ setting.description }}</p>
+          </div>
+
+          <div class="setting-control">
+            @if (setting.type === 'boolean') {
+              <label class="bool-toggle" [class.on]="form.get(setting.key)?.value">
+                <input
+                  type="checkbox"
+                  class="sr-only"
+                  [formControlName]="setting.key"
+                />
+                <span class="bool-knob"></span>
+              </label>
+            } @else if (setting.type === 'select' && setting.options) {
+              <mat-form-field appearance="outline" class="compact-field">
+                <mat-select [formControlName]="setting.key">
+                  @for (opt of setting.options; track opt) {
+                    <mat-option [value]="opt">{{ opt }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            } @else if (setting.type === 'number') {
+              <mat-form-field appearance="outline" class="compact-field">
+                <input matInput type="number" [formControlName]="setting.key" />
+              </mat-form-field>
+            } @else {
+              <mat-form-field appearance="outline" class="compact-field">
+                <input matInput type="text" [formControlName]="setting.key" />
+              </mat-form-field>
+            }
+          </div>
         </div>
       }
-    </div>
+    </form>
+  }
+
+  <!-- ── Telegram connect ────────────────────────────────────────── -->
+
+  <h2 class="section-heading">Telegram</h2>
+
+  <div class="card elev-sm telegram-card">
+    @if (telegramStatus()?.linked) {
+      <div class="tg-linked">
+        <mat-icon class="icon-ok">check_circle</mat-icon>
+        <div>
+          <strong>Telegram connected</strong>
+          @if (telegramStatus()?.chatId) {
+            <p class="tg-chat-id">Chat ID: {{ telegramStatus()!.chatId }}</p>
+          }
+        </div>
+      </div>
+    } @else {
+      @if (telegramLinkCode(); as code) {
+        <div class="tg-code-block">
+          <p>Send this command to <strong>@{{ code.botHandle }}</strong>:</p>
+          <div class="code-row">
+            <code class="link-code">/link {{ code.code }}</code>
+            <span class="countdown">{{ formatCountdown(telegramCountdown()) }}</span>
+          </div>
+          <p class="tg-hint">Waiting for confirmation…</p>
+        </div>
+      } @else {
+        <p class="tg-desc">Connect your Telegram account to receive notifications and interact with the bot.</p>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          [disabled]="telegramLoading()"
+          (click)="connectTelegram()"
+        >
+          @if (telegramLoading()) { Generating code… } @else { Connect Telegram }
+        </button>
+      }
+    }
+  </div>
+
+  <!-- ── Admin: global settings ─────────────────────────────────── -->
+
+  @if (isAdmin()) {
+    <h2 class="section-heading">Global configuration <span class="tag tag-neutral">Admin</span></h2>
+    <p class="page-subtitle">Read-only view of the bot's .env. Secrets are masked.</p>
+
+    @if (globalLoading()) {
+      <mat-spinner diameter="24"></mat-spinner>
+    }
+
+    @if (globalError()) {
+      <p class="error">{{ globalError() }}</p>
+    }
+
+    @if (!globalLoading() && !globalError() && globalCategories().length) {
+      <div class="settings-layout">
+        <aside class="settings-nav" aria-label="Settings categories">
+          @for (category of globalCategories(); track category.name; let i = $index) {
+            <button
+              type="button"
+              class="nav-item"
+              [class.active]="selectedTabIndex() === i"
+              (click)="selectedTabIndex.set(i)"
+            >
+              <mat-icon class="nav-icon">{{ category.icon || 'tune' }}</mat-icon>
+              <span>{{ category.name }}</span>
+            </button>
+          }
+        </aside>
+
+        @if (activeCategory(); as category) {
+          <div class="settings-panel card">
+            @for (item of category.settings; track item.key) {
+              <div class="setting-row">
+                <div class="setting-main">
+                  <div class="setting-key-row">
+                    <code class="setting-key">{{ item.key }}</code>
+                    <span [class]="tagClassFor(item)">{{ item.isSecret ? 'SECRET' : item.type.toUpperCase() }}</span>
+                    @if (item.isDefault) {
+                      <span class="tag tag-outline">default</span>
+                    }
+                  </div>
+                  <p class="setting-desc">{{ item.description }}</p>
+                </div>
+
+                <div class="setting-value">
+                  @if (item.type === 'boolean') {
+                    <span class="bool-toggle" [class.on]="isTruthy(item.value)" aria-hidden="true">
+                      <span class="bool-knob"></span>
+                    </span>
+                  } @else if (item.value === null) {
+                    <span class="text-muted">(not set)</span>
+                  } @else {
+                    <code class="value-box" [class.masked]="item.isSecret">{{ displayValue(item) }}</code>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
   }
 </div>

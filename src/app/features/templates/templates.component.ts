@@ -13,6 +13,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { TemplatesApi } from '../../core/api/templates.api';
+import { AuthService } from '../../core/auth/auth.service';
 import { Template, TemplateCategory } from '../../core/api/models';
 import { PdfPreviewComponent } from '../../shared/pdf-preview/pdf-preview.component';
 import { TextPreviewDialogComponent } from '../../shared/text-preview-dialog/text-preview-dialog.component';
@@ -36,6 +37,7 @@ type CategoryFilter = TemplateCategory | 'all';
 })
 export class TemplatesComponent {
   private readonly api = inject(TemplatesApi);
+  private readonly auth = inject(AuthService);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
 
@@ -52,6 +54,7 @@ export class TemplatesComponent {
       : null,
   );
   readonly previewPdf = signal<Template | null>(null);
+  readonly previewUrl = signal<string | null>(null);
 
   readonly categoryFilters: Array<{ value: CategoryFilter; label: string }> = [
     { value: 'all', label: 'All' },
@@ -95,7 +98,14 @@ export class TemplatesComponent {
 
   async onPreview(template: Template): Promise<void> {
     if (template.fileType === 'pdf') {
-      this.previewPdf.set(template);
+      try {
+        const token = await this.auth.getDownloadToken();
+        const url = `${this.api.getContentUrl(template.id)}?dt=${encodeURIComponent(token)}`;
+        this.previewUrl.set(url);
+        this.previewPdf.set(template);
+      } catch {
+        this.snackBar.open('Could not open preview.', 'Dismiss', { duration: 4000 });
+      }
       return;
     }
 
@@ -112,15 +122,22 @@ export class TemplatesComponent {
       return;
     }
 
-    this.onDownload(template);
+    await this.onDownload(template);
   }
 
-  onDownload(template: Template): void {
-    window.open(this.api.getContentUrl(template.id), '_blank', 'noopener');
+  async onDownload(template: Template): Promise<void> {
+    try {
+      const token = await this.auth.getDownloadToken();
+      const url = `${this.api.getContentUrl(template.id)}?dt=${encodeURIComponent(token)}`;
+      window.open(url, '_blank', 'noopener');
+    } catch {
+      this.snackBar.open('Could not download template.', 'Dismiss', { duration: 4000 });
+    }
   }
 
   closePdfPreview(): void {
     this.previewPdf.set(null);
+    this.previewUrl.set(null);
   }
 
   categoryLabel(category: TemplateCategory): string {
@@ -131,9 +148,5 @@ export class TemplatesComponent {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
-  contentUrl(template: Template): string {
-    return this.api.getContentUrl(template.id);
   }
 }

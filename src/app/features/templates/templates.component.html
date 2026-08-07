@@ -71,7 +71,7 @@
         <strong>{{ pdf.name }}</strong>
         <button type="button" class="btn btn-secondary" (click)="closePdfPreview()">Close</button>
       </div>
-      <app-pdf-preview [fileUrl]="contentUrl(pdf)" [fileName]="pdf.name" />
+      <app-pdf-preview [fileUrl]="previewUrl()!" [fileName]="pdf.name" />
     </div>
   }
 </div>
