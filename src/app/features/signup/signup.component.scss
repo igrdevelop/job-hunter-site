@@ -1,0 +1,63 @@
+@use '../../styles/mixins' as m;
+
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  border-radius: var(--radius) !important;
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-neutral-300);
+  box-shadow: var(--shadow-md);
+}
+
+:host ::ng-deep .mat-mdc-card-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 24px;
+}
+
+.full-width {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.error {
+  color: var(--color-error);
+  font-size: 0.875rem;
+}
+
+.footer-link {
+  text-align: center;
+  font-size: 0.875rem;
+  margin-top: 8px;
+  color: var(--color-text-secondary);
+
+  a {
+    color: var(--color-accent);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+.success-state {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: center;
+
+  p {
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+  }
+}
