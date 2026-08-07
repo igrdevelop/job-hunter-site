@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
+import { adminGuard } from './core/auth/role.guard';
 
 const loadFiles = () =>
   import('./features/files/files.component').then((m) => m.FilesComponent);
@@ -51,6 +52,12 @@ export const routes: Routes = [
         path: 'settings',
         loadComponent: () =>
           import('./features/settings/settings.component').then((m) => m.SettingsComponent),
+      },
+      {
+        path: 'admin',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./features/admin/admin.component').then((m) => m.AdminComponent),
       },
       { path: '', redirectTo: 'applications', pathMatch: 'full' },
     ],
