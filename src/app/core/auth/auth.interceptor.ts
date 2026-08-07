@@ -19,6 +19,8 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     catchError((error) => {
       if (error?.status === 401 && needsAuth) {
         authService.logout();
+      } else if (error?.status === 403 && needsAuth) {
+        authService.needsEmailVerification.set(true);
       }
       return throwError(() => error);
     }),
