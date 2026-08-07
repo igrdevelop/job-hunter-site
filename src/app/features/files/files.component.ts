@@ -13,6 +13,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { FilesApi } from '../../core/api/files.api';
+import { AuthService } from '../../core/auth/auth.service';
 import { FileInfo, FolderInfo } from '../../core/api/models';
 import { FolderListComponent } from '../../shared/folder-list/folder-list.component';
 import { FileListComponent } from '../../shared/file-list/file-list.component';
@@ -39,6 +40,7 @@ interface Breadcrumb {
 })
 export class FilesComponent {
   private readonly api = inject(FilesApi);
+  private readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
@@ -84,6 +86,7 @@ export class FilesComponent {
       : null,
   );
   readonly previewEntry = signal<FileInfo | null>(null);
+  readonly previewUrl = signal<string | null>(null);
 
   readonly folders = computed<FolderInfo[]>(() =>
     this.atFileLevel() ? [] : (this.entries() as FolderInfo[]),
@@ -96,6 +99,7 @@ export class FilesComponent {
     effect(() => {
       this.currentPath();
       this.previewEntry.set(null);
+      this.previewUrl.set(null);
     });
   }
 
@@ -108,16 +112,25 @@ export class FilesComponent {
     this.router.navigate(['/files', date, folder.name]);
   }
 
-  previewPdf(entry: FileInfo): void {
-    this.previewEntry.set(entry);
+  async previewPdf(entry: FileInfo): Promise<void> {
+    try {
+      const token = await this.auth.getDownloadToken();
+      const url = `${this.api.getGeneratedFileUrl(`${this.currentPath()}/${entry.name}`)}?dt=${encodeURIComponent(token)}`;
+      this.previewEntry.set(entry);
+      this.previewUrl.set(url);
+    } catch {
+      this.snackBar.open('Could not open preview.', 'Dismiss', { duration: 4000 });
+    }
   }
 
-  fileUrl(entry: FileInfo): string {
-    return this.api.getGeneratedFileUrl(`${this.currentPath()}/${entry.name}`);
-  }
-
-  downloadFile(entry: FileInfo): void {
-    window.open(this.fileUrl(entry), '_blank', 'noopener');
+  async downloadFile(entry: FileInfo): Promise<void> {
+    try {
+      const token = await this.auth.getDownloadToken();
+      const url = `${this.api.getGeneratedFileUrl(`${this.currentPath()}/${entry.name}`)}?dt=${encodeURIComponent(token)}`;
+      window.open(url, '_blank', 'noopener');
+    } catch {
+      this.snackBar.open('Could not download file.', 'Dismiss', { duration: 4000 });
+    }
   }
 
   async viewText(entry: FileInfo): Promise<void> {

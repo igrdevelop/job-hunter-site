@@ -28,7 +28,7 @@
   }
 
   @if (previewEntry(); as entry) {
-    <app-pdf-preview [fileUrl]="fileUrl(entry)" [fileName]="entry.name" />
+    <app-pdf-preview [fileUrl]="previewUrl()!" [fileName]="entry.name" />
   } @else {
     @if (folders().length > 0) {
       <app-folder-list [folders]="folders()" (open)="openFolder($event)" />

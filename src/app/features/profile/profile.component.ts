@@ -79,13 +79,19 @@ export class ProfileComponent {
     return this.currentPath() ? `${this.currentPath()}/${entry.name}` : entry.name;
   }
 
-  downloadFile(entry: FileInfo): void {
-    window.open(this.api.getProfileFileUrl(this.entryPath(entry)), '_blank', 'noopener');
+  async downloadFile(entry: FileInfo): Promise<void> {
+    try {
+      const token = await this.authService.getDownloadToken();
+      const url = `${this.api.getProfileFileUrl(this.entryPath(entry))}?dt=${encodeURIComponent(token)}`;
+      window.open(url, '_blank', 'noopener');
+    } catch {
+      this.snackBar.open('Could not download file.', 'Dismiss', { duration: 4000 });
+    }
   }
 
   /** FileList emits preview for PDFs — profile rarely has them; download instead. */
   previewPdf(entry: FileInfo): void {
-    this.downloadFile(entry);
+    void this.downloadFile(entry);
   }
 
   async viewText(entry: FileInfo): Promise<void> {
