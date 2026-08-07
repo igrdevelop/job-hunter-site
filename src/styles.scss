@@ -51,6 +51,15 @@ body {
   color-scheme: dark;
 }
 
+/* Routed page components are inserted by <router-outlet> via ViewContainerRef, so they
+   never receive AppComponent's _ngcontent-* attribute — a scoped rule in app.scss can never
+   match them. This has to live in an unscoped global stylesheet to actually reach them. */
+main.app-content--chrome > *:not(router-outlet) {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
 /* Dark AG Grid chrome — applied globally so component budgets stay lean.
    Targets both the host theme class and AG Grid's duplicated .ag-styled-root. */
 .ag-theme-material.applications-grid,
