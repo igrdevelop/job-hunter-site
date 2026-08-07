@@ -1,32 +1,41 @@
 <nav class="nav">
-  <a routerLink="/applications" class="nav-brand">Job Hunter</a>
+  <div class="nav-inner">
+    <a routerLink="/applications" class="nav-brand">
+      <svg width="20" height="20" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+        <rect x="10" y="38" width="10" height="16" rx="5" fill="rgba(255,255,255,0.35)"/>
+        <rect x="27" y="26" width="10" height="28" rx="5" fill="#409cff"/>
+        <rect x="44" y="10" width="10" height="44" rx="5" fill="#30d158"/>
+      </svg>
+      Jobhunter
+    </a>
 
-  <div class="nav-links">
-    <a routerLink="/applications" routerLinkActive="active">Applications</a>
-    <a routerLink="/files" routerLinkActive="active">Files</a>
-    <a routerLink="/templates" routerLinkActive="active">Templates</a>
-    <a routerLink="/stats" routerLinkActive="active">Stats</a>
-    <a routerLink="/profile" routerLinkActive="active">Profile</a>
-    <a routerLink="/settings" routerLinkActive="active">Settings</a>
-    @if (authService.currentUser()?.role === 'admin') {
-      <a routerLink="/admin" routerLinkActive="active">Admin</a>
-    }
-  </div>
+    <div class="nav-links">
+      <a routerLink="/applications" routerLinkActive="active">Applications</a>
+      <a routerLink="/files" routerLinkActive="active">Files</a>
+      <a routerLink="/templates" routerLinkActive="active">Templates</a>
+      <a routerLink="/stats" routerLinkActive="active">Stats</a>
+      <a routerLink="/profile" routerLinkActive="active">Profile</a>
+      <a routerLink="/settings" routerLinkActive="active">Settings</a>
+      @if (authService.currentUser()?.role === 'admin') {
+        <a routerLink="/admin" routerLinkActive="active">Admin</a>
+      }
+    </div>
 
-  <button
-    type="button"
-    class="avatar-btn"
-    [matMenuTriggerFor]="userMenu"
-    aria-label="User menu"
-  >
-    <span class="avatar">{{ initials() }}</span>
-  </button>
-  <mat-menu #userMenu="matMenu">
-    @if (authService.currentUser(); as user) {
-      <div class="user-email">{{ user.email }}</div>
-    }
-    <button mat-menu-item type="button" (click)="authService.logout()">
-      <span>Log out</span>
+    <button
+      type="button"
+      class="avatar-btn"
+      [matMenuTriggerFor]="userMenu"
+      aria-label="User menu"
+    >
+      <span class="avatar">{{ initials() }}</span>
     </button>
-  </mat-menu>
+    <mat-menu #userMenu="matMenu">
+      @if (authService.currentUser(); as user) {
+        <div class="user-email">{{ user.email }}</div>
+      }
+      <button mat-menu-item type="button" (click)="authService.logout()">
+        <span>Log out</span>
+      </button>
+    </mat-menu>
+  </div>
 </nav>

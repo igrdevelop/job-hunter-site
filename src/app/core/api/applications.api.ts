@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   Application,
+  ApplicationCreate,
   ApplicationPatch,
   ApplicationsQuery,
   ApplicationStats,
@@ -33,6 +34,12 @@ export class ApplicationsApi {
   getStats(): Promise<ApplicationStats> {
     return firstValueFrom(
       this.http.get<ApplicationStats>(`${this.baseUrl}/applications/stats`),
+    );
+  }
+
+  create(data: ApplicationCreate): Promise<Application> {
+    return firstValueFrom(
+      this.http.post<Application>(`${this.baseUrl}/applications`, data),
     );
   }
 

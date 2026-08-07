@@ -17,6 +17,12 @@ export interface Application {
 
 export type ApplicationPatch = Partial<Pick<Application, 'sent' | 'toLearn'>>;
 
+// A new application is created from a job listing URL, the vacancy text, or both.
+export interface ApplicationCreate {
+  url?: string;
+  text?: string;
+}
+
 export const SORTABLE_COLUMNS = [
   'date',
   'company',

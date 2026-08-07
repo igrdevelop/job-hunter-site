@@ -90,7 +90,7 @@ main.app-content--chrome > *:not(router-outlet) {
   --ag-card-radius: var(--radius);
   --ag-cell-horizontal-padding: 16px;
   --ag-header-height: 44px;
-  --ag-row-height: 48px;
+  --ag-row-height: 52px;
   scrollbar-width: thin;
   scrollbar-color: var(--color-neutral-400) transparent;
 }
@@ -106,16 +106,26 @@ main.app-content--chrome > *:not(router-outlet) {
 }
 
 .applications-grid .ag-header-cell-text {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.4px;
   text-transform: uppercase;
   color: var(--color-neutral-500);
 }
 
 .applications-grid .cell-company {
-  font-weight: 700;
+  font-weight: 600;
+  font-size: 14px;
   color: var(--color-text);
+}
+
+.applications-grid .cell-date {
+  color: var(--color-neutral-500);
+}
+
+.applications-grid .cell-stack {
+  font-size: 12px;
+  color: var(--color-neutral-600);
 }
 
 .applications-grid .cell-ats {
