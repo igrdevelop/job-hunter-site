@@ -10,6 +10,14 @@ export const routes: Routes = [
     loadComponent: () => import('./features/login/login.component').then((m) => m.LoginComponent),
   },
   {
+    path: 'signup',
+    loadComponent: () => import('./features/signup/signup.component').then((m) => m.SignupComponent),
+  },
+  {
+    path: 'verify',
+    loadComponent: () => import('./features/verify/verify.component').then((m) => m.VerifyComponent),
+  },
+  {
     path: '',
     canActivate: [authGuard],
     children: [

@@ -31,3 +31,19 @@
   color: var(--color-error);
   font-size: 0.875rem;
 }
+
+.footer-link {
+  text-align: center;
+  font-size: 0.875rem;
+  margin-top: 8px;
+  color: var(--color-text-secondary);
+
+  a {
+    color: var(--color-accent);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}

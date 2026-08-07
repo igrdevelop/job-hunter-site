@@ -2,6 +2,13 @@
   <app-header />
 }
 
+@if (authService.needsEmailVerification()) {
+  <div class="verify-banner">
+    Your email address is not verified. Check your inbox or
+    <a routerLink="/verify">resend the verification email</a>.
+  </div>
+}
+
 <main class="app-content" [class.app-content--chrome]="authService.isLoggedIn()">
   <router-outlet />
 </main>
