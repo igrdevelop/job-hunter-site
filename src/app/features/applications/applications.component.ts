@@ -5,6 +5,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatDialog } from '@angular/material/dialog';
 import { AgGridAngular } from 'ag-grid-angular';
 import {
   AllCommunityModule,
@@ -26,6 +27,7 @@ import {
 import { UrlCellRendererComponent } from './cell-renderers/url-cell-renderer.component';
 import { FolderCellRendererComponent } from './cell-renderers/folder-cell-renderer.component';
 import { SentStatusCellRendererComponent } from './cell-renderers/sent-status-cell-renderer.component';
+import { NewApplicationDialogComponent } from './new-application-dialog/new-application-dialog.component';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -50,6 +52,7 @@ export class ApplicationsComponent {
   private readonly api = inject(ApplicationsApi);
   private readonly destroyRef = inject(DestroyRef);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
 
   private gridApi?: GridApi<Application>;
 
@@ -70,7 +73,7 @@ export class ApplicationsComponent {
   };
 
   readonly columnDefs: ColDef<Application>[] = [
-    { field: 'date', sortable: true, headerName: 'Date', width: 118 },
+    { field: 'date', sortable: true, headerName: 'Date', width: 118, cellClass: 'cell-date' },
     {
       field: 'company',
       sortable: true,
@@ -80,7 +83,7 @@ export class ApplicationsComponent {
       cellClass: 'cell-company',
     },
     { field: 'title', sortable: true, headerName: 'Job Title', minWidth: 200, flex: 1.4 },
-    { field: 'stack', headerName: 'Stack', minWidth: 110, flex: 0.7 },
+    { field: 'stack', headerName: 'Stack', minWidth: 110, flex: 0.7, cellClass: 'cell-stack' },
     {
       field: 'atsStatus',
       sortable: true,
@@ -155,6 +158,18 @@ export class ApplicationsComponent {
     } catch {
       this.stats.set(null);
     }
+  }
+
+  openNewApplication(): void {
+    this.dialog
+      .open<NewApplicationDialogComponent, void, Application>(NewApplicationDialogComponent)
+      .afterClosed()
+      .subscribe((created) => {
+        if (!created) return;
+        this.snackBar.open('Application created.', undefined, { duration: 3000 });
+        this.gridApi?.refreshInfiniteCache();
+        void this.loadStats();
+      });
   }
 
   onStatusFilterChange(status: SentFilter): void {

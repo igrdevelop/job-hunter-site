@@ -58,7 +58,29 @@
 }
 
 .search-field {
-  flex: 1 1 280px;
+  flex: 0 1 280px;
+  min-width: 200px;
+}
+
+.toolbar-spacer {
+  flex: 1 1 auto;
+}
+
+.btn-new-app {
+  border: none;
+  border-radius: var(--radius);
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-accent-400), var(--color-accent-600));
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+  white-space: nowrap;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(59, 130, 246, 0.45);
+  }
 }
 
 .error {

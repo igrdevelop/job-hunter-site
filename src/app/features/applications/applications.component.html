@@ -44,6 +44,12 @@
     @if (loading()) {
       <mat-spinner diameter="24"></mat-spinner>
     }
+
+    <span class="toolbar-spacer"></span>
+
+    <button type="button" class="btn btn-new-app" (click)="openNewApplication()">
+      + New application
+    </button>
   </div>
 
   @if (errorMessage()) {
