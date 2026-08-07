@@ -138,7 +138,9 @@ export class ApplicationsComponent {
     this.loadStats();
 
     const intervalId = setInterval(
-      () => this.gridApi?.purgeInfiniteCache(),
+      // refreshInfiniteCache keeps current rows visible until new data arrives (no flicker),
+      // unlike purgeInfiniteCache which blanks the grid immediately.
+      () => this.gridApi?.refreshInfiniteCache(),
       REFRESH_INTERVAL_MS,
     );
     this.destroyRef.onDestroy(() => {
