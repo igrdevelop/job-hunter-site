@@ -14,6 +14,7 @@ export class AuthService {
 
   private readonly token = signal<string | null>(this.readStoredToken());
   private readonly user = signal<User | null>(null);
+  readonly needsEmailVerification = signal(false);
 
   readonly isLoggedIn = computed(() => this.token() !== null);
   readonly currentUser = this.user.asReadonly();
@@ -47,6 +48,24 @@ export class AuthService {
     return user;
   }
 
+  async register(email: string, password: string): Promise<void> {
+    await firstValueFrom(
+      this.http.post(`${environment.authBaseUrl}/register`, { email, password }),
+    );
+  }
+
+  async verifyEmail(token: string): Promise<void> {
+    await firstValueFrom(
+      this.http.post(`${environment.authBaseUrl}/verify`, { token }),
+    );
+  }
+
+  async resendVerification(email: string): Promise<void> {
+    await firstValueFrom(
+      this.http.post(`${environment.authBaseUrl}/resend`, { email }),
+    );
+  }
+
   async getDownloadToken(): Promise<string> {
     const res = await firstValueFrom(
       this.http.get<DownloadTokenResponse>(`${environment.authBaseUrl}/download-token`),
@@ -57,6 +76,7 @@ export class AuthService {
   logout(): void {
     this.token.set(null);
     this.user.set(null);
+    this.needsEmailVerification.set(false);
     localStorage.removeItem(TOKEN_KEY);
     this.router.navigate(['/login']);
   }
