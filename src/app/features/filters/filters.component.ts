@@ -40,17 +40,17 @@ export interface FilterSection {
 export const FILTER_SECTIONS: FilterSection[] = [
   {
     id: 1,
-    title: '1. Что ищем',
+    title: '1. What we look for',
     keys: ['title_keywords', 'require_title_terms'],
   },
   {
     id: 2,
-    title: '2. Уровень и роль',
+    title: '2. Level & role',
     keys: ['exclude_levels'],
   },
   {
     id: 3,
-    title: '3. Стек',
+    title: '3. Stack',
     keys: [
       'exclude_patterns',
       'exclude_stacks_without',
@@ -62,7 +62,7 @@ export const FILTER_SECTIONS: FilterSection[] = [
   },
   {
     id: 4,
-    title: '4. Локация и гибрид',
+    title: '4. Location & hybrid',
     keys: [
       'home_city',
       'locations',
@@ -73,17 +73,17 @@ export const FILTER_SECTIONS: FilterSection[] = [
   },
   {
     id: 5,
-    title: '5. Языки',
+    title: '5. Languages',
     keys: ['exclude_german_language_required', 'languages'],
   },
   {
     id: 6,
-    title: '6. Контракт',
+    title: '6. Contract',
     keys: ['exclude_unacceptable_contract', 'exclude_relocation_required'],
   },
   {
     id: 7,
-    title: '7. Защита от спама',
+    title: '7. Spam protection',
     keys: ['exclude_ai_training', 'exclude_companies'],
   },
 ];
@@ -318,7 +318,7 @@ export class FiltersComponent {
     const speaksGerman = langs.some((l) => l.toLowerCase().includes('german') || l === 'de');
     if (!speaksGerman) return null;
     if (this.isOverridden('exclude_german_language_required')) return null;
-    return 'В профиле указан немецкий — фильтр выключен по умолчанию, если API так выставит default.';
+    return 'Your profile lists German — this filter is typically off by default when the API derives that.';
   }
 
   fieldError(key: keyof FilterProfile): string | null {
@@ -352,23 +352,25 @@ export class FiltersComponent {
       const result = await this.api.put(this.draft());
       this.applyPayload(result);
       this.snackBar.open(
-        'Сохранено. Применится со следующего цикла охоты.',
+        'Saved. Changes apply on the next hunt cycle.',
         undefined,
         { duration: 4000 },
       );
     } catch (err) {
       if (err instanceof HttpErrorResponse) {
         if (err.status === 404) {
-          this.saveError.set('API ещё нет — сохранение недоступно, пока /api/filters не задеплоен.');
+          this.saveError.set(
+            'API not available yet — saving is disabled until /api/filters is deployed.',
+          );
         } else if (err.status === 400) {
           const body = err.error as FiltersErrors | null;
           this.fieldErrors.set(body?.errors ?? {});
-          this.saveError.set('Исправьте ошибки в полях и попробуйте снова.');
+          this.saveError.set('Fix the field errors and try again.');
         } else {
-          this.saveError.set('Не удалось сохранить фильтры.');
+          this.saveError.set('Could not save filters.');
         }
       } else {
-        this.saveError.set('Не удалось сохранить фильтры.');
+        this.saveError.set('Could not save filters.');
       }
     } finally {
       this.saving.set(false);

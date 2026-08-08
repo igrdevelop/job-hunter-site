@@ -61,7 +61,7 @@ describe('FiltersComponent', () => {
       fixture.detectChanges();
       const row = fixture.nativeElement.querySelector('[data-key="title_keywords"]');
       expect(row?.classList.contains('overridden')).toBe(true);
-      expect(row?.querySelector('.badge')?.textContent?.trim()).toBe('изменено');
+      expect(row?.querySelector('.badge')?.textContent?.trim()).toBe('modified');
 
       component.resetField('title_keywords');
       fixture.detectChanges();
@@ -90,7 +90,7 @@ describe('FiltersComponent', () => {
       fixture.detectChanges();
       expect(component.isOverridden('require_title_terms')).toBe(true);
       const row = fixture.nativeElement.querySelector('[data-key="require_title_terms"]');
-      expect(row?.querySelector('.badge')?.textContent?.trim()).toBe('изменено');
+      expect(row?.querySelector('.badge')?.textContent?.trim()).toBe('modified');
     });
   });
 
@@ -180,7 +180,7 @@ describe('FiltersComponent', () => {
       expect(component.baseline()).toEqual(response.overrides);
       expect(component.isDirty()).toBe(false);
       expect(open).toHaveBeenCalledWith(
-        'Сохранено. Применится со следующего цикла охоты.',
+        'Saved. Changes apply on the next hunt cycle.',
         undefined,
         expect.any(Object),
       );
@@ -199,7 +199,7 @@ describe('FiltersComponent', () => {
       );
       await component.save();
       expect(component.fieldError('exclude_patterns')).toContain('exclude_patterns[3]');
-      expect(component.saveError()).toContain('Исправьте ошибки');
+      expect(component.saveError()).toContain('Fix the field errors');
     });
 
     it('save() shows API-not-ready message on 404', async () => {
@@ -208,7 +208,7 @@ describe('FiltersComponent', () => {
         new HttpErrorResponse({ status: 404, statusText: 'Not Found' }),
       );
       await component.save();
-      expect(component.saveError()).toContain('API ещё нет');
+      expect(component.saveError()).toContain('API not available yet');
     });
   });
 });

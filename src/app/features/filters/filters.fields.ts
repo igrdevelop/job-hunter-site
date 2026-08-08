@@ -7,65 +7,65 @@ export interface FilterFieldCopy {
 
 export const FILTER_FIELD_COPY: Partial<Record<keyof FilterProfile, FilterFieldCopy>> = {
   title_keywords: {
-    label: 'Ключевые слова в заголовке',
-    hint: 'Вакансия берётся, если заголовок содержит хотя бы одно из них.',
+    label: 'Title keywords',
+    hint: 'A listing is kept if the title contains at least one of these.',
   },
   require_title_terms: {
-    label: 'Обязательные термины в заголовке',
-    hint: 'Если задано — слово ОБЯЗАНО быть в каждом заголовке. Пусто = не требовать.',
+    label: 'Required title terms',
+    hint: 'When set, every title must include these terms. Leave empty to require none.',
   },
   exclude_levels: {
-    label: 'Исключаемые слова уровня',
-    hint: 'Полный список, редактируемый. Группы выше — только быстрые ярлыки.',
+    label: 'Excluded level words',
+    hint: 'Full editable list. The checkboxes above are shortcuts only.',
   },
   exclude_patterns: {
-    label: 'Исключить, если в заголовке',
-    hint: 'Обычные слова — границы слов учитываются автоматически («java» не заденет «javascript»).',
+    label: 'Skip if title matches',
+    hint: 'Plain words use word boundaries automatically (“java” will not match “javascript”).',
   },
   exclude_stacks_without: {
-    label: 'Правило «X без Y»',
-    hint: 'Отсеивать вакансии со стеком X, если рядом нет Y.',
+    label: '“X without Y” rule',
+    hint: 'Skip listings that mention stack X unless Y is also present.',
   },
   exclude_fullstack_with_backend: {
-    label: 'Отсеивать фуллстек с «тяжёлым» бэкендом',
+    label: 'Skip fullstack roles with a heavy backend',
   },
   fullstack_backend_stacks: {
-    label: 'Тяжёлые бэкенд-стеки',
+    label: 'Heavy backend stacks',
   },
   exclude_body_disqualifiers: {
-    label: 'Стоп-стек в тексте вакансии',
-    hint: 'Заголовок чистый, а в описании вылезает платформа. Отдельный список от заголовочного.',
+    label: 'Stop-stack in job body',
+    hint: 'Catches a clean FE title when the description reveals an unwanted platform. Separate from the title list.',
   },
   body_exclude_patterns: {
-    label: 'Паттерны стоп-стека в теле',
+    label: 'Body stop-stack patterns',
   },
   exclude_body_onsite_city: {
-    label: 'Отсеивать гибрид/офис в чужом городе',
-    hint: 'Ловит «remote» в шапке + «3 дня в офисе в Кракове» в тексте.',
+    label: 'Skip hybrid/office in another city',
+    hint: 'Catches “remote” in the header plus “3 days in a Kraków office” in the body.',
   },
   allow_low_frequency_hybrid: {
-    label: 'Разрешить гибрид с редкими визитами в офис',
-    hint: '«1 день в неделю или реже» в польском городе не отсеивается.',
+    label: 'Allow hybrid with rare office visits',
+    hint: 'About one day a week or less in a Polish city is kept; more often, unspecified, or abroad is still skipped.',
   },
   extra_anti_hybrid_cities: {
-    label: 'Стоп-города для гибрида',
-    hint: 'Серые с замком — общий калиброванный список, убрать нельзя. Свои — можно.',
+    label: 'Hybrid stop-cities',
+    hint: 'Locked chips are the shared calibrated list and cannot be removed. Your additions can.',
   },
   exclude_german_language_required: {
-    label: 'Отсеивать вакансии с обязательным немецким',
+    label: 'Skip jobs that require German',
   },
   exclude_unacceptable_contract: {
-    label: 'Отсеивать part-time и короткие контракты',
+    label: 'Skip part-time and short contracts',
   },
   exclude_relocation_required: {
-    label: 'Отсеивать вакансии с обязательной релокацией',
+    label: 'Skip jobs that require relocation',
   },
   exclude_ai_training: {
-    label: 'Отсеивать AI-training / staffing-mill конторы',
+    label: 'Skip AI-training / staffing-mill companies',
   },
   exclude_companies: {
-    label: 'Блоклист компаний',
-    hint: '🔒 — общий блоклист, калиброван на реальных инцидентах, снять нельзя.',
+    label: 'Company blocklist',
+    hint: 'Locked entries are the shared blocklist (calibrated on real incidents) and cannot be removed.',
   },
 };
 
