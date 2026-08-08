@@ -1,8 +1,15 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideRouter } from '@angular/router';
+import {
+  ActivatedRoute,
+  ParamMap,
+  Router,
+  convertToParamMap,
+  provideRouter,
+} from '@angular/router';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { BehaviorSubject } from 'rxjs';
 import { vi } from 'vitest';
 import { TemplatesComponent } from './templates.component';
 import { TemplatesApi } from '../../core/api/templates.api';
@@ -27,8 +34,13 @@ describe('TemplatesComponent', () => {
   let component: TemplatesComponent;
   let api: TemplatesApi;
   let authService: AuthService;
+  let queryParams$: BehaviorSubject<ParamMap>;
+  let routeStub: Partial<ActivatedRoute>;
 
   beforeEach(async () => {
+    queryParams$ = new BehaviorSubject(convertToParamMap({}));
+    routeStub = { queryParamMap: queryParams$.asObservable() };
+
     await TestBed.configureTestingModule({
       imports: [TemplatesComponent],
       providers: [
@@ -36,6 +48,7 @@ describe('TemplatesComponent', () => {
         provideHttpClientTesting(),
         provideRouter([]),
         provideAnimationsAsync(),
+        { provide: ActivatedRoute, useValue: routeStub },
       ],
     }).compileComponents();
 
@@ -61,9 +74,36 @@ describe('TemplatesComponent', () => {
     expect(component.filteredTemplates()).toHaveLength(3);
   });
 
-  it('filteredTemplates filters by category', () => {
-    component.onCategoryChange('resume');
+  it('filteredTemplates filters by the ?category= query param', () => {
+    queryParams$.next(convertToParamMap({ category: 'resume' }));
+    expect(component.selectedCategory()).toBe('resume');
     expect(component.filteredTemplates()).toEqual([T_PDF]);
+  });
+
+  it('falls back to "all" on an unknown ?category= value', () => {
+    queryParams$.next(convertToParamMap({ category: 'nonsense' }));
+    expect(component.selectedCategory()).toBe('all');
+    expect(component.filteredTemplates()).toHaveLength(3);
+  });
+
+  it('onCategoryChange() writes the category into the query params', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    component.onCategoryChange('cover-letter');
+    expect(navigate).toHaveBeenCalledWith([], {
+      relativeTo: routeStub,
+      queryParams: { category: 'cover-letter' },
+      queryParamsHandling: 'merge',
+    });
+  });
+
+  it('onCategoryChange("all") clears the category query param', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    component.onCategoryChange('all');
+    expect(navigate).toHaveBeenCalledWith([], {
+      relativeTo: routeStub,
+      queryParams: { category: null },
+      queryParamsHandling: 'merge',
+    });
   });
 
   it('onDelete() does nothing when confirm cancelled', async () => {
