@@ -1,13 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, UrlSegment, provideRouter } from '@angular/router';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { of } from 'rxjs';
 import { vi } from 'vitest';
 import { ProfileComponent } from './profile.component';
 import { FilesApi } from '../../core/api/files.api';
 import { AuthService } from '../../core/auth/auth.service';
 import { FileInfo, FolderInfo } from '../../core/api/models';
+
+function routeAt(...segments: string[]): Partial<ActivatedRoute> {
+  return { url: of(segments.map((s) => new UrlSegment(s, {}))) };
+}
 
 const FILE_PDF: FileInfo = { name: 'base_cv.pdf', size: 2048, type: 'pdf', modified: '2026-01-01T00:00:00Z' };
 const FILE_MD: FileInfo = { name: 'candidate_profile.md', size: 512, type: 'other', modified: '2026-01-01T00:00:00Z' };
@@ -27,6 +32,7 @@ describe('ProfileComponent — download flow', () => {
         provideHttpClientTesting(),
         provideRouter([]),
         provideAnimationsAsync(),
+        { provide: ActivatedRoute, useValue: routeAt() },
       ],
     }).compileComponents();
 
@@ -83,14 +89,73 @@ describe('ProfileComponent — download flow', () => {
     expect(spy).toHaveBeenCalledWith(FILE_PDF);
   });
 
-  it('openFolder() appends to currentPath', () => {
+  it('openFolder() navigates to the folder URL', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     component.openFolder(FOLDER);
-    expect(component.currentPath()).toBe('attachments');
+    expect(navigate).toHaveBeenCalledWith(['/profile', 'attachments']);
   });
 
-  it('goRoot() resets currentPath', () => {
-    component.openFolder(FOLDER);
+  it('goRoot() navigates back to /profile', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     component.goRoot();
-    expect(component.currentPath()).toBe('');
+    expect(navigate).toHaveBeenCalledWith(['/profile']);
+  });
+
+  it('shows a Templates shortcut linking to /profile/templates at root', () => {
+    const link: HTMLAnchorElement | null =
+      fixture.nativeElement.querySelector('a.shortcut-card');
+    expect(link).not.toBeNull();
+    expect(link!.getAttribute('href')).toBe('/profile/templates');
+  });
+});
+
+describe('ProfileComponent — URL-driven subfolder', () => {
+  let fixture: ComponentFixture<ProfileComponent>;
+  let component: ProfileComponent;
+  let filesApi: FilesApi;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ProfileComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        provideAnimationsAsync(),
+        { provide: ActivatedRoute, useValue: routeAt('examples', 'covers') },
+      ],
+    }).compileComponents();
+
+    filesApi = TestBed.inject(FilesApi);
+    vi.spyOn(filesApi, 'getProfileFiles').mockResolvedValue([FILE_MD]);
+
+    fixture = TestBed.createComponent(ProfileComponent);
+    component = fixture.componentInstance;
+    await fixture.whenStable();
+    fixture.detectChanges();
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it('derives currentPath from the URL and loads that subfolder', () => {
+    expect(component.currentPath()).toBe('examples/covers');
+    expect(filesApi.getProfileFiles).toHaveBeenCalledWith('examples/covers');
+  });
+
+  it('builds cumulative breadcrumb links per segment', () => {
+    expect(component.breadcrumbs()).toEqual([
+      { label: 'examples', link: ['/profile', 'examples'] },
+      { label: 'covers', link: ['/profile', 'examples', 'covers'] },
+    ]);
+  });
+
+  it('openFolder() navigates relative to the current URL path', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    component.openFolder(FOLDER);
+    expect(navigate).toHaveBeenCalledWith(['/profile', 'examples', 'covers', 'attachments']);
+  });
+
+  it('hides the Templates shortcut inside a subfolder', () => {
+    expect(fixture.nativeElement.querySelector('a.shortcut-card')).toBeNull();
   });
 });

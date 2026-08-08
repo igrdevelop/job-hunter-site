@@ -7,11 +7,13 @@ import {
   resource,
   signal,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TemplatesApi } from '../../core/api/templates.api';
 import { AuthService } from '../../core/auth/auth.service';
 import { Template, TemplateCategory } from '../../core/api/models';
@@ -30,6 +32,7 @@ type CategoryFilter = TemplateCategory | 'all';
     MatProgressSpinnerModule,
     MatDialogModule,
     PdfPreviewComponent,
+    RouterLink,
   ],
   templateUrl: './templates.component.html',
   styleUrl: './templates.component.scss',
@@ -38,6 +41,8 @@ type CategoryFilter = TemplateCategory | 'all';
 export class TemplatesComponent {
   private readonly api = inject(TemplatesApi);
   private readonly auth = inject(AuthService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
 
@@ -47,7 +52,16 @@ export class TemplatesComponent {
 
   readonly templates = computed(() => this.templatesResource.value() ?? []);
   readonly loading = this.templatesResource.isLoading;
-  readonly selectedCategory = signal<CategoryFilter>('all');
+
+  private readonly queryParams = toSignal(this.route.queryParamMap, { requireSync: true });
+
+  /** Category filter, driven by the ?category= query param. */
+  readonly selectedCategory = computed<CategoryFilter>(() => {
+    const raw = this.queryParams().get('category');
+    return this.categoryFilters.some((f) => f.value === raw)
+      ? (raw as CategoryFilter)
+      : 'all';
+  });
   readonly errorMessage = computed(() =>
     this.templatesResource.error()
       ? 'Could not load templates. Is the API reachable?'
@@ -72,7 +86,11 @@ export class TemplatesComponent {
   });
 
   onCategoryChange(category: CategoryFilter): void {
-    this.selectedCategory.set(category);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { category: category === 'all' ? null : category },
+      queryParamsHandling: 'merge',
+    });
   }
 
   onUpload(): void {

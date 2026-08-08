@@ -4,8 +4,9 @@ import {
   computed,
   inject,
   resource,
-  signal,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AnalyticsApi } from '../../core/api/analytics.api';
@@ -40,8 +41,16 @@ const STAGE_ORDER = ['tracked', 'generated', 'sent', 'confirmed', 'answered'];
 })
 export class StatsComponent {
   private readonly api = inject(AnalyticsApi);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
-  readonly period = signal<AnalyticsPeriod>('30d');
+  private readonly queryParams = toSignal(this.route.queryParamMap, { requireSync: true });
+
+  /** Analytics period, driven by the ?period= query param (default 30d). */
+  readonly period = computed<AnalyticsPeriod>(() => {
+    const raw = this.queryParams().get('period');
+    return PERIODS.includes(raw as AnalyticsPeriod) ? (raw as AnalyticsPeriod) : '30d';
+  });
   readonly periods = PERIODS;
 
   private readonly analyticsResource = resource({
@@ -74,6 +83,10 @@ export class StatsComponent {
   );
 
   onPeriodChange(period: AnalyticsPeriod): void {
-    this.period.set(period);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { period: period === '30d' ? null : period },
+      queryParamsHandling: 'merge',
+    });
   }
 }
