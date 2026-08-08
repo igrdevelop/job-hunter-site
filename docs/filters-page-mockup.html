@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Job Filters — макет страницы</title>
+<style>
+  /* минимум, только чтобы было читаемо */
+  body { font-family: system-ui, sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; line-height: 1.45; }
+  fieldset { border: 1px solid #ccc; border-radius: 8px; margin: 0 0 20px; padding: 12px 16px 16px; }
+  legend { font-weight: 600; padding: 0 6px; }
+  .hint { color: #777; font-size: 0.85em; margin: 2px 0 8px; }
+  .row { margin: 10px 0; }
+  label { cursor: pointer; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .chip { background: #e8f0fe; border: 1px solid #b6d0f7; border-radius: 12px; padding: 2px 10px; font-size: 0.9em; }
+  .chip button { border: none; background: none; cursor: pointer; padding: 0 0 0 4px; color: #555; }
+  .chip.locked { background: #eee; border-color: #ddd; color: #888; }
+  .chip.locked::after { content: " 🔒"; font-size: 0.8em; }
+  input[type=text] { padding: 4px 8px; border: 1px solid #bbb; border-radius: 6px; }
+  select { padding: 4px; }
+  .overridden { border-left: 3px solid #e8a33d; padding-left: 10px; }
+  .overridden .badge { background: #fdf1dc; color: #9a6b17; border-radius: 8px; font-size: 0.75em; padding: 1px 8px; margin-left: 6px; }
+  .reset { font-size: 0.8em; margin-left: 8px; }
+  .derived { background: #f6f6f6; border-radius: 8px; padding: 10px 14px; color: #555; }
+  .savebar { position: sticky; bottom: 0; background: #fff; border-top: 2px solid #e8a33d; padding: 10px 0; display: flex; gap: 10px; align-items: center; }
+  .savebar .dirty { color: #9a6b17; font-size: 0.9em; }
+  button.primary { background: #2563eb; color: #fff; border: none; border-radius: 6px; padding: 8px 18px; cursor: pointer; }
+  button.ghost { background: none; border: 1px solid #bbb; border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+  .preview { background: #f0f7f0; border: 1px solid #bcd8bc; border-radius: 8px; padding: 10px 14px; }
+  .verdict-skip { color: #b3261e; font-weight: 600; }
+  .verdict-ok { color: #1b7f3b; font-weight: 600; }
+  .error { color: #b3261e; font-size: 0.85em; }
+  .adv { font-size: 0.85em; }
+</style>
+</head>
+<body>
+
+<h1>Фильтры вакансий</h1>
+<p class="hint">Что бот берёт в обработку, а что отсеивает. Пустое поле = общий дефолт.
+Оранжевая полоска слева = вы переопределили дефолт. Применяется со следующего цикла охоты.</p>
+
+<!-- ═══ 1. Что ищем ═══ -->
+<fieldset>
+  <legend>1. Что ищем</legend>
+
+  <div class="row overridden">
+    <b>Ключевые слова в заголовке</b> <span class="badge">изменено</span>
+    <a class="reset" href="#">сбросить к дефолту</a>
+    <p class="hint">Вакансия берётся, если заголовок содержит хотя бы одно из них.</p>
+    <div class="chips">
+      <span class="chip">react <button>×</button></span>
+      <span class="chip">frontend <button>×</button></span>
+      <span class="chip">front-end <button>×</button></span>
+      <span class="chip">javascript <button>×</button></span>
+      <span class="chip">typescript <button>×</button></span>
+      <input type="text" placeholder="+ добавить слово">
+    </div>
+  </div>
+
+  <div class="row">
+    <b>Обязательные термины в заголовке</b>
+    <p class="hint">Если задано — слово ОБЯЗАНО быть в каждом заголовке. Пусто = не требовать.</p>
+    <div class="chips">
+      <input type="text" placeholder="+ добавить (например: react)">
+    </div>
+  </div>
+</fieldset>
+
+<!-- ═══ 2. Уровень и роль ═══ -->
+<fieldset>
+  <legend>2. Уровень и роль</legend>
+  <p class="hint">Быстрые группы:</p>
+  <div class="row">
+    <label><input type="checkbox" checked> Junior / Intern / стажировки</label><br>
+    <label><input type="checkbox" checked> Lead / менеджмент (tech lead, EM, CTO…)</label><br>
+    <label><input type="checkbox" checked> Part-time</label>
+  </div>
+  <div class="row">
+    <b>Исключаемые слова уровня</b> <span class="hint">(полный список, редактируемый)</span>
+    <div class="chips">
+      <span class="chip">junior <button>×</button></span>
+      <span class="chip">intern <button>×</button></span>
+      <span class="chip">stażysta <button>×</button></span>
+      <span class="chip">техлид <button>×</button></span>
+      <span class="chip">tech lead <button>×</button></span>
+      <span class="chip">engineering manager <button>×</button></span>
+      <input type="text" placeholder="+ добавить">
+    </div>
+  </div>
+</fieldset>
+
+<!-- ═══ 3. Стек ═══ -->
+<fieldset>
+  <legend>3. Стек</legend>
+
+  <div class="row overridden">
+    <b>Исключить, если в заголовке</b> <span class="badge">изменено</span>
+    <a class="reset" href="#">сбросить</a>
+    <p class="hint">Обычные слова — границы слов учитываются автоматически («java» не заденет «javascript»).</p>
+    <div class="chips">
+      <span class="chip">java <button>×</button></span>
+      <span class="chip">php <button>×</button></span>
+      <span class="chip">angular <button>×</button></span>
+      <span class="chip">wordpress <button>×</button></span>
+      <span class="chip">qa <button>×</button></span>
+      <input type="text" placeholder="+ добавить слово">
+    </div>
+    <label class="adv"><input type="checkbox"> расширенный режим: raw regex</label>
+    <div class="adv hint">в raw-режиме каждый паттерн проверяется на лету; кривой regex не даст сохранить</div>
+  </div>
+
+  <div class="row">
+    <b>Правило «X без Y»</b>
+    <p class="hint">Отсеивать вакансии со стеком X, если рядом нет Y.</p>
+    Блокировать <select><option>react</option><option>vue</option><option>— нет —</option></select>
+    если в вакансии нет <select><option>angular</option><option>react</option><option>— всегда —</option></select>
+  </div>
+
+  <div class="row">
+    <label><input type="checkbox" checked> <b>Отсеивать фуллстек с «тяжёлым» бэкендом</b></label>
+    <div class="chips">
+      <span class="chip">java <button>×</button></span>
+      <span class="chip">spring <button>×</button></span>
+      <span class="chip">.net <button>×</button></span>
+      <span class="chip">python <button>×</button></span>
+      <span class="chip">golang <button>×</button></span>
+      <input type="text" placeholder="+ добавить">
+    </div>
+  </div>
+
+  <div class="row">
+    <label><input type="checkbox" checked> <b>Стоп-стек в тексте вакансии</b></label>
+    <p class="hint">Заголовок чистый («Frontend Developer»), а в описании вылезает платформа,
+    с которой не работаешь. Проверяется по полному тексту, отдельный список от заголовочного.</p>
+    <div class="chips">
+      <span class="chip">blazor <button>×</button></span>
+      <span class="chip">mendix <button>×</button></span>
+      <span class="chip">outsystems <button>×</button></span>
+      <span class="chip">low-code <button>×</button></span>
+      <span class="chip">wordpress <button>×</button></span>
+      <span class="chip">drupal <button>×</button></span>
+      <span class="chip">magento <button>×</button></span>
+      <span class="chip">sharepoint <button>×</button></span>
+      <input type="text" placeholder="+ добавить">
+    </div>
+  </div>
+</fieldset>
+
+<!-- ═══ 4. Локация и гибрид ═══ -->
+<fieldset>
+  <legend>4. Локация и гибрид</legend>
+
+  <div class="derived row">
+    🏠 Домашний город: <b>Wrocław</b> (алиасы: wrocław, wroclaw) · принимаем: remote, zdalnie + домашний город.<br>
+    Берётся из профиля кандидата — <a href="#">менять там</a>, здесь не дублируется.
+  </div>
+
+  <div class="row">
+    <label><input type="checkbox" checked> <b>Отсеивать гибрид/офис в чужом городе</b></label>
+    <p class="hint">Ловит «remote» в шапке + «3 дня в офисе в Кракове» в тексте.</p>
+  </div>
+
+  <div class="row">
+    <label><input type="checkbox" checked> <b>Разрешить гибрид с редкими визитами в офис</b></label>
+    <p class="hint">Вакансия с «1 день в неделю или реже» в польском городе не отсеивается.
+    Чаще 1 дня/неделю, частота не указана или город за границей — отсев как обычно.</p>
+  </div>
+
+  <div class="row">
+    <b>Стоп-города для гибрида</b>
+    <p class="hint">Серые с замком — общий калиброванный список, убрать нельзя. Свои — можно.</p>
+    <div class="chips">
+      <span class="chip locked">berlin</span>
+      <span class="chip locked">helsinki</span>
+      <span class="chip locked">barcelona</span>
+      <span class="chip locked">limassol</span>
+      <span class="chip locked">bangalore</span>
+      <span class="chip locked">…ещё 25</span>
+      <span class="chip">poznań <button>×</button></span>
+      <input type="text" placeholder="+ добавить свой">
+    </div>
+  </div>
+</fieldset>
+
+<!-- ═══ 5. Языки ═══ -->
+<fieldset>
+  <legend>5. Языки</legend>
+  <div class="row">
+    <label><input type="checkbox"> <b>Отсеивать вакансии с обязательным немецким</b></label>
+    <p class="hint">💡 В профиле указан немецкий (B2) — фильтр выключен по умолчанию.</p>
+  </div>
+  <div class="derived row">
+    🗣 Языки кандидата: <b>английский, польский, русский, немецкий</b> — из профиля
+    (<a href="#">менять там</a>). Вакансия с обязательным языком не из этого списка
+    отсеивается на этапе проверки полного текста автоматически.
+  </div>
+</fieldset>
+
+<!-- ═══ 6. Контракт ═══ -->
+<fieldset>
+  <legend>6. Контракт</legend>
+  <div class="row">
+    <label><input type="checkbox" checked> Отсеивать part-time и короткие контракты</label><br>
+    <label><input type="checkbox" checked> Отсеивать вакансии с обязательной релокацией</label>
+  </div>
+</fieldset>
+
+<!-- ═══ 7. Защита от спама ═══ -->
+<fieldset>
+  <legend>7. Защита от спама</legend>
+  <div class="row">
+    <label><input type="checkbox" checked> <b>Отсеивать AI-training / staffing-mill конторы</b></label>
+    <div class="chips">
+      <span class="chip locked">micro1</span>
+      <span class="chip locked">alignerr</span>
+      <span class="chip locked">mercor</span>
+      <span class="chip locked">outlier ai</span>
+      <span class="chip">local-staffing-co <button>×</button></span>
+      <input type="text" placeholder="+ добавить компанию">
+    </div>
+    <p class="hint">🔒 — общий блоклист, калиброван на реальных инцидентах, снять нельзя.</p>
+  </div>
+</fieldset>
+
+<!-- ═══ 8. Проверка ═══ -->
+<fieldset>
+  <legend>8. Проверить на вакансии</legend>
+  <p class="hint">Вставь заголовок/текст вакансии — увидишь вердикт по ТЕКУЩИМ (несохранённым) настройкам.</p>
+  <div class="row">
+    <input type="text" style="width:60%" value="Senior Fullstack Developer (Java + Angular), hybrid Kraków">
+    <button class="ghost">Проверить</button>
+  </div>
+  <div class="preview">
+    Вердикт: <span class="verdict-skip">SKIP</span> — fullstack with heavy backend stack: java<br>
+    <span class="hint">этап 1 (фильтр заголовка) · правило: exclude_fullstack_with_backend</span>
+  </div>
+</fieldset>
+
+<!-- ═══ Save bar ═══ -->
+<div class="savebar">
+  <button class="primary">Сохранить</button>
+  <button class="ghost">Отменить изменения</button>
+  <button class="ghost">Сбросить всё к дефолтам</button>
+  <span class="dirty">● 3 несохранённых изменения</span>
+</div>
+<p class="error">Пример ошибки при сохранении: exclude_patterns[3]: invalid regex — unbalanced parenthesis</p>
+
+</body>
+</html>
