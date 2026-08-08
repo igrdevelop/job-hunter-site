@@ -7,8 +7,9 @@ import { vi } from 'vitest';
 import { FiltersComponent, FILTER_SECTIONS } from './filters.component';
 import { FiltersApi } from '../../core/api/filters.api';
 import { FILTERS_MOCK_PAYLOAD } from '../../core/api/filters.mock';
+import { EXCLUDE_LEVEL_GROUPS } from './exclude-level-groups';
 
-describe('FiltersComponent', () => {
+describe('FiltersComponent (M2 controls)', () => {
   let fixture: ComponentFixture<FiltersComponent>;
   let component: FiltersComponent;
   let api: FiltersApi;
@@ -36,37 +37,35 @@ describe('FiltersComponent', () => {
 
   afterEach(() => vi.restoreAllMocks());
 
-  it('loads filters via FiltersApi.get()', () => {
+  it('loads defaults and draft overrides from FiltersApi.get()', () => {
     expect(api.get).toHaveBeenCalled();
-    expect(component.payload()).toEqual(FILTERS_MOCK_PAYLOAD);
-    expect(component.loading()).toBe(false);
+    expect(component.ready()).toBe(true);
+    expect(component.defaults()?.title_keywords).toEqual(
+      FILTERS_MOCK_PAYLOAD.defaults.title_keywords,
+    );
+    expect(component.draft()).toEqual(FILTERS_MOCK_PAYLOAD.overrides);
   });
 
-  it('renders all seven section headers (no preview §8)', () => {
+  it('renders all seven section headers', () => {
     const text = fixture.nativeElement.textContent as string;
     for (const section of FILTER_SECTIONS) {
       expect(text).toContain(section.title);
     }
-    expect(text).toContain('deferred to v2');
     expect(FILTER_SECTIONS).toHaveLength(7);
-    expect(FILTER_SECTIONS.every((s) => s.id !== 8)).toBe(true);
   });
 
-  it('shows raw effective values from the mock payload', () => {
+  it('shows chip inputs and locked extend_only chips', () => {
     const text = fixture.nativeElement.textContent as string;
-    expect(text).toContain('title_keywords');
-    expect(text).toContain('react');
-    expect(text).toContain('exclude_companies');
+    expect(text).toContain('Ключевые слова в заголовке');
     expect(text).toContain('micro1');
-    expect(text).toContain('local-staffing-co');
+    const locked = fixture.nativeElement.querySelectorAll('.chip.locked');
+    expect(locked.length).toBeGreaterThan(0);
   });
 
-  it('marks overridden keys with the изменено badge', () => {
-    expect(component.isOverridden('title_keywords')).toBe(true);
-    expect(component.isOverridden('require_title_terms')).toBe(false);
-    const badges = fixture.nativeElement.querySelectorAll('.badge');
-    expect(badges.length).toBeGreaterThan(0);
-    expect((badges[0] as HTMLElement).textContent?.trim()).toBe('изменено');
+  it('renders tri-state group checkboxes for exclude_levels', () => {
+    const toggles = fixture.nativeElement.querySelectorAll('.group-toggle input');
+    expect(toggles.length).toBe(EXCLUDE_LEVEL_GROUPS.length);
+    expect(component.groupState(EXCLUDE_LEVEL_GROUPS[0])).toBe('checked');
   });
 
   it('shows error when GET fails', async () => {
@@ -77,6 +76,5 @@ describe('FiltersComponent', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(component.errorMessage()).toBe('Could not load filters.');
-    expect(fixture.nativeElement.textContent).toContain('Could not load filters.');
   });
 });

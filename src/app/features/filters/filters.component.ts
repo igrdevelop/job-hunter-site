@@ -2,14 +2,29 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
   resource,
+  signal,
 } from '@angular/core';
-import { JsonPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FiltersApi } from '../../core/api/filters.api';
-import { FilterMeta, FilterOverrides, FilterProfile } from '../../core/api/models';
+import {
+  ExcludeStacksWithout,
+  FilterMeta,
+  FilterOverrides,
+  FilterProfile,
+} from '../../core/api/models';
+import {
+  EXCLUDE_LEVEL_GROUPS,
+  ExcludeLevelGroup,
+  GroupCheckState,
+  groupCheckState,
+  toggleGroupWords,
+} from './exclude-level-groups';
+import { FILTER_FIELD_COPY, STACK_SELECT_OPTIONS } from './filters.fields';
 
 /** Page sections from FILTERS_YAML_PLAN M5 / filters-page-mockup.html (no §8 — v2). */
 export interface FilterSection {
@@ -69,9 +84,22 @@ export const FILTER_SECTIONS: FilterSection[] = [
   },
 ];
 
+const LIST_KEYS = new Set<keyof FilterProfile>([
+  'title_keywords',
+  'require_title_terms',
+  'exclude_levels',
+  'exclude_patterns',
+  'fullstack_backend_stacks',
+  'body_exclude_patterns',
+  'extra_anti_hybrid_cities',
+  'exclude_companies',
+  'locations',
+  'languages',
+]);
+
 @Component({
   selector: 'app-filters',
-  imports: [JsonPipe, RouterLink, MatProgressSpinnerModule],
+  imports: [FormsModule, RouterLink, MatProgressSpinnerModule],
   templateUrl: './filters.component.html',
   styleUrl: './filters.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -80,36 +108,202 @@ export class FiltersComponent {
   private readonly api = inject(FiltersApi);
 
   readonly sections = FILTER_SECTIONS;
+  readonly levelGroups = EXCLUDE_LEVEL_GROUPS;
+  readonly fieldCopy = FILTER_FIELD_COPY;
+  readonly stackOptions = STACK_SELECT_OPTIONS;
 
   private readonly filtersResource = resource({
     loader: () => this.api.get(),
   });
 
-  readonly payload = computed(() =>
-    this.filtersResource.hasValue() ? this.filtersResource.value() : null,
-  );
+  /** Layer-1 defaults from GET (immutable for the session until reload). */
+  readonly defaults = signal<FilterProfile | null>(null);
+  readonly meta = signal<Record<string, FilterMeta>>({});
+  /** Working overrides draft — PUT body shape. */
+  readonly draft = signal<FilterOverrides>({});
+
+  readonly chipDrafts = signal<Record<string, string>>({});
+  readonly advancedPatterns = signal(false);
+
   readonly loading = this.filtersResource.isLoading;
   readonly errorMessage = computed(() =>
     this.filtersResource.error() ? 'Could not load filters.' : null,
   );
+  readonly ready = computed(() => this.defaults() !== null);
 
-  readonly overrides = computed<FilterOverrides>(() => this.payload()?.overrides ?? {});
-  readonly effective = computed(() => this.payload()?.effective ?? null);
-  readonly meta = computed(() => this.payload()?.meta ?? {});
+  constructor() {
+    effect(() => {
+      if (!this.filtersResource.hasValue()) return;
+      const payload = this.filtersResource.value();
+      this.defaults.set(payload.defaults);
+      this.meta.set(payload.meta);
+      this.draft.set(structuredClone(payload.overrides));
+    });
+  }
 
   isOverridden(key: keyof FilterProfile): boolean {
-    return Object.prototype.hasOwnProperty.call(this.overrides(), key);
+    return Object.prototype.hasOwnProperty.call(this.draft(), key);
   }
 
   metaFor(key: keyof FilterProfile): FilterMeta | undefined {
     return this.meta()[key];
   }
 
-  valueOf(key: keyof FilterProfile): unknown {
-    return this.effective()?.[key];
+  isDerived(key: keyof FilterProfile): boolean {
+    return !!this.metaFor(key)?.derived;
   }
 
-  isList(value: unknown): value is string[] {
-    return Array.isArray(value);
+  /** Value shown/edited: override if present, else default. */
+  valueOf<K extends keyof FilterProfile>(key: K): FilterProfile[K] | undefined {
+    const d = this.defaults();
+    if (!d) return undefined;
+    if (this.isOverridden(key)) {
+      return this.draft()[key] as FilterProfile[K];
+    }
+    return d[key];
   }
+
+  labelOf(key: keyof FilterProfile): string {
+    return this.fieldCopy[key]?.label ?? key;
+  }
+
+  hintOf(key: keyof FilterProfile): string | undefined {
+    return this.fieldCopy[key]?.hint;
+  }
+
+  isListKey(key: keyof FilterProfile): boolean {
+    return LIST_KEYS.has(key);
+  }
+
+  listValue(key: keyof FilterProfile): string[] {
+    const v = this.valueOf(key);
+    return Array.isArray(v) ? v : [];
+  }
+
+  boolValue(key: keyof FilterProfile): boolean {
+    return !!this.valueOf(key);
+  }
+
+  isChipLocked(key: keyof FilterProfile, word: string): boolean {
+    if (this.metaFor(key)?.merge !== 'extend_only') return false;
+    const builtins = this.defaults()?.[key];
+    if (!Array.isArray(builtins)) return false;
+    const lower = word.toLowerCase();
+    return builtins.some((b) => b.toLowerCase() === lower);
+  }
+
+  resetField(key: keyof FilterProfile): void {
+    if (this.isDerived(key)) return;
+    const next = { ...this.draft() };
+    delete next[key];
+    this.draft.set(next);
+  }
+
+  setBoolean(key: keyof FilterProfile, checked: boolean): void {
+    if (this.isDerived(key)) return;
+    this.commitValue(key, checked);
+  }
+
+  addChip(key: keyof FilterProfile): void {
+    if (this.isDerived(key)) return;
+    const raw = (this.chipDrafts()[key] ?? '').trim();
+    if (!raw) return;
+    const list = [...this.listValue(key)];
+    if (!list.some((w) => w.toLowerCase() === raw.toLowerCase())) {
+      list.push(raw);
+      this.commitValue(key, list);
+    }
+    this.chipDrafts.update((m) => ({ ...m, [key]: '' }));
+  }
+
+  removeChip(key: keyof FilterProfile, word: string): void {
+    if (this.isChipLocked(key, word)) return;
+    const list = this.listValue(key).filter((w) => w !== word);
+    this.commitValue(key, list);
+  }
+
+  onChipKeydown(event: KeyboardEvent, key: keyof FilterProfile): void {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.addChip(key);
+    }
+  }
+
+  setChipDraft(key: keyof FilterProfile, value: string): void {
+    this.chipDrafts.update((m) => ({ ...m, [key]: value }));
+  }
+
+  groupState(group: ExcludeLevelGroup): GroupCheckState {
+    return groupCheckState(this.listValue('exclude_levels'), group.words);
+  }
+
+  toggleGroup(group: ExcludeLevelGroup): void {
+    const next = toggleGroupWords(this.listValue('exclude_levels'), group.words);
+    this.commitValue('exclude_levels', next);
+  }
+
+  stacksBlock(): string {
+    const rule = this.valueOf('exclude_stacks_without') as ExcludeStacksWithout | null;
+    return rule?.block?.[0] ?? '';
+  }
+
+  stacksUnless(): string {
+    const rule = this.valueOf('exclude_stacks_without') as ExcludeStacksWithout | null;
+    if (!rule) return '';
+    return rule.unless;
+  }
+
+  setStacksBlock(block: string): void {
+    if (!block) {
+      this.commitValue('exclude_stacks_without', null);
+      return;
+    }
+    const unless = this.stacksUnless() || 'angular';
+    this.commitValue('exclude_stacks_without', { unless, block: [block] });
+  }
+
+  setStacksUnless(unless: string): void {
+    const block = this.stacksBlock();
+    if (!block) {
+      this.commitValue('exclude_stacks_without', null);
+      return;
+    }
+    this.commitValue('exclude_stacks_without', { unless, block: [block] });
+  }
+
+  listDisabled(key: keyof FilterProfile): boolean {
+    if (key === 'fullstack_backend_stacks') {
+      return !this.boolValue('exclude_fullstack_with_backend');
+    }
+    if (key === 'body_exclude_patterns') {
+      return !this.boolValue('exclude_body_disqualifiers');
+    }
+    if (key === 'exclude_companies') {
+      return !this.boolValue('exclude_ai_training');
+    }
+    return false;
+  }
+
+  germanHint(): string | null {
+    const langs = this.defaults()?.languages ?? [];
+    const speaksGerman = langs.some((l) => l.toLowerCase().includes('german') || l === 'de');
+    if (!speaksGerman) return null;
+    if (this.isOverridden('exclude_german_language_required')) return null;
+    return 'В профиле указан немецкий — фильтр выключен по умолчанию, если API так выставит default.';
+  }
+
+  private commitValue<K extends keyof FilterProfile>(key: K, value: FilterProfile[K]): void {
+    const defaults = this.defaults();
+    if (!defaults) return;
+    const next: FilterOverrides = { ...this.draft(), [key]: value };
+    // Drop key from draft when it matches the default (same rule as PUT).
+    if (valuesEqual(value, defaults[key])) {
+      delete next[key];
+    }
+    this.draft.set(next);
+  }
+}
+
+function valuesEqual(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
