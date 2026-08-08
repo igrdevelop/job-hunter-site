@@ -67,6 +67,11 @@ export const routes: Routes = [
           import('./features/settings/settings.component').then((m) => m.SettingsComponent),
       },
       {
+        path: 'filters',
+        loadComponent: () =>
+          import('./features/filters/filters.component').then((m) => m.FiltersComponent),
+      },
+      {
         path: 'admin',
         canActivate: [adminGuard],
         loadComponent: () =>

@@ -1,0 +1,329 @@
+<div class="page">
+  <div class="page-header">
+    <h1>Фильтры вакансий</h1>
+  </div>
+  <p class="page-subtitle">
+    Что бот берёт в обработку, а что отсеивает. Пустое поле = общий дефолт.
+    Оранжевая полоска слева = вы переопределили дефолт. Применяется со следующего цикла охоты.
+  </p>
+
+  @if (loading()) {
+    <mat-spinner diameter="24"></mat-spinner>
+  }
+
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  }
+
+  @if (!loading() && ready()) {
+    @for (section of sections; track section.id) {
+      <section class="card elev-sm filter-section">
+        <h2 class="section-title">{{ section.title }}</h2>
+
+        @if (section.id === 2) {
+          <p class="hint">Быстрые группы:</p>
+          <div class="group-toggles">
+            @for (group of levelGroups; track group.id) {
+              @let state = groupState(group);
+              <label class="group-toggle">
+                <input
+                  type="checkbox"
+                  [checked]="state === 'checked'"
+                  [indeterminate]="state === 'indeterminate'"
+                  (change)="toggleGroup(group)"
+                />
+                {{ group.label }}
+              </label>
+            }
+          </div>
+        }
+
+        @for (key of section.keys; track key) {
+          @let meta = metaFor(key);
+
+          @if (isDerived(key)) {
+            @if (key === 'home_city') {
+              <div class="field-row derived">
+                <p class="derived-text">
+                  🏠 Домашний город: <b>{{ valueOf('home_city') }}</b>
+                  (алиасы: {{ listValue('locations').join(', ') }}) · принимаем: remote, zdalnie + домашний город.
+                  <br />
+                  Берётся из профиля кандидата —
+                  <a routerLink="/profile">менять там</a>, здесь не дублируется.
+                </p>
+              </div>
+            } @else if (key === 'languages') {
+              <div class="field-row derived">
+                <p class="derived-text">
+                  🗣 Языки кандидата: <b>{{ listValue('languages').join(', ') }}</b> — из профиля
+                  (<a routerLink="/profile">менять там</a>).
+                  Вакансия с обязательным языком не из этого списка отсеивается автоматически.
+                </p>
+              </div>
+            }
+          } @else if (key === 'exclude_stacks_without') {
+            <div class="field-row" [class.overridden]="isOverridden(key)" data-key="exclude_stacks_without">
+              <div class="field-head">
+                <b class="field-label">{{ labelOf(key) }}</b>
+                @if (isOverridden(key)) {
+                  <span class="badge">изменено</span>
+                  <button type="button" class="reset" (click)="resetField(key)">сбросить</button>
+                }
+              </div>
+              @if (hintOf(key); as hint) {
+                <p class="hint">{{ hint }}</p>
+              }
+              @if (fieldError(key); as err) {
+                <p class="field-error">{{ err }}</p>
+              }
+              <div class="stacks-row">
+                Блокировать
+                <select [ngModel]="stacksBlock()" (ngModelChange)="setStacksBlock($event)">
+                  <option value="">— нет —</option>
+                  @for (opt of stackOptions; track opt) {
+                    <option [value]="opt">{{ opt }}</option>
+                  }
+                </select>
+                если в вакансии нет
+                <select
+                  [ngModel]="stacksUnless()"
+                  (ngModelChange)="setStacksUnless($event)"
+                  [disabled]="!stacksBlock()"
+                >
+                  <option value="">— всегда —</option>
+                  @for (opt of stackOptions; track opt) {
+                    <option [value]="opt">{{ opt }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+          } @else if (meta?.type === 'boolean') {
+            <div class="field-row" [class.overridden]="isOverridden(key)" [attr.data-key]="key">
+              <div class="field-head bool-head">
+                <label class="bool-label">
+                  <input
+                    type="checkbox"
+                    [checked]="boolValue(key)"
+                    (change)="setBoolean(key, $any($event.target).checked)"
+                  />
+                  <b class="field-label">{{ labelOf(key) }}</b>
+                </label>
+                @if (isOverridden(key)) {
+                  <span class="badge">изменено</span>
+                  <button type="button" class="reset" (click)="resetField(key)">сбросить</button>
+                }
+              </div>
+              @if (hintOf(key); as hint) {
+                <p class="hint">{{ hint }}</p>
+              }
+              @if (fieldError(key); as err) {
+                <p class="field-error">{{ err }}</p>
+              }
+              @if (key === 'exclude_german_language_required' && germanHint(); as gh) {
+                <p class="hint">💡 {{ gh }}</p>
+              }
+
+              @if (key === 'exclude_fullstack_with_backend') {
+                <div
+                  class="nested-list"
+                  [class.disabled]="listDisabled('fullstack_backend_stacks')"
+                  [class.overridden]="isOverridden('fullstack_backend_stacks')"
+                  data-key="fullstack_backend_stacks"
+                >
+                  @if (isOverridden('fullstack_backend_stacks')) {
+                    <div class="field-head">
+                      <span class="badge">изменено</span>
+                      <button type="button" class="reset" (click)="resetField('fullstack_backend_stacks')">сбросить</button>
+                    </div>
+                  }
+                  <div class="chips">
+                    @for (item of listValue('fullstack_backend_stacks'); track item) {
+                      <span class="chip">
+                        {{ item }}
+                        @if (!listDisabled('fullstack_backend_stacks')) {
+                          <button type="button" class="chip-x" (click)="removeChip('fullstack_backend_stacks', item)" aria-label="Remove">×</button>
+                        }
+                      </span>
+                    }
+                    @if (!listDisabled('fullstack_backend_stacks')) {
+                      <input
+                        type="text"
+                        class="chip-input"
+                        placeholder="+ добавить"
+                        [ngModel]="chipDrafts()['fullstack_backend_stacks'] ?? ''"
+                        (ngModelChange)="setChipDraft('fullstack_backend_stacks', $event)"
+                        (keydown)="onChipKeydown($event, 'fullstack_backend_stacks')"
+                      />
+                    }
+                  </div>
+                </div>
+              }
+
+              @if (key === 'exclude_body_disqualifiers') {
+                <div
+                  class="nested-list"
+                  [class.disabled]="listDisabled('body_exclude_patterns')"
+                  [class.overridden]="isOverridden('body_exclude_patterns')"
+                  data-key="body_exclude_patterns"
+                >
+                  @if (isOverridden('body_exclude_patterns')) {
+                    <div class="field-head">
+                      <span class="badge">изменено</span>
+                      <button type="button" class="reset" (click)="resetField('body_exclude_patterns')">сбросить</button>
+                    </div>
+                  }
+                  <div class="chips">
+                    @for (item of listValue('body_exclude_patterns'); track item) {
+                      <span class="chip">
+                        {{ item }}
+                        @if (!listDisabled('body_exclude_patterns')) {
+                          <button type="button" class="chip-x" (click)="removeChip('body_exclude_patterns', item)" aria-label="Remove">×</button>
+                        }
+                      </span>
+                    }
+                    @if (!listDisabled('body_exclude_patterns')) {
+                      <input
+                        type="text"
+                        class="chip-input"
+                        placeholder="+ добавить"
+                        [ngModel]="chipDrafts()['body_exclude_patterns'] ?? ''"
+                        (ngModelChange)="setChipDraft('body_exclude_patterns', $event)"
+                        (keydown)="onChipKeydown($event, 'body_exclude_patterns')"
+                      />
+                    }
+                  </div>
+                </div>
+              }
+
+              @if (key === 'exclude_ai_training') {
+                <div
+                  class="nested-list"
+                  [class.disabled]="listDisabled('exclude_companies')"
+                  [class.overridden]="isOverridden('exclude_companies')"
+                  data-key="exclude_companies"
+                >
+                  @if (isOverridden('exclude_companies')) {
+                    <div class="field-head">
+                      <span class="badge">изменено</span>
+                      <button type="button" class="reset" (click)="resetField('exclude_companies')">сбросить</button>
+                    </div>
+                  }
+                  <div class="chips">
+                    @for (item of listValue('exclude_companies'); track item) {
+                      @let locked = isChipLocked('exclude_companies', item);
+                      <span class="chip" [class.locked]="locked">
+                        {{ item }}
+                        @if (!locked && !listDisabled('exclude_companies')) {
+                          <button type="button" class="chip-x" (click)="removeChip('exclude_companies', item)" aria-label="Remove">×</button>
+                        }
+                      </span>
+                    }
+                    @if (!listDisabled('exclude_companies')) {
+                      <input
+                        type="text"
+                        class="chip-input"
+                        placeholder="+ добавить компанию"
+                        [ngModel]="chipDrafts()['exclude_companies'] ?? ''"
+                        (ngModelChange)="setChipDraft('exclude_companies', $event)"
+                        (keydown)="onChipKeydown($event, 'exclude_companies')"
+                      />
+                    }
+                  </div>
+                  @if (hintOf('exclude_companies'); as ch) {
+                    <p class="hint">{{ ch }}</p>
+                  }
+                  @if (fieldError('exclude_companies'); as err) {
+                    <p class="field-error">{{ err }}</p>
+                  }
+                </div>
+              }
+            </div>
+          } @else if (
+            isListKey(key) &&
+            key !== 'fullstack_backend_stacks' &&
+            key !== 'body_exclude_patterns' &&
+            key !== 'exclude_companies' &&
+            key !== 'locations'
+          ) {
+            <div class="field-row" [class.overridden]="isOverridden(key)" [attr.data-key]="key">
+              <div class="field-head">
+                <b class="field-label">{{ labelOf(key) }}</b>
+                @if (isOverridden(key)) {
+                  <span class="badge">изменено</span>
+                  <button type="button" class="reset" (click)="resetField(key)">сбросить к дефолту</button>
+                }
+              </div>
+              @if (hintOf(key); as hint) {
+                <p class="hint">{{ hint }}</p>
+              }
+              @if (fieldError(key); as err) {
+                <p class="field-error">{{ err }}</p>
+              }
+              <div class="chips">
+                @for (item of listValue(key); track item) {
+                  @let locked = isChipLocked(key, item);
+                  <span class="chip" [class.locked]="locked">
+                    {{ item }}
+                    @if (!locked) {
+                      <button type="button" class="chip-x" (click)="removeChip(key, item)" aria-label="Remove">×</button>
+                    }
+                  </span>
+                }
+                <input
+                  type="text"
+                  class="chip-input"
+                  [placeholder]="key === 'require_title_terms' ? '+ добавить (например: react)' : '+ добавить'"
+                  [ngModel]="chipDrafts()[key] ?? ''"
+                  (ngModelChange)="setChipDraft(key, $event)"
+                  (keydown)="onChipKeydown($event, key)"
+                />
+              </div>
+              @if (key === 'exclude_patterns') {
+                <label class="adv">
+                  <input
+                    type="checkbox"
+                    [checked]="advancedPatterns()"
+                    (change)="advancedPatterns.set($any($event.target).checked)"
+                  />
+                  расширенный режим: raw regex
+                </label>
+                @if (advancedPatterns()) {
+                  <p class="hint adv">в raw-режиме каждый паттерн проверяется на лету; кривой regex не даст сохранить</p>
+                }
+              }
+            </div>
+          }
+        }
+      </section>
+    }
+
+    <p class="preview-note">
+      Preview against a vacancy is deferred to v2 (no classifier endpoint yet).
+    </p>
+
+    @if (isDirty() || saveError()) {
+      <div class="savebar" role="region" aria-label="Unsaved filter changes">
+        <button
+          type="button"
+          class="btn btn-primary"
+          [disabled]="saving() || !isDirty()"
+          (click)="save()"
+        >
+          @if (saving()) { Сохранение… } @else { Сохранить }
+        </button>
+        <button type="button" class="btn btn-ghost" [disabled]="saving() || !isDirty()" (click)="discard()">
+          Отменить изменения
+        </button>
+        <button type="button" class="btn btn-ghost" [disabled]="saving()" (click)="resetAll()">
+          Сбросить всё к дефолтам
+        </button>
+        @if (isDirty()) {
+          <span class="dirty">● {{ dirtyCount() }} несохранённых изменения</span>
+        }
+        @if (saveError()) {
+          <span class="save-error">{{ saveError() }}</span>
+        }
+      </div>
+    }
+  }
+</div>
