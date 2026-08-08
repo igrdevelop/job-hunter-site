@@ -15,6 +15,7 @@
       <a routerLink="/stats" routerLinkActive="active">Stats</a>
       <a routerLink="/profile" routerLinkActive="active">Profile</a>
       <a routerLink="/settings" routerLinkActive="active">Settings</a>
+      <a routerLink="/filters" routerLinkActive="active">Job Filters</a>
       @if (authService.currentUser()?.role === 'admin') {
         <a routerLink="/admin" routerLinkActive="active">Admin</a>
       }

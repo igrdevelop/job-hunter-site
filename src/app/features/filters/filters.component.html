@@ -1,0 +1,78 @@
+<div class="page">
+  <div class="page-header">
+    <h1>Фильтры вакансий</h1>
+  </div>
+  <p class="page-subtitle">
+    Что бот берёт в обработку, а что отсеивает. Пустое поле = общий дефолт.
+    Оранжевая полоска слева = вы переопределили дефолт. Применяется со следующего цикла охоты.
+  </p>
+
+  @if (loading()) {
+    <mat-spinner diameter="24"></mat-spinner>
+  }
+
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  }
+
+  @if (!loading() && payload()) {
+    @for (section of sections; track section.id) {
+      <section class="card elev-sm filter-section">
+        <h2 class="section-title">{{ section.title }}</h2>
+
+        @for (key of section.keys; track key) {
+          @let meta = metaFor(key);
+          @let value = valueOf(key);
+          <div
+            class="field-row"
+            [class.overridden]="isOverridden(key)"
+            [class.derived]="!!meta?.derived"
+          >
+            <div class="field-head">
+              <code class="field-key">{{ key }}</code>
+              @if (meta) {
+                <span class="tag tag-outline">{{ meta.type }}</span>
+                @if (meta.merge) {
+                  <span class="tag tag-outline">{{ meta.merge }}</span>
+                }
+                @if (meta.derived) {
+                  <span class="tag tag-outline">derived · {{ meta.derived }}</span>
+                }
+              }
+              @if (isOverridden(key)) {
+                <span class="badge">изменено</span>
+              }
+            </div>
+
+            @if (meta?.derived) {
+              <p class="hint">
+                Из профиля кандидата —
+                <a routerLink="/profile">менять там</a>, здесь не редактируется.
+              </p>
+            }
+
+            <div class="field-value">
+              @if (isList(value)) {
+                @if (value.length === 0) {
+                  <span class="empty">[]</span>
+                } @else {
+                  <div class="chips">
+                    @for (item of value; track item) {
+                      <span class="chip">{{ item }}</span>
+                    }
+                  </div>
+                }
+              } @else {
+                <pre class="raw">{{ value | json }}</pre>
+              }
+            </div>
+          </div>
+        }
+      </section>
+    }
+
+    <p class="preview-note">
+      Preview against a vacancy is deferred to v2 (no classifier endpoint yet).
+    </p>
+  }
+</div>

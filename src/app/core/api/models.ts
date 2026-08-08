@@ -167,3 +167,73 @@ export interface AdminUser {
   disabled: boolean;
   createdAt: string;
 }
+
+// ── Job filters (GET/PUT /api/filters) ──────────────────────────────────────
+
+export type FilterMerge = 'replace' | 'extend_only';
+
+export type FilterValueType =
+  | 'string'
+  | 'string_list'
+  | 'pattern_list'
+  | 'boolean'
+  | 'stacks_without';
+
+/** Generalized "block X unless Y is also present" rule. */
+export interface ExcludeStacksWithout {
+  unless: string;
+  block: string[];
+}
+
+export type FilterScalar = string[] | boolean | ExcludeStacksWithout | null;
+
+/** Full filter profile shape (defaults / effective). */
+export interface FilterProfile {
+  title_keywords: string[];
+  require_title_terms: string[];
+  exclude_levels: string[];
+  exclude_patterns: string[];
+  exclude_stacks_without: ExcludeStacksWithout | null;
+  exclude_fullstack_with_backend: boolean;
+  fullstack_backend_stacks: string[];
+  exclude_body_disqualifiers: boolean;
+  body_exclude_patterns: string[];
+  exclude_body_onsite_city: boolean;
+  allow_low_frequency_hybrid: boolean;
+  exclude_german_language_required: boolean;
+  exclude_unacceptable_contract: boolean;
+  exclude_relocation_required: boolean;
+  exclude_ai_training: boolean;
+  exclude_companies: string[];
+  extra_anti_hybrid_cities: string[];
+  /** Derived from candidate.yaml — never written via PUT. */
+  locations?: string[];
+  /** Derived from candidate.yaml — never written via PUT. */
+  languages?: string[];
+  /** Derived display helper (home city label). */
+  home_city?: string;
+}
+
+/** User file content — only keys the user overrode. */
+export type FilterOverrides = {
+  [K in keyof FilterProfile]?: FilterProfile[K];
+};
+
+export interface FilterMeta {
+  type: FilterValueType;
+  merge?: FilterMerge;
+  /** When set, key is read-only and sourced from the named file. */
+  derived?: string;
+}
+
+export interface FiltersPayload {
+  defaults: FilterProfile;
+  overrides: FilterOverrides;
+  effective: FilterProfile;
+  meta: Record<string, FilterMeta>;
+}
+
+/** PUT 400 body — per-field errors (`exclude_patterns[3]`, …). */
+export interface FiltersErrors {
+  errors: Record<string, string>;
+}
