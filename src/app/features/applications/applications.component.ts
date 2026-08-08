@@ -1,5 +1,14 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
@@ -50,11 +59,17 @@ const SEARCH_DEBOUNCE_MS = 400;
 })
 export class ApplicationsComponent {
   private readonly api = inject(ApplicationsApi);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
 
   private gridApi?: GridApi<Application>;
+
+  private readonly queryParams = toSignal(this.route.queryParamMap, { requireSync: true });
+  /** Filter/search the grid last queried with — guards against redundant refreshes. */
+  private lastQuery: { filter: SentFilter; search: string } | null = null;
 
   readonly limit = signal(50);
   readonly statusFilter = signal<SentFilter>('unsent');
@@ -140,6 +155,25 @@ export class ApplicationsComponent {
   constructor() {
     this.loadStats();
 
+    // URL → state: covers initial deep links, back/forward and in-app
+    // navigation. The toolbar handlers only write the URL; this effect is
+    // the single place that applies it and refreshes the grid.
+    effect(() => {
+      const params = this.queryParams();
+      const rawFilter = params.get('filter');
+      const filter = this.statusOptions.includes(rawFilter as SentFilter)
+        ? (rawFilter as SentFilter)
+        : 'unsent';
+      const search = params.get('search') ?? '';
+      this.statusFilter.set(filter);
+      this.search.set(search);
+      if (this.lastQuery && filter === this.lastQuery.filter && search === this.lastQuery.search) {
+        return;
+      }
+      this.lastQuery = { filter, search };
+      this.gridApi?.setGridOption('datasource', this.datasource);
+    });
+
     const intervalId = setInterval(
       // refreshInfiniteCache keeps current rows visible until new data arrives (no flicker),
       // unlike purgeInfiniteCache which blanks the grid immediately.
@@ -173,15 +207,23 @@ export class ApplicationsComponent {
   }
 
   onStatusFilterChange(status: SentFilter): void {
-    this.statusFilter.set(status);
-    this.gridApi?.setGridOption('datasource', this.datasource);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { filter: status === 'unsent' ? null : status },
+      queryParamsHandling: 'merge',
+    });
   }
 
   onSearchInput(value: string): void {
+    // Keep the input responsive; the URL (and grid) update after the debounce.
     this.search.set(value);
     clearTimeout(this.searchDebounceHandle);
     this.searchDebounceHandle = setTimeout(() => {
-      this.gridApi?.setGridOption('datasource', this.datasource);
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { search: value.trim() ? value : null },
+        queryParamsHandling: 'merge',
+      });
     }, SEARCH_DEBOUNCE_MS);
   }
 
