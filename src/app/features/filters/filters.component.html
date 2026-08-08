@@ -1,10 +1,10 @@
 <div class="page">
   <div class="page-header">
-    <h1>Фильтры вакансий</h1>
+    <h1>Job Filters</h1>
   </div>
   <p class="page-subtitle">
-    Что бот берёт в обработку, а что отсеивает. Пустое поле = общий дефолт.
-    Оранжевая полоска слева = вы переопределили дефолт. Применяется со следующего цикла охоты.
+    What the bot accepts for processing and what it skips. An empty field keeps the shared default.
+    An orange bar means you overrode that default. Changes apply on the next hunt cycle.
   </p>
 
   @if (loading()) {
@@ -21,7 +21,7 @@
         <h2 class="section-title">{{ section.title }}</h2>
 
         @if (section.id === 2) {
-          <p class="hint">Быстрые группы:</p>
+          <p class="hint">Quick groups:</p>
           <div class="group-toggles">
             @for (group of levelGroups; track group.id) {
               @let state = groupState(group);
@@ -45,19 +45,19 @@
             @if (key === 'home_city') {
               <div class="field-row derived">
                 <p class="derived-text">
-                  🏠 Домашний город: <b>{{ valueOf('home_city') }}</b>
-                  (алиасы: {{ listValue('locations').join(', ') }}) · принимаем: remote, zdalnie + домашний город.
+                  🏠 Home city: <b>{{ valueOf('home_city') }}</b>
+                  (aliases: {{ listValue('locations').join(', ') }}) · accepted: remote, zdalnie + home city.
                   <br />
-                  Берётся из профиля кандидата —
-                  <a routerLink="/profile">менять там</a>, здесь не дублируется.
+                  Comes from your candidate profile —
+                  <a routerLink="/profile">edit it there</a>; not duplicated here.
                 </p>
               </div>
             } @else if (key === 'languages') {
               <div class="field-row derived">
                 <p class="derived-text">
-                  🗣 Языки кандидата: <b>{{ listValue('languages').join(', ') }}</b> — из профиля
-                  (<a routerLink="/profile">менять там</a>).
-                  Вакансия с обязательным языком не из этого списка отсеивается автоматически.
+                  🗣 Candidate languages: <b>{{ listValue('languages').join(', ') }}</b> — from your profile
+                  (<a routerLink="/profile">edit there</a>).
+                  Listings that require a language outside this set are skipped automatically.
                 </p>
               </div>
             }
@@ -66,8 +66,8 @@
               <div class="field-head">
                 <b class="field-label">{{ labelOf(key) }}</b>
                 @if (isOverridden(key)) {
-                  <span class="badge">изменено</span>
-                  <button type="button" class="reset" (click)="resetField(key)">сбросить</button>
+                  <span class="badge">modified</span>
+                  <button type="button" class="reset" (click)="resetField(key)">Reset</button>
                 }
               </div>
               @if (hintOf(key); as hint) {
@@ -77,20 +77,20 @@
                 <p class="field-error">{{ err }}</p>
               }
               <div class="stacks-row">
-                Блокировать
+                Block
                 <select [ngModel]="stacksBlock()" (ngModelChange)="setStacksBlock($event)">
-                  <option value="">— нет —</option>
+                  <option value="">— none —</option>
                   @for (opt of stackOptions; track opt) {
                     <option [value]="opt">{{ opt }}</option>
                   }
                 </select>
-                если в вакансии нет
+                unless the listing also has
                 <select
                   [ngModel]="stacksUnless()"
                   (ngModelChange)="setStacksUnless($event)"
                   [disabled]="!stacksBlock()"
                 >
-                  <option value="">— всегда —</option>
+                  <option value="">— always —</option>
                   @for (opt of stackOptions; track opt) {
                     <option [value]="opt">{{ opt }}</option>
                   }
@@ -109,8 +109,8 @@
                   <b class="field-label">{{ labelOf(key) }}</b>
                 </label>
                 @if (isOverridden(key)) {
-                  <span class="badge">изменено</span>
-                  <button type="button" class="reset" (click)="resetField(key)">сбросить</button>
+                  <span class="badge">modified</span>
+                  <button type="button" class="reset" (click)="resetField(key)">Reset</button>
                 }
               </div>
               @if (hintOf(key); as hint) {
@@ -132,8 +132,8 @@
                 >
                   @if (isOverridden('fullstack_backend_stacks')) {
                     <div class="field-head">
-                      <span class="badge">изменено</span>
-                      <button type="button" class="reset" (click)="resetField('fullstack_backend_stacks')">сбросить</button>
+                                            <span class="badge">modified</span>
+                      <button type="button" class="reset" (click)="resetField('fullstack_backend_stacks')">Reset</button>
                     </div>
                   }
                   <div class="chips">
@@ -149,7 +149,7 @@
                       <input
                         type="text"
                         class="chip-input"
-                        placeholder="+ добавить"
+                        placeholder="+ add"
                         [ngModel]="chipDrafts()['fullstack_backend_stacks'] ?? ''"
                         (ngModelChange)="setChipDraft('fullstack_backend_stacks', $event)"
                         (keydown)="onChipKeydown($event, 'fullstack_backend_stacks')"
@@ -168,8 +168,8 @@
                 >
                   @if (isOverridden('body_exclude_patterns')) {
                     <div class="field-head">
-                      <span class="badge">изменено</span>
-                      <button type="button" class="reset" (click)="resetField('body_exclude_patterns')">сбросить</button>
+                      <span class="badge">modified</span>
+                      <button type="button" class="reset" (click)="resetField('body_exclude_patterns')">Reset</button>
                     </div>
                   }
                   <div class="chips">
@@ -185,7 +185,7 @@
                       <input
                         type="text"
                         class="chip-input"
-                        placeholder="+ добавить"
+                        placeholder="+ add"
                         [ngModel]="chipDrafts()['body_exclude_patterns'] ?? ''"
                         (ngModelChange)="setChipDraft('body_exclude_patterns', $event)"
                         (keydown)="onChipKeydown($event, 'body_exclude_patterns')"
@@ -204,8 +204,8 @@
                 >
                   @if (isOverridden('exclude_companies')) {
                     <div class="field-head">
-                      <span class="badge">изменено</span>
-                      <button type="button" class="reset" (click)="resetField('exclude_companies')">сбросить</button>
+                      <span class="badge">modified</span>
+                      <button type="button" class="reset" (click)="resetField('exclude_companies')">Reset</button>
                     </div>
                   }
                   <div class="chips">
@@ -222,7 +222,7 @@
                       <input
                         type="text"
                         class="chip-input"
-                        placeholder="+ добавить компанию"
+                        placeholder="+ add company"
                         [ngModel]="chipDrafts()['exclude_companies'] ?? ''"
                         (ngModelChange)="setChipDraft('exclude_companies', $event)"
                         (keydown)="onChipKeydown($event, 'exclude_companies')"
@@ -249,8 +249,8 @@
               <div class="field-head">
                 <b class="field-label">{{ labelOf(key) }}</b>
                 @if (isOverridden(key)) {
-                  <span class="badge">изменено</span>
-                  <button type="button" class="reset" (click)="resetField(key)">сбросить к дефолту</button>
+                  <span class="badge">modified</span>
+                  <button type="button" class="reset" (click)="resetField(key)">Reset to default</button>
                 }
               </div>
               @if (hintOf(key); as hint) {
@@ -272,7 +272,7 @@
                 <input
                   type="text"
                   class="chip-input"
-                  [placeholder]="key === 'require_title_terms' ? '+ добавить (например: react)' : '+ добавить'"
+                  [placeholder]="key === 'require_title_terms' ? '+ add (e.g. react)' : '+ add'"
                   [ngModel]="chipDrafts()[key] ?? ''"
                   (ngModelChange)="setChipDraft(key, $event)"
                   (keydown)="onChipKeydown($event, key)"
@@ -285,10 +285,10 @@
                     [checked]="advancedPatterns()"
                     (change)="advancedPatterns.set($any($event.target).checked)"
                   />
-                  расширенный режим: raw regex
+                  Advanced: raw regex
                 </label>
                 @if (advancedPatterns()) {
-                  <p class="hint adv">в raw-режиме каждый паттерн проверяется на лету; кривой regex не даст сохранить</p>
+                  <p class="hint adv">In raw mode each pattern is checked live; an invalid regex will block save.</p>
                 }
               }
             </div>
@@ -309,16 +309,16 @@
           [disabled]="saving() || !isDirty()"
           (click)="save()"
         >
-          @if (saving()) { Сохранение… } @else { Сохранить }
+          @if (saving()) { Saving… } @else { Save }
         </button>
         <button type="button" class="btn btn-ghost" [disabled]="saving() || !isDirty()" (click)="discard()">
-          Отменить изменения
+          Discard changes
         </button>
         <button type="button" class="btn btn-ghost" [disabled]="saving()" (click)="resetAll()">
-          Сбросить всё к дефолтам
+          Reset all to defaults
         </button>
         @if (isDirty()) {
-          <span class="dirty">● {{ dirtyCount() }} несохранённых изменения</span>
+          <span class="dirty">● {{ dirtyCount() }} unsaved change{{ dirtyCount() === 1 ? '' : 's' }}</span>
         }
         @if (saveError()) {
           <span class="save-error">{{ saveError() }}</span>
