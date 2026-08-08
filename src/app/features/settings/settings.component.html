@@ -120,12 +120,12 @@
     @if (!globalLoading() && !globalError() && globalCategories().length) {
       <div class="settings-layout">
         <aside class="settings-nav" aria-label="Settings categories">
-          @for (category of globalCategories(); track category.name; let i = $index) {
+          @for (category of globalCategories(); track category.name) {
             <button
               type="button"
               class="nav-item"
-              [class.active]="selectedTabIndex() === i"
-              (click)="selectedTabIndex.set(i)"
+              [class.active]="activeCategory()?.name === category.name"
+              (click)="selectCategory(category)"
             >
               <mat-icon class="nav-icon">{{ category.icon || 'tune' }}</mat-icon>
               <span>{{ category.name }}</span>

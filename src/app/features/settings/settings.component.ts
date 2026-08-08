@@ -7,7 +7,9 @@ import {
   resource,
   signal,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
@@ -16,7 +18,13 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { SettingsApi } from '../../core/api/settings.api';
 import { AuthService } from '../../core/auth/auth.service';
-import { SettingItem, TelegramLinkCode, TelegramStatus, UserSettingItem } from '../../core/api/models';
+import {
+  SettingItem,
+  SettingsCategory,
+  TelegramLinkCode,
+  TelegramStatus,
+  UserSettingItem,
+} from '../../core/api/models';
 
 @Component({
   selector: 'app-settings',
@@ -34,6 +42,8 @@ import { SettingItem, TelegramLinkCode, TelegramStatus, UserSettingItem } from '
 })
 export class SettingsComponent implements OnInit {
   private readonly api = inject(SettingsApi);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
   protected readonly authService = inject(AuthService);
 
@@ -70,11 +80,22 @@ export class SettingsComponent implements OnInit {
   readonly globalError = computed(() =>
     this.globalResource.error() ? 'Could not load global settings.' : null,
   );
-  readonly selectedTabIndex = signal(0);
+  private readonly queryParams = toSignal(this.route.queryParamMap, { requireSync: true });
+
+  /** Active global-settings category, driven by the ?category= query param. */
   readonly activeCategory = computed(() => {
     const list = this.globalCategories();
-    return list[this.selectedTabIndex()] ?? list[0] ?? null;
+    const requested = this.queryParams().get('category');
+    return list.find((c) => c.name === requested) ?? list[0] ?? null;
   });
+
+  selectCategory(category: SettingsCategory): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { category: category.name },
+      queryParamsHandling: 'merge',
+    });
+  }
 
   async ngOnInit(): Promise<void> {
     await Promise.all([this.loadUserSettings(), this.loadTelegramStatus()]);
