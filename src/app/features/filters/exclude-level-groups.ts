@@ -12,7 +12,7 @@ export interface ExcludeLevelGroup {
 export const EXCLUDE_LEVEL_GROUPS: readonly ExcludeLevelGroup[] = [
   {
     id: 'junior_intern',
-    label: 'Junior / Intern / internships',
+    label: 'Junior / intern / trainee',
     words: [
       'junior',
       'intern',

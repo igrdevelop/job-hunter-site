@@ -40,17 +40,17 @@ export interface FilterSection {
 export const FILTER_SECTIONS: FilterSection[] = [
   {
     id: 1,
-    title: '1. What we look for',
+    title: '1. What we keep',
     keys: ['title_keywords', 'require_title_terms'],
   },
   {
     id: 2,
-    title: '2. Level & role',
+    title: '2. Level & role — skip',
     keys: ['exclude_levels'],
   },
   {
     id: 3,
-    title: '3. Stack',
+    title: '3. Stack — skip',
     keys: [
       'exclude_patterns',
       'exclude_stacks_without',
@@ -318,7 +318,7 @@ export class FiltersComponent {
     const speaksGerman = langs.some((l) => l.toLowerCase().includes('german') || l === 'de');
     if (!speaksGerman) return null;
     if (this.isOverridden('exclude_german_language_required')) return null;
-    return 'Your profile lists German — this filter is typically off by default when the API derives that.';
+    return 'Your profile lists German, so the shared default usually leaves this filter off.';
   }
 
   fieldError(key: keyof FilterProfile): string | null {

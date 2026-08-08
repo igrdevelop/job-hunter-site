@@ -7,49 +7,49 @@ export interface FilterFieldCopy {
 
 export const FILTER_FIELD_COPY: Partial<Record<keyof FilterProfile, FilterFieldCopy>> = {
   title_keywords: {
-    label: 'Title keywords',
-    hint: 'A listing is kept if the title contains at least one of these.',
+    label: 'Keep — title keywords',
+    hint: 'A listing is kept only if its title contains at least one of these keywords.',
   },
   require_title_terms: {
-    label: 'Required title terms',
-    hint: 'When set, every title must include these terms. Leave empty to require none.',
+    label: 'Keep — required title terms',
+    hint: 'If set, the title must also contain all of these terms. Leave empty to add no extra requirement.',
   },
   exclude_levels: {
-    label: 'Excluded level words',
-    hint: 'Full editable list. The checkboxes above are shortcuts only.',
+    label: 'Skip — level words in the title',
+    hint: 'A listing is skipped if its title contains any of these words. This is the full editable list; the checkboxes above are just shortcuts.',
   },
   exclude_patterns: {
-    label: 'Skip if title matches',
-    hint: 'Plain words use word boundaries automatically (“java” will not match “javascript”).',
+    label: 'Skip — title patterns',
+    hint: 'A listing is skipped if its title matches any of these. Plain words use word boundaries automatically (“java” will not match “javascript”).',
   },
   exclude_stacks_without: {
-    label: '“X without Y” rule',
-    hint: 'Skip listings that mention stack X unless Y is also present.',
+    label: 'Skip — “X without Y” rule',
+    hint: 'Skips listings that mention stack X unless Y is also present.',
   },
   exclude_fullstack_with_backend: {
-    label: 'Skip fullstack roles with a heavy backend',
+    label: 'Skip full-stack roles with a heavy backend',
   },
   fullstack_backend_stacks: {
-    label: 'Heavy backend stacks',
+    label: 'Backend stacks that trigger this skip',
   },
   exclude_body_disqualifiers: {
-    label: 'Stop-stack in job body',
-    hint: 'Catches a clean FE title when the description reveals an unwanted platform. Separate from the title list.',
+    label: 'Skip when the description mentions a blocked stack',
+    hint: 'Catches a clean frontend title whose description reveals an unwanted platform. Separate from the title list above.',
   },
   body_exclude_patterns: {
-    label: 'Body stop-stack patterns',
+    label: 'Blocked stacks in the description',
   },
   exclude_body_onsite_city: {
-    label: 'Skip hybrid/office in another city',
+    label: 'Skip hybrid/office roles in another city',
     hint: 'Catches “remote” in the header plus “3 days in a Kraków office” in the body.',
   },
   allow_low_frequency_hybrid: {
     label: 'Allow hybrid with rare office visits',
-    hint: 'About one day a week or less in a Polish city is kept; more often, unspecified, or abroad is still skipped.',
+    hint: 'Listings asking for about one office day a week or less in a Polish city are kept; anything more frequent, unspecified, or abroad is still skipped.',
   },
   extra_anti_hybrid_cities: {
-    label: 'Hybrid stop-cities',
-    hint: 'Locked chips are the shared calibrated list and cannot be removed. Your additions can.',
+    label: 'Skip hybrid offers tied to these cities',
+    hint: 'Locked chips are the shared calibrated list and cannot be removed; your own additions can be.',
   },
   exclude_german_language_required: {
     label: 'Skip jobs that require German',
@@ -64,8 +64,8 @@ export const FILTER_FIELD_COPY: Partial<Record<keyof FilterProfile, FilterFieldC
     label: 'Skip AI-training / staffing-mill companies',
   },
   exclude_companies: {
-    label: 'Company blocklist',
-    hint: 'Locked entries are the shared blocklist (calibrated on real incidents) and cannot be removed.',
+    label: 'Skip — company blocklist',
+    hint: 'Listings from these companies are always skipped. Locked entries are the shared blocklist (calibrated on real incidents) and cannot be removed.',
   },
 };
 
