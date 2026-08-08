@@ -4,12 +4,12 @@ import {
   computed,
   inject,
   resource,
-  signal,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { MatDialog } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FilesApi } from '../../core/api/files.api';
 import { FileInfo, FolderInfo } from '../../core/api/models';
 import { AuthService } from '../../core/auth/auth.service';
@@ -30,6 +30,8 @@ function isFolderInfo(entry: FolderInfo | FileInfo): entry is FolderInfo {
 })
 export class ProfileComponent {
   private readonly api = inject(FilesApi);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   protected readonly authService = inject(AuthService);
@@ -44,8 +46,23 @@ export class ProfileComponent {
     return local.slice(0, 2).toUpperCase() || '?';
   });
 
-  /** Optional subpath under candidate/ (shallow tree; no route params). */
-  readonly currentPath = signal('');
+  private readonly urlSegments = toSignal(this.route.url, { requireSync: true });
+
+  /** Subpath under candidate/, driven by the URL (/profile/<path...>). */
+  readonly currentPath = computed(() =>
+    this.urlSegments()
+      .map((s) => s.path)
+      .join('/'),
+  );
+
+  /** Intermediate crumbs: each URL segment links to its cumulative path. */
+  readonly breadcrumbs = computed(() => {
+    const segments = this.urlSegments().map((s) => s.path);
+    return segments.map((label, i) => ({
+      label,
+      link: ['/profile', ...segments.slice(0, i + 1)],
+    }));
+  });
 
   private readonly entriesResource = resource({
     params: () => this.currentPath(),
@@ -66,14 +83,12 @@ export class ProfileComponent {
   );
 
   openFolder(folder: FolderInfo): void {
-    const next = this.currentPath()
-      ? `${this.currentPath()}/${folder.name}`
-      : folder.name;
-    this.currentPath.set(next);
+    const segments = this.urlSegments().map((s) => s.path);
+    void this.router.navigate(['/profile', ...segments, folder.name]);
   }
 
   goRoot(): void {
-    this.currentPath.set('');
+    void this.router.navigate(['/profile']);
   }
 
   private entryPath(entry: FileInfo): string {

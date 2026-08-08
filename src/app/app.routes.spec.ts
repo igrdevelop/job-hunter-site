@@ -51,4 +51,11 @@ describe('app routes — Templates under Profile', () => {
     const component = await harness.navigateByUrl('/profile', ProfileComponent);
     expect(component).toBeInstanceOf(ProfileComponent);
   });
+
+  it('renders ProfileComponent for nested candidate-file paths', async () => {
+    const harness = await RouterTestingHarness.create();
+    const component = await harness.navigateByUrl('/profile/examples/covers', ProfileComponent);
+    expect(component).toBeInstanceOf(ProfileComponent);
+    expect(component.currentPath()).toBe('examples/covers');
+  });
 });

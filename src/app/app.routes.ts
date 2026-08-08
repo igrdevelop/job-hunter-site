@@ -53,6 +53,12 @@ export const routes: Routes = [
             loadComponent: () =>
               import('./features/profile/profile.component').then((m) => m.ProfileComponent),
           },
+          {
+            // Candidate-file browser at any depth: /profile/examples, /profile/notes/x, …
+            path: '**',
+            loadComponent: () =>
+              import('./features/profile/profile.component').then((m) => m.ProfileComponent),
+          },
         ],
       },
       {
