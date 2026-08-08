@@ -9,6 +9,7 @@ import {
 import { MatDialog } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { RouterLink } from '@angular/router';
 import { FilesApi } from '../../core/api/files.api';
 import { FileInfo, FolderInfo } from '../../core/api/models';
 import { AuthService } from '../../core/auth/auth.service';
@@ -22,7 +23,7 @@ function isFolderInfo(entry: FolderInfo | FileInfo): entry is FolderInfo {
 
 @Component({
   selector: 'app-profile',
-  imports: [MatProgressSpinnerModule, FolderListComponent, FileListComponent],
+  imports: [MatProgressSpinnerModule, RouterLink, FolderListComponent, FileListComponent],
   templateUrl: './profile.component.html',
   styleUrl: './profile.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

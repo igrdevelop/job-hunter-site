@@ -12,6 +12,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { RouterLink } from '@angular/router';
 import { TemplatesApi } from '../../core/api/templates.api';
 import { AuthService } from '../../core/auth/auth.service';
 import { Template, TemplateCategory } from '../../core/api/models';
@@ -30,6 +31,7 @@ type CategoryFilter = TemplateCategory | 'all';
     MatProgressSpinnerModule,
     MatDialogModule,
     PdfPreviewComponent,
+    RouterLink,
   ],
   templateUrl: './templates.component.html',
   styleUrl: './templates.component.scss',

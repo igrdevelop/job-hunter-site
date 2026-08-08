@@ -32,21 +32,28 @@ export const routes: Routes = [
       { path: 'files/:date/:company', loadComponent: loadFiles },
       { path: 'files/:date', loadComponent: loadFiles },
       { path: 'files', loadComponent: loadFiles },
-      {
-        path: 'templates',
-        loadComponent: () =>
-          import('./features/templates/templates.component').then(
-            (m) => m.TemplatesComponent,
-          ),
-      },
+      // Legacy URL — Templates now lives under Profile.
+      { path: 'templates', redirectTo: 'profile/templates' },
       {
         path: 'stats',
         loadComponent: () => import('./features/stats/stats.component').then((m) => m.StatsComponent),
       },
       {
         path: 'profile',
-        loadComponent: () =>
-          import('./features/profile/profile.component').then((m) => m.ProfileComponent),
+        children: [
+          {
+            path: 'templates',
+            loadComponent: () =>
+              import('./features/templates/templates.component').then(
+                (m) => m.TemplatesComponent,
+              ),
+          },
+          {
+            path: '',
+            loadComponent: () =>
+              import('./features/profile/profile.component').then((m) => m.ProfileComponent),
+          },
+        ],
       },
       {
         path: 'settings',

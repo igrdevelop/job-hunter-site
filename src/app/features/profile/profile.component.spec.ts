@@ -93,4 +93,11 @@ describe('ProfileComponent — download flow', () => {
     component.goRoot();
     expect(component.currentPath()).toBe('');
   });
+
+  it('shows a Templates shortcut linking to /profile/templates at root', () => {
+    const link: HTMLAnchorElement | null =
+      fixture.nativeElement.querySelector('a.shortcut-card');
+    expect(link).not.toBeNull();
+    expect(link!.getAttribute('href')).toBe('/profile/templates');
+  });
 });
