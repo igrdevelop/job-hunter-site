@@ -3,8 +3,9 @@
     <h1>Job Filters</h1>
   </div>
   <p class="page-subtitle">
-    What the bot accepts for processing and what it skips. An empty field keeps the shared default.
-    An orange bar means you overrode that default. Changes apply on the next hunt cycle.
+    Controls which listings the bot accepts for processing and which it skips: section 1 defines what
+    is <b>kept</b>, every other section <b>removes</b> listings from that set. An empty field keeps
+    the shared default; an orange bar means you have overridden it. Changes apply on the next hunt cycle.
   </p>
 
   @if (loading()) {
@@ -21,7 +22,7 @@
         <h2 class="section-title">{{ section.title }}</h2>
 
         @if (section.id === 2) {
-          <p class="hint">Quick groups:</p>
+          <p class="hint">Quick toggles — checked means those listings are skipped:</p>
           <div class="group-toggles">
             @for (group of levelGroups; track group.id) {
               @let state = groupState(group);
@@ -46,17 +47,17 @@
               <div class="field-row derived">
                 <p class="derived-text">
                   🏠 Home city: <b>{{ valueOf('home_city') }}</b>
-                  (aliases: {{ listValue('locations').join(', ') }}) · accepted: remote, zdalnie + home city.
+                  (aliases: {{ listValue('locations').join(', ') }}) · accepted locations: remote, zdalnie, and your home city.
                   <br />
-                  Comes from your candidate profile —
-                  <a routerLink="/profile">edit it there</a>; not duplicated here.
+                  This comes from your candidate profile —
+                  <a routerLink="/profile">edit it there</a>; it is not duplicated here.
                 </p>
               </div>
             } @else if (key === 'languages') {
               <div class="field-row derived">
                 <p class="derived-text">
-                  🗣 Candidate languages: <b>{{ listValue('languages').join(', ') }}</b> — from your profile
-                  (<a routerLink="/profile">edit there</a>).
+                  🗣 Candidate languages: <b>{{ listValue('languages').join(', ') }}</b> — taken from your
+                  <a routerLink="/profile">profile</a>.
                   Listings that require a language outside this set are skipped automatically.
                 </p>
               </div>
@@ -288,7 +289,7 @@
                   Advanced: raw regex
                 </label>
                 @if (advancedPatterns()) {
-                  <p class="hint adv">In raw mode each pattern is checked live; an invalid regex will block save.</p>
+                  <p class="hint adv">In raw mode each pattern is validated as you type; an invalid regex blocks saving.</p>
                 }
               }
             </div>
