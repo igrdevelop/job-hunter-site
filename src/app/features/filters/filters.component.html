@@ -73,6 +73,9 @@
               @if (hintOf(key); as hint) {
                 <p class="hint">{{ hint }}</p>
               }
+              @if (fieldError(key); as err) {
+                <p class="field-error">{{ err }}</p>
+              }
               <div class="stacks-row">
                 Блокировать
                 <select [ngModel]="stacksBlock()" (ngModelChange)="setStacksBlock($event)">
@@ -112,6 +115,9 @@
               </div>
               @if (hintOf(key); as hint) {
                 <p class="hint">{{ hint }}</p>
+              }
+              @if (fieldError(key); as err) {
+                <p class="field-error">{{ err }}</p>
               }
               @if (key === 'exclude_german_language_required' && germanHint(); as gh) {
                 <p class="hint">💡 {{ gh }}</p>
@@ -226,6 +232,9 @@
                   @if (hintOf('exclude_companies'); as ch) {
                     <p class="hint">{{ ch }}</p>
                   }
+                  @if (fieldError('exclude_companies'); as err) {
+                    <p class="field-error">{{ err }}</p>
+                  }
                 </div>
               }
             </div>
@@ -246,6 +255,9 @@
               </div>
               @if (hintOf(key); as hint) {
                 <p class="hint">{{ hint }}</p>
+              }
+              @if (fieldError(key); as err) {
+                <p class="field-error">{{ err }}</p>
               }
               <div class="chips">
                 @for (item of listValue(key); track item) {
@@ -288,5 +300,30 @@
     <p class="preview-note">
       Preview against a vacancy is deferred to v2 (no classifier endpoint yet).
     </p>
+
+    @if (isDirty() || saveError()) {
+      <div class="savebar" role="region" aria-label="Unsaved filter changes">
+        <button
+          type="button"
+          class="btn btn-primary"
+          [disabled]="saving() || !isDirty()"
+          (click)="save()"
+        >
+          @if (saving()) { Сохранение… } @else { Сохранить }
+        </button>
+        <button type="button" class="btn btn-ghost" [disabled]="saving() || !isDirty()" (click)="discard()">
+          Отменить изменения
+        </button>
+        <button type="button" class="btn btn-ghost" [disabled]="saving()" (click)="resetAll()">
+          Сбросить всё к дефолтам
+        </button>
+        @if (isDirty()) {
+          <span class="dirty">● {{ dirtyCount() }} несохранённых изменения</span>
+        }
+        @if (saveError()) {
+          <span class="save-error">{{ saveError() }}</span>
+        }
+      </div>
+    }
   }
 </div>

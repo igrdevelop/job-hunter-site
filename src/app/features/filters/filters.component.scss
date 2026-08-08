@@ -234,3 +234,33 @@
   font-size: 13px;
   color: var(--color-neutral-600);
 }
+
+.field-error {
+  margin: 0 0 var(--space-2);
+  font-size: 13px;
+  color: var(--color-error, #b3261e);
+}
+
+.savebar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  margin-top: var(--space-4);
+  background: var(--color-bg, #0b0b0f);
+  border-top: 2px solid #e8a33d;
+}
+
+.dirty {
+  color: #e8a33d;
+  font-size: 13px;
+}
+
+.save-error {
+  color: var(--color-error, #b3261e);
+  font-size: 13px;
+}

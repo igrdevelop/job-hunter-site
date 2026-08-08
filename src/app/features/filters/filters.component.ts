@@ -7,15 +7,19 @@ import {
   resource,
   signal,
 } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { FiltersApi } from '../../core/api/filters.api';
 import {
   ExcludeStacksWithout,
   FilterMeta,
   FilterOverrides,
   FilterProfile,
+  FiltersErrors,
+  FiltersPayload,
 } from '../../core/api/models';
 import {
   EXCLUDE_LEVEL_GROUPS,
@@ -106,6 +110,7 @@ const LIST_KEYS = new Set<keyof FilterProfile>([
 })
 export class FiltersComponent {
   private readonly api = inject(FiltersApi);
+  private readonly snackBar = inject(MatSnackBar);
 
   readonly sections = FILTER_SECTIONS;
   readonly levelGroups = EXCLUDE_LEVEL_GROUPS;
@@ -119,11 +124,16 @@ export class FiltersComponent {
   /** Layer-1 defaults from GET (immutable for the session until reload). */
   readonly defaults = signal<FilterProfile | null>(null);
   readonly meta = signal<Record<string, FilterMeta>>({});
+  /** Last saved overrides (dirty baseline). */
+  readonly baseline = signal<FilterOverrides>({});
   /** Working overrides draft — PUT body shape. */
   readonly draft = signal<FilterOverrides>({});
 
   readonly chipDrafts = signal<Record<string, string>>({});
   readonly advancedPatterns = signal(false);
+  readonly fieldErrors = signal<Record<string, string>>({});
+  readonly saving = signal(false);
+  readonly saveError = signal<string | null>(null);
 
   readonly loading = this.filtersResource.isLoading;
   readonly errorMessage = computed(() =>
@@ -131,14 +141,33 @@ export class FiltersComponent {
   );
   readonly ready = computed(() => this.defaults() !== null);
 
+  readonly dirtyCount = computed(() => {
+    const a = this.draft() as Record<string, unknown>;
+    const b = this.baseline() as Record<string, unknown>;
+    const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+    let n = 0;
+    for (const k of keys) {
+      if (JSON.stringify(a[k]) !== JSON.stringify(b[k])) n++;
+    }
+    return n;
+  });
+  readonly isDirty = computed(() => this.dirtyCount() > 0);
+
   constructor() {
     effect(() => {
       if (!this.filtersResource.hasValue()) return;
-      const payload = this.filtersResource.value();
-      this.defaults.set(payload.defaults);
-      this.meta.set(payload.meta);
-      this.draft.set(structuredClone(payload.overrides));
+      this.applyPayload(this.filtersResource.value());
     });
+  }
+
+  private applyPayload(payload: FiltersPayload): void {
+    this.defaults.set(payload.defaults);
+    this.meta.set(payload.meta);
+    const overrides = structuredClone(payload.overrides);
+    this.baseline.set(overrides);
+    this.draft.set(structuredClone(overrides));
+    this.fieldErrors.set({});
+    this.saveError.set(null);
   }
 
   isOverridden(key: keyof FilterProfile): boolean {
@@ -292,6 +321,60 @@ export class FiltersComponent {
     return 'В профиле указан немецкий — фильтр выключен по умолчанию, если API так выставит default.';
   }
 
+  fieldError(key: keyof FilterProfile): string | null {
+    const errors = this.fieldErrors();
+    if (errors[key]) return errors[key];
+    const prefix = `${key}[`;
+    const parts = Object.entries(errors)
+      .filter(([k]) => k === key || k.startsWith(prefix))
+      .map(([k, v]) => (k === key ? v : `${k}: ${v}`));
+    return parts.length ? parts.join('; ') : null;
+  }
+
+  discard(): void {
+    this.draft.set(structuredClone(this.baseline()));
+    this.fieldErrors.set({});
+    this.saveError.set(null);
+  }
+
+  resetAll(): void {
+    this.draft.set({});
+    this.fieldErrors.set({});
+    this.saveError.set(null);
+  }
+
+  async save(): Promise<void> {
+    if (this.saving() || !this.isDirty()) return;
+    this.saving.set(true);
+    this.saveError.set(null);
+    this.fieldErrors.set({});
+    try {
+      const result = await this.api.put(this.draft());
+      this.applyPayload(result);
+      this.snackBar.open(
+        'Сохранено. Применится со следующего цикла охоты.',
+        undefined,
+        { duration: 4000 },
+      );
+    } catch (err) {
+      if (err instanceof HttpErrorResponse) {
+        if (err.status === 404) {
+          this.saveError.set('API ещё нет — сохранение недоступно, пока /api/filters не задеплоен.');
+        } else if (err.status === 400) {
+          const body = err.error as FiltersErrors | null;
+          this.fieldErrors.set(body?.errors ?? {});
+          this.saveError.set('Исправьте ошибки в полях и попробуйте снова.');
+        } else {
+          this.saveError.set('Не удалось сохранить фильтры.');
+        }
+      } else {
+        this.saveError.set('Не удалось сохранить фильтры.');
+      }
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
   private commitValue<K extends keyof FilterProfile>(key: K, value: FilterProfile[K]): void {
     const defaults = this.defaults();
     if (!defaults) return;
@@ -301,6 +384,14 @@ export class FiltersComponent {
       delete next[key];
     }
     this.draft.set(next);
+    // Clear stale errors for this key (and indexed variants).
+    this.fieldErrors.update((errs) => {
+      const cleaned = { ...errs };
+      for (const k of Object.keys(cleaned)) {
+        if (k === key || k.startsWith(`${key}[`)) delete cleaned[k];
+      }
+      return cleaned;
+    });
   }
 }
 
