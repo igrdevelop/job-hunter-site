@@ -11,7 +11,7 @@ import {
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { BehaviorSubject } from 'rxjs';
 import { vi } from 'vitest';
-import { ApplicationsComponent } from './applications.component';
+import { ApplicationsComponent, COLUMNS_STORAGE_KEY } from './applications.component';
 import { ApplicationsApi } from '../../core/api/applications.api';
 
 describe('ApplicationsComponent — URL-driven filter and search', () => {
@@ -125,5 +125,83 @@ describe('ApplicationsComponent — URL-driven filter and search', () => {
       queryParamsHandling: 'merge',
     });
     vi.useRealTimers();
+  });
+
+  describe('column visibility', () => {
+    afterEach(() => localStorage.removeItem(COLUMNS_STORAGE_KEY));
+
+    function colDef(field: string) {
+      return component.columnDefs.find((d) => d.field === field);
+    }
+
+    it('adds the sheet columns hidden by default', async () => {
+      await setup({});
+      for (const field of ['reapplication', 'driveUrl', 'costUsd', 'atsVerdict', 'id']) {
+        expect(colDef(field)?.hide, field).toBe(true);
+      }
+    });
+
+    it('shows My Status by default as a select-editor column', async () => {
+      await setup({});
+      const def = colDef('appStatus');
+      expect(def?.hide).toBeUndefined();
+      expect(def?.editable).toBe(true);
+      expect(def?.cellEditor).toBe('agSelectCellEditor');
+    });
+
+    it('excludes icon-only folder/url columns from the toggle menu', async () => {
+      await setup({});
+      const ids = component.columnToggles.map((t) => t.colId);
+      expect(ids).not.toContain('folder');
+      expect(ids).not.toContain('url');
+      expect(ids).toContain('driveUrl');
+    });
+
+    it('toggleColumn flips visibility and persists it to localStorage', async () => {
+      await setup({});
+      expect(component.isColumnVisible('costUsd')).toBe(false);
+      component.toggleColumn('costUsd');
+      expect(component.isColumnVisible('costUsd')).toBe(true);
+      const stored = JSON.parse(localStorage.getItem(COLUMNS_STORAGE_KEY)!);
+      expect(stored['costUsd']).toBe(false);
+    });
+
+    it('restores stored visibility choices on init', async () => {
+      localStorage.setItem(
+        COLUMNS_STORAGE_KEY,
+        JSON.stringify({ costUsd: false, stack: true }),
+      );
+      await setup({});
+      expect(colDef('costUsd')?.hide).toBe(false);
+      expect(colDef('stack')?.hide).toBe(true);
+      expect(component.isColumnVisible('costUsd')).toBe(true);
+      expect(component.isColumnVisible('stack')).toBe(false);
+    });
+  });
+
+  describe('inline edit PATCH guard', () => {
+    it('patches appStatus edits through the API', async () => {
+      await setup({});
+      const api = TestBed.inject(ApplicationsApi);
+      const patch = vi.spyOn(api, 'patch').mockResolvedValue({} as never);
+      component.onCellValueChanged({
+        colDef: { field: 'appStatus' },
+        data: { id: '42' },
+        newValue: 'Rejected',
+      } as never);
+      expect(patch).toHaveBeenCalledWith('42', { appStatus: 'Rejected' });
+    });
+
+    it('does not patch non-editable fields', async () => {
+      await setup({});
+      const api = TestBed.inject(ApplicationsApi);
+      const patch = vi.spyOn(api, 'patch').mockResolvedValue({} as never);
+      component.onCellValueChanged({
+        colDef: { field: 'company' },
+        data: { id: '42' },
+        newValue: 'Acme',
+      } as never);
+      expect(patch).not.toHaveBeenCalled();
+    });
   });
 });

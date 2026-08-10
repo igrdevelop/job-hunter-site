@@ -13,9 +13,26 @@ export interface Application {
   toLearn: string;
   costUsd: number | null;
   atsVerdict: number | null;
+  // Optional until the API deploy that returns them; cells render "—" meanwhile.
+  reapplication?: string;
+  driveUrl?: string;
+  appStatus?: string;
 }
 
-export type ApplicationPatch = Partial<Pick<Application, 'sent' | 'toLearn'>>;
+export type ApplicationPatch = Partial<Pick<Application, 'sent' | 'toLearn' | 'appStatus'>>;
+
+// Manual status set by the user from the grid dropdown. Web-only field
+// (tracker.db app_status) — independent of `sent`, which drives the
+// Unsent/Filled filter and stats.
+export const APP_STATUS_OPTIONS = [
+  '',
+  'Sent',
+  'Rejected',
+  'Interview',
+  'Offer',
+  'Filter miss',
+  'Skipped',
+] as const;
 
 // A new application is created from a job listing URL, the vacancy text, or both.
 export interface ApplicationCreate {

@@ -12,6 +12,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "start:proxy"],
       "port": 4200
+    },
+    {
+      "name": "job-hunter-dev-local-api",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["ng", "serve", "--proxy-config", "proxy.local.json"],
+      "port": 4200
     }
   ]
 }
