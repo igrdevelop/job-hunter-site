@@ -66,6 +66,28 @@
   flex: 1 1 auto;
 }
 
+.btn-columns {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-neutral-600);
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    color: var(--color-text);
+    border-color: var(--color-neutral-400);
+  }
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+}
+
 .btn-new-app {
   border: none;
   border-radius: var(--radius);

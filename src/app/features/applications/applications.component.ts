@@ -13,6 +13,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
 import { AgGridAngular } from 'ag-grid-angular';
@@ -28,6 +29,7 @@ import {
 } from 'ag-grid-community';
 import { ApplicationsApi } from '../../core/api/applications.api';
 import {
+  APP_STATUS_OPTIONS,
   Application,
   ApplicationStats,
   SentFilter,
@@ -42,6 +44,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 
 const REFRESH_INTERVAL_MS = 30_000;
 const SEARCH_DEBOUNCE_MS = 400;
+export const COLUMNS_STORAGE_KEY = 'applications.columns';
 
 @Component({
   selector: 'app-applications',
@@ -51,6 +54,7 @@ const SEARCH_DEBOUNCE_MS = 400;
     MatInputModule,
     MatIconModule,
     MatProgressSpinnerModule,
+    MatMenuModule,
     AgGridAngular,
   ],
   templateUrl: './applications.component.html',
@@ -87,7 +91,7 @@ export class ApplicationsComponent {
     suppressMovable: true,
   };
 
-  readonly columnDefs: ColDef<Application>[] = [
+  readonly columnDefs: ColDef<Application>[] = this.applyStoredVisibility([
     { field: 'date', sortable: true, headerName: 'Date', width: 118, cellClass: 'cell-date' },
     {
       field: 'company',
@@ -115,10 +119,64 @@ export class ApplicationsComponent {
       editable: true,
       cellRenderer: SentStatusCellRendererComponent,
     },
+    {
+      // Manual status, independent of `sent` (which drives the Unsent filter/stats).
+      field: 'appStatus',
+      headerName: 'My Status',
+      width: 130,
+      editable: true,
+      cellEditor: 'agSelectCellEditor',
+      cellEditorParams: { values: [...APP_STATUS_OPTIONS] },
+      valueFormatter: (p) => p.value || '—',
+    },
     { field: 'toLearn', headerName: 'To Learn', minWidth: 120, flex: 0.6, editable: true },
+    {
+      field: 'reapplication',
+      headerName: 'Re-application',
+      minWidth: 130,
+      flex: 0.6,
+      hide: true,
+      valueFormatter: (p) => p.value || '—',
+    },
+    {
+      field: 'driveUrl',
+      headerName: 'Drive',
+      width: 80,
+      hide: true,
+      cellRenderer: UrlCellRendererComponent,
+    },
+    {
+      field: 'costUsd',
+      sortable: true,
+      headerName: 'Cost $',
+      width: 96,
+      hide: true,
+      valueFormatter: (p) => (p.value != null ? `$${Number(p.value).toFixed(2)}` : '—'),
+    },
+    {
+      field: 'atsVerdict',
+      sortable: true,
+      headerName: 'ATS Verdict',
+      width: 116,
+      hide: true,
+      valueFormatter: (p) => (p.value != null ? String(p.value) : '—'),
+    },
+    { field: 'id', headerName: 'ID', width: 90, hide: true, cellClass: 'cell-date' },
     { field: 'folder', headerName: '', width: 52, cellRenderer: FolderCellRendererComponent },
     { field: 'url', headerName: '', width: 52, cellRenderer: UrlCellRendererComponent, pinned: 'right' },
-  ];
+  ]);
+
+  /** Columns togglable from the toolbar menu (icon-only folder/url excluded). */
+  readonly columnToggles = this.columnDefs
+    .filter((def) => def.headerName)
+    .map((def) => ({ colId: def.field as string, label: def.headerName as string }));
+
+  readonly hiddenColumns = signal<Record<string, boolean>>(
+    Object.fromEntries(this.columnToggles.map(({ colId }) => {
+      const def = this.columnDefs.find((d) => d.field === colId);
+      return [colId, def?.hide === true];
+    })),
+  );
 
   readonly datasource: IDatasource = {
     getRows: (params: IGetRowsParams) => {
@@ -232,9 +290,39 @@ export class ApplicationsComponent {
     this.gridApi.setGridOption('datasource', this.datasource);
   }
 
+  isColumnVisible(colId: string): boolean {
+    return !this.hiddenColumns()[colId];
+  }
+
+  toggleColumn(colId: string): void {
+    const hidden = { ...this.hiddenColumns(), [colId]: this.isColumnVisible(colId) };
+    this.hiddenColumns.set(hidden);
+    this.gridApi?.setColumnsVisible([colId], !hidden[colId]);
+    try {
+      localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(hidden));
+    } catch {
+      // Persistence is best-effort (private mode / quota); the toggle still applies.
+    }
+  }
+
+  /** Merge the user's saved show/hide choices over the default `hide` flags. */
+  private applyStoredVisibility(defs: ColDef<Application>[]): ColDef<Application>[] {
+    let stored: Record<string, boolean>;
+    try {
+      stored = JSON.parse(localStorage.getItem(COLUMNS_STORAGE_KEY) ?? '{}');
+    } catch {
+      return defs;
+    }
+    return defs.map((def) =>
+      def.headerName && typeof stored[def.field as string] === 'boolean'
+        ? { ...def, hide: stored[def.field as string] }
+        : def,
+    );
+  }
+
   onCellValueChanged(event: CellValueChangedEvent<Application>): void {
     const field = event.colDef.field as keyof Application;
-    if ((field === 'sent' || field === 'toLearn') && event.data) {
+    if ((field === 'sent' || field === 'toLearn' || field === 'appStatus') && event.data) {
       void this.patchFromGrid(event);
     }
   }
