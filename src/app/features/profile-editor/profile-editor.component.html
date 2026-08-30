@@ -42,28 +42,64 @@
   @if (document(); as profile) {
     <section class="card elev-sm">
       <h2 class="section-title">Identity</h2>
-      <dl class="fact-list">
-        <div class="fact">
-          <dt>Full name</dt>
-          <dd>{{ profile.core.identity.full_name || '—' }}</dd>
-        </div>
-        <div class="fact">
-          <dt>Also known as</dt>
-          <dd>{{ profile.core.identity.aka || '—' }}</dd>
-        </div>
-        <div class="fact">
-          <dt>Headline</dt>
-          <dd>{{ profile.core.identity.headline || '—' }}</dd>
-        </div>
-        <div class="fact">
-          <dt>Contact</dt>
-          <dd>{{ profile.core.identity.contact || '—' }}</dd>
-        </div>
-        <div class="fact">
-          <dt>CV filename prefix</dt>
-          <dd>{{ profile.core.identity.cv_filename_prefix || '—' }}</dd>
-        </div>
-      </dl>
+      <div class="field-grid">
+        <label class="field">
+          <span>Full name</span>
+          <input
+            class="input"
+            type="text"
+            [ngModel]="profile.core.identity.full_name"
+            (ngModelChange)="updateIdentity('full_name', $event)"
+          />
+          @if (identityFieldError('full_name'); as err) {
+            <span class="field-error">{{ err }}</span>
+          }
+        </label>
+        <label class="field">
+          <span>Also known as</span>
+          <input
+            class="input"
+            type="text"
+            [ngModel]="profile.core.identity.aka"
+            (ngModelChange)="updateIdentity('aka', $event)"
+          />
+        </label>
+        <label class="field">
+          <span>Headline</span>
+          <input
+            class="input"
+            type="text"
+            [ngModel]="profile.core.identity.headline"
+            (ngModelChange)="updateIdentity('headline', $event)"
+          />
+        </label>
+        <label class="field">
+          <span>Contact</span>
+          <input
+            class="input"
+            type="text"
+            [ngModel]="profile.core.identity.contact"
+            (ngModelChange)="updateIdentity('contact', $event)"
+          />
+          @if (identityFieldError('contact'); as err) {
+            <span class="field-error">{{ err }}</span>
+          }
+        </label>
+        <label class="field">
+          <span>CV filename prefix</span>
+          <input
+            class="input"
+            type="text"
+            [ngModel]="profile.core.identity.cv_filename_prefix"
+            (ngModelChange)="updateIdentity('cv_filename_prefix', $event)"
+          />
+          @if (identityFieldError('cv_filename_prefix'); as err) {
+            <span class="field-error">{{ err }}</span>
+          } @else {
+            <span class="field-hint">Files will be named like <code>{{ cvFilenameExample(profile) }}</code>.</span>
+          }
+        </label>
+      </div>
     </section>
 
     <section class="card elev-sm">
@@ -72,35 +108,132 @@
         Facts no resume contains — these feed the job filters and the doomed-gate
         checks directly.
       </p>
-      <dl class="fact-list">
-        <div class="fact">
-          <dt>Home city</dt>
-          <dd>
-            {{ profile.core.location.home_city || '—' }}
-            @if (profile.core.location.home_city_aliases.length) {
-              <span class="text-muted">
-                (aka {{ profile.core.location.home_city_aliases.join(', ') }})
+      <div class="field-grid">
+        <label class="field">
+          <span>Home city</span>
+          <input
+            class="input"
+            type="text"
+            [ngModel]="profile.core.location.home_city"
+            (ngModelChange)="updateLocation('home_city', $event)"
+          />
+        </label>
+
+        <div class="field">
+          <span>Home city aliases</span>
+          <div class="chips">
+            @for (item of questionnaireList('home_city_aliases'); track item) {
+              <span class="chip">
+                {{ item }}
+                <button type="button" class="chip-x" (click)="removeQuestionnaireChip('home_city_aliases', item)" aria-label="Remove {{ item }}">×</button>
               </span>
             }
-          </dd>
+            <input
+              class="chip-input"
+              type="text"
+              placeholder="Add alias…"
+              [ngModel]="questionnaireChipDrafts()['home_city_aliases'] ?? ''"
+              (ngModelChange)="setQuestionnaireChipDraft('home_city_aliases', $event)"
+              (keydown)="onQuestionnaireChipKeydown($event, 'home_city_aliases')"
+              (blur)="addQuestionnaireChip('home_city_aliases')"
+            />
+          </div>
         </div>
-        <div class="fact">
-          <dt>Hybrid tolerance</dt>
-          <dd>{{ hybridSummary(profile.core.location) }}</dd>
+
+        <div class="field">
+          <span>Acceptable hybrid cities</span>
+          <div class="chips">
+            @for (item of questionnaireList('acceptable_hybrid'); track item) {
+              <span class="chip">
+                {{ item }}
+                <button type="button" class="chip-x" (click)="removeQuestionnaireChip('acceptable_hybrid', item)" aria-label="Remove {{ item }}">×</button>
+              </span>
+            }
+            <input
+              class="chip-input"
+              type="text"
+              placeholder="Add city…"
+              [ngModel]="questionnaireChipDrafts()['acceptable_hybrid'] ?? ''"
+              (ngModelChange)="setQuestionnaireChipDraft('acceptable_hybrid', $event)"
+              (keydown)="onQuestionnaireChipKeydown($event, 'acceptable_hybrid')"
+              (blur)="addQuestionnaireChip('acceptable_hybrid')"
+            />
+          </div>
         </div>
-        <div class="fact">
-          <dt>Work authorization</dt>
-          <dd>{{ profile.core.location.work_authorization || '—' }}</dd>
+
+        <div class="field">
+          <span>Weekly hybrid cities</span>
+          <div class="chips">
+            @for (item of questionnaireList('weekly_hybrid'); track item) {
+              <span class="chip">
+                {{ item }}
+                <button type="button" class="chip-x" (click)="removeQuestionnaireChip('weekly_hybrid', item)" aria-label="Remove {{ item }}">×</button>
+              </span>
+            }
+            <input
+              class="chip-input"
+              type="text"
+              placeholder="Add city…"
+              [ngModel]="questionnaireChipDrafts()['weekly_hybrid'] ?? ''"
+              (ngModelChange)="setQuestionnaireChipDraft('weekly_hybrid', $event)"
+              (keydown)="onQuestionnaireChipKeydown($event, 'weekly_hybrid')"
+              (blur)="addQuestionnaireChip('weekly_hybrid')"
+            />
+          </div>
         </div>
-        <div class="fact">
-          <dt>Disqualifying languages</dt>
-          <dd>{{ profile.core.languages.disqualify_required.join(', ') || 'None' }}</dd>
+
+        <label class="field">
+          <span>Work authorization</span>
+          <input
+            class="input"
+            type="text"
+            [ngModel]="profile.core.location.work_authorization"
+            (ngModelChange)="updateLocation('work_authorization', $event)"
+          />
+        </label>
+
+        <div class="field">
+          <span>Disqualifying languages</span>
+          <div class="chips">
+            @for (item of questionnaireList('disqualify_required'); track item) {
+              <span class="chip">
+                {{ item }}
+                <button type="button" class="chip-x" (click)="removeQuestionnaireChip('disqualify_required', item)" aria-label="Remove {{ item }}">×</button>
+              </span>
+            }
+            <input
+              class="chip-input"
+              type="text"
+              placeholder="Add language…"
+              [ngModel]="questionnaireChipDrafts()['disqualify_required'] ?? ''"
+              (ngModelChange)="setQuestionnaireChipDraft('disqualify_required', $event)"
+              (keydown)="onQuestionnaireChipKeydown($event, 'disqualify_required')"
+              (blur)="addQuestionnaireChip('disqualify_required')"
+            />
+          </div>
         </div>
-        <div class="fact">
-          <dt>Experience</dt>
-          <dd>{{ experienceSummary(profile.core.experience) }}</dd>
-        </div>
-      </dl>
+
+        <label class="field">
+          <span>Experience label</span>
+          <input
+            class="input"
+            type="text"
+            placeholder="e.g. 6+"
+            [ngModel]="profile.core.experience.years_label"
+            (ngModelChange)="updateExperience('years_label', $event)"
+          />
+        </label>
+
+        <label class="field">
+          <span>Experience since (year)</span>
+          <input
+            class="input"
+            type="number"
+            [ngModel]="profile.core.experience.since_year || null"
+            (ngModelChange)="updateExperience('since_year', $event ?? 0)"
+          />
+        </label>
+      </div>
     </section>
 
     <section class="card elev-sm">
@@ -262,13 +395,20 @@
 
     @if (isDirty() || saveError()) {
       <div class="savebar" role="region" aria-label="Unsaved profile changes">
-        <button type="button" class="btn btn-primary" [disabled]="saving() || !isDirty()" (click)="save()">
+        <button
+          type="button"
+          class="btn btn-primary"
+          [disabled]="saving() || !isDirty() || hasBlockingErrors()"
+          (click)="save()"
+        >
           @if (saving()) { Saving… } @else { Save }
         </button>
         <button type="button" class="btn btn-ghost" [disabled]="saving() || !isDirty()" (click)="discard()">
           Discard changes
         </button>
-        @if (isDirty()) {
+        @if (hasBlockingErrors()) {
+          <span class="save-error">Fix the identity errors above before saving.</span>
+        } @else if (isDirty()) {
           <span class="dirty">● Unsaved changes</span>
         }
         @if (saveError()) {

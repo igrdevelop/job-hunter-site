@@ -9,6 +9,7 @@ import {
   ProfileDocument,
   ProfileErrors,
   ProfileExperience,
+  ProfileIdentity,
   ProfileLocation,
   ProfileOrigin,
   ProfileSkillCategory,
@@ -16,6 +17,20 @@ import {
 
 /** The skills table edits either core.skills ('core') or variants[track].skills. */
 const CORE_TAB = 'core';
+
+/** Required identity fields — the server's PUT 400 list mirrors these exact messages. */
+const REQUIRED_IDENTITY_FIELDS: { key: keyof ProfileIdentity; message: string }[] = [
+  { key: 'full_name', message: 'core.identity.full_name is required' },
+  { key: 'contact', message: 'core.identity.contact is required' },
+  { key: 'cv_filename_prefix', message: 'core.identity.cv_filename_prefix is required' },
+];
+
+/** String-list fields on the questionnaire card, all edited with the same chip UX. */
+type QuestionnaireListKey =
+  | 'home_city_aliases'
+  | 'acceptable_hybrid'
+  | 'weekly_hybrid'
+  | 'disqualify_required';
 
 @Component({
   selector: 'app-profile-editor',
@@ -106,22 +121,106 @@ export class ProfileEditorComponent {
     return this.isEdited(origin) ? 'Edited' : 'Parsed';
   }
 
-  hybridSummary(location: ProfileLocation): string {
-    const parts: string[] = [];
-    if (location.acceptable_hybrid.length) {
-      parts.push(`Acceptable: ${location.acceptable_hybrid.join(', ')}`);
-    }
-    if (location.weekly_hybrid.length) {
-      parts.push(`Weekly: ${location.weekly_hybrid.join(', ')}`);
-    }
-    return parts.length ? parts.join(' · ') : '—';
+  // ── Identity (plain fields, spread-updated straight into the draft) ──────
+
+  updateIdentity<K extends keyof ProfileIdentity>(field: K, value: ProfileIdentity[K]): void {
+    const doc = this.draft();
+    if (!doc) return;
+    this.draft.set({ ...doc, core: { ...doc.core, identity: { ...doc.core.identity, [field]: value } } });
   }
 
-  experienceSummary(experience: ProfileExperience): string {
-    if (!experience.years_label) return '—';
-    return experience.since_year
-      ? `${experience.years_label} (since ${experience.since_year})`
-      : experience.years_label;
+  identityFieldError(field: keyof ProfileIdentity): string | null {
+    const doc = this.document();
+    if (!doc) return null;
+    const rule = REQUIRED_IDENTITY_FIELDS.find((r) => r.key === field);
+    if (!rule) return null;
+    return doc.core.identity[field].trim() ? null : rule.message;
+  }
+
+  readonly hasBlockingErrors = computed(() => {
+    const doc = this.document();
+    if (!doc) return false;
+    return REQUIRED_IDENTITY_FIELDS.some((rule) => !doc.core.identity[rule.key].trim());
+  });
+
+  /** e.g. "Jane_Doe_CV_Angular_2026_EN.docx" — mirrors bot generate_docs.resume_docx_basename(). */
+  cvFilenameExample(profile: ProfileDocument): string {
+    const prefix = profile.core.identity.cv_filename_prefix.trim() || 'CV';
+    const year = new Date().getFullYear();
+    const stack = (this.variantTracks()[0] ?? 'FE').replace(/[^\w-]+/g, '_').slice(0, 22) || 'FE';
+    const lang = (profile.core.languages.cv_languages[0] ?? 'EN').toUpperCase().slice(0, 2) || 'EN';
+    return `${prefix}_${stack}_${year}_${lang}.docx`;
+  }
+
+  // ── Questionnaire: location / languages / experience ─────────────────────
+
+  updateLocation<K extends keyof ProfileLocation>(field: K, value: ProfileLocation[K]): void {
+    const doc = this.draft();
+    if (!doc) return;
+    this.draft.set({ ...doc, core: { ...doc.core, location: { ...doc.core.location, [field]: value } } });
+  }
+
+  updateExperience<K extends keyof ProfileExperience>(field: K, value: ProfileExperience[K]): void {
+    const doc = this.draft();
+    if (!doc) return;
+    this.draft.set({
+      ...doc,
+      core: { ...doc.core, experience: { ...doc.core.experience, [field]: value } },
+    });
+  }
+
+  readonly questionnaireChipDrafts = signal<Record<string, string>>({});
+
+  questionnaireList(listKey: QuestionnaireListKey): string[] {
+    const doc = this.document();
+    if (!doc) return [];
+    return listKey === 'disqualify_required'
+      ? doc.core.languages.disqualify_required
+      : doc.core.location[listKey];
+  }
+
+  setQuestionnaireChipDraft(listKey: QuestionnaireListKey, value: string): void {
+    this.questionnaireChipDrafts.update((m) => ({ ...m, [listKey]: value }));
+  }
+
+  onQuestionnaireChipKeydown(event: KeyboardEvent, listKey: QuestionnaireListKey): void {
+    if (event.key === 'Enter' || event.key === ',') {
+      event.preventDefault();
+      this.addQuestionnaireChip(listKey);
+    }
+  }
+
+  addQuestionnaireChip(listKey: QuestionnaireListKey): void {
+    const raw = (this.questionnaireChipDrafts()[listKey] ?? '').trim();
+    if (!raw) return;
+    const list = this.questionnaireList(listKey);
+    if (!list.some((x) => x.toLowerCase() === raw.toLowerCase())) {
+      this.setQuestionnaireList(listKey, [...list, raw]);
+    }
+    this.setQuestionnaireChipDraft(listKey, '');
+  }
+
+  removeQuestionnaireChip(listKey: QuestionnaireListKey, item: string): void {
+    this.setQuestionnaireList(
+      listKey,
+      this.questionnaireList(listKey).filter((x) => x !== item),
+    );
+  }
+
+  private setQuestionnaireList(listKey: QuestionnaireListKey, list: string[]): void {
+    const doc = this.draft();
+    if (!doc) return;
+    if (listKey === 'disqualify_required') {
+      this.draft.set({
+        ...doc,
+        core: { ...doc.core, languages: { ...doc.core.languages, disqualify_required: list } },
+      });
+      return;
+    }
+    this.draft.set({
+      ...doc,
+      core: { ...doc.core, location: { ...doc.core.location, [listKey]: list } },
+    });
   }
 
   selectTab(tab: string): void {
@@ -230,7 +329,7 @@ export class ProfileEditorComponent {
 
   async save(): Promise<void> {
     const doc = this.draft();
-    if (this.saving() || !this.isDirty() || !doc) return;
+    if (this.saving() || !this.isDirty() || !doc || this.hasBlockingErrors()) return;
     this.saving.set(true);
     this.saveError.set(null);
     this.fieldErrors.set([]);

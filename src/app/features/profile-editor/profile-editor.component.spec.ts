@@ -13,6 +13,23 @@ describe('ProfileEditorComponent', () => {
   let component: ProfileEditorComponent;
   let api: ProfileApi;
 
+  function findField(labelText: string): HTMLElement | undefined {
+    const fields = Array.from(
+      fixture.nativeElement.querySelectorAll('.field'),
+    ) as HTMLElement[];
+    return fields.find((el) => el.querySelector('span')?.textContent?.trim() === labelText);
+  }
+
+  function fieldInputValue(labelText: string): string {
+    return (findField(labelText)?.querySelector('input') as HTMLInputElement | null)?.value ?? '';
+  }
+
+  function fieldChips(labelText: string): string[] {
+    return Array.from(findField(labelText)?.querySelectorAll('.chip') ?? []).map((el) =>
+      (el.textContent ?? '').replace('×', '').trim(),
+    );
+  }
+
   async function createWith(getResult: () => ReturnType<ProfileApi['get']>): Promise<void> {
     await TestBed.configureTestingModule({
       imports: [ProfileEditorComponent],
@@ -46,17 +63,19 @@ describe('ProfileEditorComponent', () => {
       expect(component.document()?.core.identity.full_name).toBe('Jane Doe');
     });
 
-    it('renders the identity card', () => {
-      const text = fixture.nativeElement.textContent as string;
-      expect(text).toContain('Jane Doe');
-      expect(text).toContain('Senior Frontend Developer');
+    it('renders the identity card as editable fields', () => {
+      expect(fieldInputValue('Full name')).toBe('Jane Doe');
+      expect(fieldInputValue('Headline')).toBe('Senior Frontend Developer');
     });
 
     it('renders the questionnaire card from location/languages/experience', () => {
-      const text = fixture.nativeElement.textContent as string;
-      expect(text).toContain('Warsaw');
-      expect(text).toContain('EU');
-      expect(text).toContain('6+');
+      expect(fieldInputValue('Home city')).toBe('Warsaw');
+      expect(fieldInputValue('Work authorization')).toBe('EU');
+      expect(fieldInputValue('Experience label')).toBe('6+');
+      expect(fieldChips('Home city aliases')).toEqual(['warszawa', 'warsaw']);
+      expect(fieldChips('Acceptable hybrid cities')).toEqual(['Warsaw']);
+      expect(fieldChips('Weekly hybrid cities')).toEqual(['Krakow']);
+      expect(fieldChips('Disqualifying languages')).toEqual(['de', 'fr']);
     });
 
     it('renders one row per skill category with its chip-listed items', () => {
@@ -211,6 +230,88 @@ describe('ProfileEditorComponent', () => {
       vi.spyOn(api, 'put').mockRejectedValue(new HttpErrorResponse({ status: 404 }));
       await component.save();
       expect(component.saveError()).toContain('not available yet');
+    });
+  });
+
+  describe('identity + questionnaire editing (F3)', () => {
+    beforeEach(async () => {
+      await createWith(() => Promise.resolve(structuredClone(PROFILE_MOCK)));
+    });
+
+    it('updateIdentity() edits a field and marks the draft dirty', () => {
+      expect(component.isDirty()).toBe(false);
+      component.updateIdentity('headline', 'Staff Frontend Developer');
+      expect(component.document()?.core.identity.headline).toBe('Staff Frontend Developer');
+      expect(component.isDirty()).toBe(true);
+    });
+
+    it('identityFieldError() flags a required field only once it is emptied', () => {
+      expect(component.identityFieldError('full_name')).toBeNull();
+      component.updateIdentity('full_name', '   ');
+      expect(component.identityFieldError('full_name')).toBe('core.identity.full_name is required');
+      expect(component.hasBlockingErrors()).toBe(true);
+    });
+
+    it('blocks save() while a required identity field is empty', async () => {
+      const putSpy = vi.spyOn(api, 'put').mockResolvedValue({ revision: 2, renderJobId: null });
+      component.updateIdentity('contact', '');
+      expect(component.isDirty()).toBe(true);
+      await component.save();
+      expect(putSpy).not.toHaveBeenCalled();
+    });
+
+    it('disables the Save button in the template while blocked', () => {
+      component.updateIdentity('cv_filename_prefix', '');
+      fixture.detectChanges();
+      const saveBtn = fixture.nativeElement.querySelector('.savebar .btn-primary') as HTMLButtonElement;
+      expect(saveBtn.disabled).toBe(true);
+    });
+
+    it('shows a live filename example next to cv_filename_prefix', () => {
+      const year = new Date().getFullYear();
+      const text = fixture.nativeElement.textContent as string;
+      expect(text).toContain(`Jane_Doe_CV_angular_${year}_EN.docx`);
+    });
+
+    it('updateLocation() edits a scalar questionnaire field', () => {
+      component.updateLocation('home_city', 'Kraków');
+      expect(component.document()?.core.location.home_city).toBe('Kraków');
+      expect(component.isDirty()).toBe(true);
+    });
+
+    it('updateExperience() edits years_label and since_year', () => {
+      component.updateExperience('years_label', '8+');
+      component.updateExperience('since_year', 2016);
+      const experience = component.document()?.core.experience;
+      expect(experience?.years_label).toBe('8+');
+      expect(experience?.since_year).toBe(2016);
+    });
+
+    it('addQuestionnaireChip()/removeQuestionnaireChip() edit a list field, ignoring duplicates', () => {
+      component.setQuestionnaireChipDraft('disqualify_required', 'DE');
+      component.addQuestionnaireChip('disqualify_required');
+      expect(component.questionnaireList('disqualify_required')).toEqual(['de', 'fr']);
+
+      component.setQuestionnaireChipDraft('disqualify_required', 'it');
+      component.addQuestionnaireChip('disqualify_required');
+      expect(component.questionnaireList('disqualify_required')).toEqual(['de', 'fr', 'it']);
+
+      component.removeQuestionnaireChip('disqualify_required', 'fr');
+      expect(component.questionnaireList('disqualify_required')).toEqual(['de', 'it']);
+    });
+
+    it('save() carries edited identity/questionnaire fields plus untouched skills/roles byte-identical', async () => {
+      const putSpy = vi.spyOn(api, 'put').mockResolvedValue({ revision: 2, renderJobId: null });
+      component.updateIdentity('headline', 'Staff Frontend Developer');
+      component.updateLocation('work_authorization', 'PL + EU');
+
+      await component.save();
+
+      const sent = putSpy.mock.calls[0][0];
+      expect(sent.core.identity.headline).toBe('Staff Frontend Developer');
+      expect(sent.core.location.work_authorization).toBe('PL + EU');
+      expect(sent.core.skills).toEqual(PROFILE_MOCK.profile.core.skills);
+      expect(sent.core.roles).toEqual(PROFILE_MOCK.profile.core.roles);
     });
   });
 
