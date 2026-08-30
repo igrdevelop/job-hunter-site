@@ -104,34 +104,101 @@
     </section>
 
     <section class="card elev-sm">
-      <h2 class="section-title">Skills</h2>
-      @if (skills().length === 0) {
+      <div class="section-head">
+        <h2 class="section-title">Skills</h2>
+        @if (hasMultipleVariants()) {
+          <div class="tab-strip" role="tablist">
+            @for (tab of tabs(); track tab) {
+              <button
+                type="button"
+                class="tab-btn"
+                [class.active]="activeTab() === tab"
+                (click)="selectTab(tab)"
+              >
+                {{ tabLabel(tab) }}
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      @if (activeVariantOverridesCore()) {
+        <div class="variant-banner">
+          <span>These skills override core for <b>{{ activeTab() }}</b>.</span>
+          <button type="button" class="btn btn-ghost" (click)="resetVariantToCore()">
+            Reset to core
+          </button>
+        </div>
+      } @else if (activeTab() !== 'core') {
+        <p class="hint">
+          This track currently falls back to core skills (filtered by tag). Add a
+          category below to override it just for <b>{{ activeTab() }}</b>.
+        </p>
+      }
+
+      @if (activeSkills().length === 0) {
         <p class="empty-state">No skills yet.</p>
       }
+
       <div class="skills-table">
-        @for (cat of skills(); track cat.category) {
+        @for (cat of activeSkills(); track $index) {
           <div class="skills-row">
             <div class="skills-category">
-              <span>{{ cat.category }}</span>
+              <input
+                class="category-input"
+                type="text"
+                [ngModel]="cat.category"
+                (ngModelChange)="renameCategory($index, $event)"
+                placeholder="Category name"
+              />
               <span class="tag" [class.tag-accent]="isEdited(cat.origin)" [class.tag-outline]="!isEdited(cat.origin)">
                 {{ originLabel(cat.origin) }}
               </span>
+              <div class="row-actions">
+                <button type="button" class="btn-icon-sm" (click)="moveCategory($index, -1)" [disabled]="$index === 0" aria-label="Move category up">↑</button>
+                <button type="button" class="btn-icon-sm" (click)="moveCategory($index, 1)" [disabled]="$index === activeSkills().length - 1" aria-label="Move category down">↓</button>
+                <button type="button" class="btn-icon-sm" (click)="removeCategory($index)" aria-label="Remove category">✕</button>
+              </div>
               @if (hasMultipleVariants()) {
-                @for (track of cat.tracks; track track) {
-                  <span class="tag tag-outline">{{ track }}</span>
-                }
+                <div class="track-toggles">
+                  @for (track of variantTracks(); track track) {
+                    <button
+                      type="button"
+                      class="tag track-toggle"
+                      [class.tag-accent]="hasTrack(cat, track)"
+                      [class.tag-outline]="!hasTrack(cat, track)"
+                      (click)="toggleTrack($index, track)"
+                    >
+                      {{ track }}
+                    </button>
+                  }
+                </div>
               }
             </div>
             <div class="skills-items">
               <div class="chips">
                 @for (item of cat.items; track item) {
-                  <span class="chip">{{ item }}</span>
+                  <span class="chip">
+                    {{ item }}
+                    <button type="button" class="chip-x" (click)="removeSkillItem($index, item)" aria-label="Remove {{ item }}">×</button>
+                  </span>
                 }
+                <input
+                  class="chip-input"
+                  type="text"
+                  placeholder="Add skill…"
+                  [ngModel]="chipDrafts()[$index] ?? ''"
+                  (ngModelChange)="setChipDraft($index, $event)"
+                  (keydown)="onChipKeydown($event, $index)"
+                  (blur)="addSkillItem($index)"
+                />
               </div>
             </div>
           </div>
         }
       </div>
+
+      <button type="button" class="btn btn-secondary" (click)="addCategory()">+ Add category</button>
     </section>
 
     <section class="card elev-sm">
@@ -183,6 +250,31 @@
           }
         </ul>
       </section>
+    }
+
+    @if (fieldErrors().length > 0) {
+      <ul class="field-errors">
+        @for (msg of fieldErrors(); track $index) {
+          <li>{{ msg }}</li>
+        }
+      </ul>
+    }
+
+    @if (isDirty() || saveError()) {
+      <div class="savebar" role="region" aria-label="Unsaved profile changes">
+        <button type="button" class="btn btn-primary" [disabled]="saving() || !isDirty()" (click)="save()">
+          @if (saving()) { Saving… } @else { Save }
+        </button>
+        <button type="button" class="btn btn-ghost" [disabled]="saving() || !isDirty()" (click)="discard()">
+          Discard changes
+        </button>
+        @if (isDirty()) {
+          <span class="dirty">● Unsaved changes</span>
+        }
+        @if (saveError()) {
+          <span class="save-error">{{ saveError() }}</span>
+        }
+      </div>
     }
   }
 </div>
