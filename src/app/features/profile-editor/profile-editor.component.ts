@@ -643,6 +643,29 @@ export class ProfileEditorComponent {
     return this.document()?.uploads.find((u) => u.id === leftover.source_upload_id)?.filename ?? null;
   }
 
+  /** UX rule 4 (docs/RESUME_PROFILE_STORE.md): a leftover is reassigned by copying it into a
+   * normal, editable field — Extras is the closest fit for a fragment with no better home — or
+   * dismissed outright once the user has read it and decided it isn't worth keeping either way. */
+  addLeftoverAsExtra(index: number): void {
+    const doc = this.draft();
+    const leftover = doc?.leftovers[index];
+    if (!doc || !leftover) return;
+    this.draft.set({
+      ...doc,
+      core: {
+        ...doc.core,
+        extras: [...doc.core.extras, { kind: 'other', text: leftover.text, origin: 'edited' }],
+      },
+      leftovers: doc.leftovers.filter((_, i) => i !== index),
+    });
+  }
+
+  dismissLeftover(index: number): void {
+    const doc = this.draft();
+    if (!doc) return;
+    this.draft.set({ ...doc, leftovers: doc.leftovers.filter((_, i) => i !== index) });
+  }
+
   startFromScratch(): void {
     const blank: ProfileDocument = {
       schema_version: 1,

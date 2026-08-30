@@ -128,6 +128,52 @@ describe('ProfileEditorComponent', () => {
     });
   });
 
+  describe('leftovers: reassign or dismiss (UX rule 4)', () => {
+    beforeEach(async () => {
+      await createWith(() => Promise.resolve(structuredClone(PROFILE_MOCK)));
+    });
+
+    it('addLeftoverAsExtra() copies the fragment into extras and removes it from leftovers', () => {
+      const before = component.leftovers().length;
+      const extrasBefore = component.document()?.core.extras.length ?? 0;
+      const text = component.leftovers()[0].text;
+
+      component.addLeftoverAsExtra(0);
+
+      expect(component.leftovers().length).toBe(before - 1);
+      const extras = component.document()?.core.extras ?? [];
+      expect(extras.length).toBe(extrasBefore + 1);
+      expect(extras.at(-1)).toEqual({ kind: 'other', text, origin: 'edited' });
+      expect(component.isDirty()).toBe(true);
+    });
+
+    it('dismissLeftover() removes the fragment without touching anything else', () => {
+      const before = component.leftovers().length;
+      const extrasBefore = component.document()?.core.extras.length ?? 0;
+
+      component.dismissLeftover(0);
+
+      expect(component.leftovers().length).toBe(before - 1);
+      expect(component.document()?.core.extras.length).toBe(extrasBefore);
+      expect(component.isDirty()).toBe(true);
+    });
+
+    it('renders Add as extra / Dismiss actions for each leftover in the DOM', () => {
+      fixture.detectChanges();
+      const row = fixture.nativeElement.querySelector('.leftover-row') as HTMLElement;
+      const addBtn = Array.from(row.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('Add as extra'),
+      ) as HTMLButtonElement;
+
+      addBtn.click();
+      fixture.detectChanges();
+
+      expect(
+        component.document()?.core.extras.some((e) => e.text.includes('hereby give consent')),
+      ).toBe(true);
+    });
+  });
+
   describe('lossless round-trip guarantees (docs/RESUME_PROFILE_STORE.md risk)', () => {
     it('save() sends a document identical to baseline except for the one edited field', async () => {
       await createWith(() => Promise.resolve(structuredClone(PROFILE_MOCK)));
