@@ -522,7 +522,7 @@ export class ProfileEditorComponent {
     track: string,
     value: string,
   ): void {
-    this.updateRole(roleId, (r) => ({ ...r, [field]: { ...r[field], [track]: value } }));
+    this.updateRole(roleId, (r) => ({ ...r, [field]: { ...r[field], [track]: value }, origin: 'edited' }));
   }
 
   trackBullets(role: ProfileRole, track: string): string[] {
@@ -536,6 +536,7 @@ export class ProfileEditorComponent {
         ...r.bullets_by_track,
         [track]: (r.bullets_by_track[track] ?? []).map((t, i) => (i === index ? text : t)),
       },
+      origin: 'edited',
     }));
   }
 
@@ -543,6 +544,7 @@ export class ProfileEditorComponent {
     this.updateRole(roleId, (r) => ({
       ...r,
       bullets_by_track: { ...r.bullets_by_track, [track]: [...(r.bullets_by_track[track] ?? []), ''] },
+      origin: 'edited',
     }));
   }
 
@@ -553,6 +555,7 @@ export class ProfileEditorComponent {
         ...r.bullets_by_track,
         [track]: (r.bullets_by_track[track] ?? []).filter((_, i) => i !== index),
       },
+      origin: 'edited',
     }));
   }
 
@@ -563,7 +566,7 @@ export class ProfileEditorComponent {
       if (target < 0 || target >= list.length) return r;
       const next = [...list];
       [next[index], next[target]] = [next[target], next[index]];
-      return { ...r, bullets_by_track: { ...r.bullets_by_track, [track]: next } };
+      return { ...r, bullets_by_track: { ...r.bullets_by_track, [track]: next }, origin: 'edited' };
     });
   }
 
@@ -582,6 +585,7 @@ export class ProfileEditorComponent {
         ...r.bullets_by_track,
         [track]: r.bullets_by_track[track] ?? r.bullets.map((b) => b.text),
       },
+      origin: 'edited',
     }));
     this.selectRoleTab(role, track);
   }
@@ -641,6 +645,29 @@ export class ProfileEditorComponent {
 
   leftoverSourceFilename(leftover: { source_upload_id: string }): string | null {
     return this.document()?.uploads.find((u) => u.id === leftover.source_upload_id)?.filename ?? null;
+  }
+
+  /** UX rule 4 (docs/RESUME_PROFILE_STORE.md): a leftover is reassigned by copying it into a
+   * normal, editable field — Extras is the closest fit for a fragment with no better home — or
+   * dismissed outright once the user has read it and decided it isn't worth keeping either way. */
+  addLeftoverAsExtra(index: number): void {
+    const doc = this.draft();
+    const leftover = doc?.leftovers[index];
+    if (!doc || !leftover) return;
+    this.draft.set({
+      ...doc,
+      core: {
+        ...doc.core,
+        extras: [...doc.core.extras, { kind: 'other', text: leftover.text, origin: 'edited' }],
+      },
+      leftovers: doc.leftovers.filter((_, i) => i !== index),
+    });
+  }
+
+  dismissLeftover(index: number): void {
+    const doc = this.draft();
+    if (!doc) return;
+    this.draft.set({ ...doc, leftovers: doc.leftovers.filter((_, i) => i !== index) });
   }
 
   startFromScratch(): void {
@@ -789,7 +816,25 @@ export class ProfileEditorComponent {
     let skills = [...current.core.skills];
     for (const cat of acceptedSkills) {
       const idx = skills.findIndex((c) => this.skillProposalKey(c) === this.skillProposalKey(cat));
-      skills = idx >= 0 ? skills.map((c, i) => (i === idx ? cat : c)) : [...skills, cat];
+      if (idx < 0) {
+        skills = [...skills, cat];
+        continue;
+      }
+      // A collision: union into the EXISTING category rather than replacing it
+      // outright — every other merge in this function is additive, and a bare
+      // replace would silently drop whatever items this particular upload
+      // doesn't happen to mention (docs/RESUME_PROFILE_STORE.md: nothing gets
+      // silently dropped, fuller is always better).
+      const existing = skills[idx];
+      skills = skills.map((c, i) =>
+        i === idx
+          ? {
+              ...existing,
+              items: unionCaseInsensitive(existing.items, cat.items),
+              tracks: unionCaseInsensitive(existing.tracks, cat.tracks),
+            }
+          : c,
+      );
     }
 
     let roles = [...current.core.roles];
@@ -851,6 +896,7 @@ export class ProfileEditorComponent {
           ),
         },
         employers: {
+          ...current.core.employers,
           protected: unionCaseInsensitive(current.core.employers.protected, parsed.core.employers.protected),
           flexible: {
             ...fillEmptyStrings(current.core.employers.flexible, parsed.core.employers.flexible, [

@@ -128,6 +128,82 @@ describe('ProfileEditorComponent', () => {
     });
   });
 
+  describe('leftovers: reassign or dismiss (UX rule 4)', () => {
+    beforeEach(async () => {
+      await createWith(() => Promise.resolve(structuredClone(PROFILE_MOCK)));
+    });
+
+    it('addLeftoverAsExtra() copies the fragment into extras and removes it from leftovers', () => {
+      const before = component.leftovers().length;
+      const extrasBefore = component.document()?.core.extras.length ?? 0;
+      const text = component.leftovers()[0].text;
+
+      component.addLeftoverAsExtra(0);
+
+      expect(component.leftovers().length).toBe(before - 1);
+      const extras = component.document()?.core.extras ?? [];
+      expect(extras.length).toBe(extrasBefore + 1);
+      expect(extras.at(-1)).toEqual({ kind: 'other', text, origin: 'edited' });
+      expect(component.isDirty()).toBe(true);
+    });
+
+    it('dismissLeftover() removes the fragment without touching anything else', () => {
+      const before = component.leftovers().length;
+      const extrasBefore = component.document()?.core.extras.length ?? 0;
+
+      component.dismissLeftover(0);
+
+      expect(component.leftovers().length).toBe(before - 1);
+      expect(component.document()?.core.extras.length).toBe(extrasBefore);
+      expect(component.isDirty()).toBe(true);
+    });
+
+    it('renders Add as extra / Dismiss actions for each leftover in the DOM', () => {
+      fixture.detectChanges();
+      const row = fixture.nativeElement.querySelector('.leftover-row') as HTMLElement;
+      const addBtn = Array.from(row.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('Add as extra'),
+      ) as HTMLButtonElement;
+
+      addBtn.click();
+      fixture.detectChanges();
+
+      expect(
+        component.document()?.core.extras.some((e) => e.text.includes('hereby give consent')),
+      ).toBe(true);
+    });
+  });
+
+  describe('lossless round-trip guarantees (docs/RESUME_PROFILE_STORE.md risk)', () => {
+    it('save() sends a document identical to baseline except for the one edited field', async () => {
+      await createWith(() => Promise.resolve(structuredClone(PROFILE_MOCK)));
+      const putSpy = vi.spyOn(api, 'put').mockResolvedValue({ revision: 2, renderJobId: null });
+
+      component.updateGenerationNotes('A note that touches nothing else.');
+      await component.save();
+
+      const sent = putSpy.mock.calls[0][0];
+      const expected = structuredClone(PROFILE_MOCK.profile);
+      expected.core.generation_notes = 'A note that touches nothing else.';
+      expect(sent).toEqual(expected);
+    });
+
+    it('an unknown top-level field on the loaded document survives an ordinary edit + save', async () => {
+      const withUnknownField = structuredClone(PROFILE_MOCK.profile) as ProfileDocument;
+      (withUnknownField as Record<string, unknown>)['futureTopLevelField'] = { nested: 'data' };
+      await createWith(() =>
+        Promise.resolve({ profile: withUnknownField, revision: 1, updatedAt: '2026-08-30T00:00:00Z' }),
+      );
+      const putSpy = vi.spyOn(api, 'put').mockResolvedValue({ revision: 2, renderJobId: null });
+
+      component.updateIdentity('headline', 'Staff Frontend Developer');
+      await component.save();
+
+      const sent = putSpy.mock.calls[0][0] as Record<string, unknown>;
+      expect(sent['futureTopLevelField']).toEqual({ nested: 'data' });
+    });
+  });
+
   describe('skills table editing (F2)', () => {
     beforeEach(async () => {
       await createWith(() => Promise.resolve(structuredClone(PROFILE_MOCK)));
@@ -527,6 +603,38 @@ describe('ProfileEditorComponent', () => {
       expect(component.roleActiveTab(updated)).toBe('core');
     });
 
+    it('per-track edits flip the role origin the same way core-field edits do', () => {
+      const beta = component.roles()[1]; // origin 'parsed', no by-track overrides yet
+      expect(beta.origin).toBe('parsed');
+
+      component.updateRoleTrackField(beta.id, 'title_by_track', 'angular', 'Angular Lead');
+      expect(component.roles()[1].origin).toBe('edited');
+    });
+
+    it('startTrackRewrite()/addTrackBullet()/updateTrackBulletText()/removeTrackBullet()/moveTrackBullet() all flip the role origin', () => {
+      const beta = component.roles()[1];
+      component.startTrackRewrite(beta, 'angular');
+      expect(component.roles()[1].origin).toBe('edited');
+
+      // Reset to re-isolate each mutator against a still-'parsed' role.
+      component.discard();
+      const acme = component.roles()[0]; // already 'edited' in the mock — use it only to exercise bullets_by_track
+      component.addTrackBullet(acme.id, 'react');
+      expect(component.roles()[0].origin).toBe('edited');
+
+      component.discard();
+      component.updateTrackBulletText(component.roles()[0].id, 'react', 0, 'Rewritten.');
+      expect(component.roles()[0].origin).toBe('edited');
+
+      component.discard();
+      component.removeTrackBullet(component.roles()[0].id, 'react', 0);
+      expect(component.roles()[0].origin).toBe('edited');
+
+      component.discard();
+      component.moveTrackBullet(component.roles()[0].id, 'react', 0, 1);
+      expect(component.roles()[0].origin).toBe('edited');
+    });
+
     it('addTrackBullet()/updateTrackBulletText()/removeTrackBullet() edit the by-track bullets', () => {
       const acme = component.roles()[0];
       const before = component.trackBullets(acme, 'react').length;
@@ -764,6 +872,19 @@ describe('ProfileEditorComponent', () => {
         expect(component.isDirty()).toBe(true);
       });
 
+      it('accepting a collision with a non-edited category unions items instead of replacing them', () => {
+        // "Tools" is a non-edited (parsed) category in the mock with items [Jest, Cypress, Git, Webpack].
+        const parsed = structuredClone(PROFILE_MOCK.profile);
+        parsed.core.skills = [{ category: 'Tools', items: ['Vite'], origin: 'parsed', tracks: [] }];
+        parsed.core.roles = [];
+        openDialogWith(parsed);
+
+        component.applyParsedMerge();
+
+        const tools = component.document()?.core.skills.find((s) => s.category === 'Tools');
+        expect(tools?.items).toEqual(['Jest', 'Cypress', 'Git', 'Webpack', 'Vite']);
+      });
+
       it('a duplicate role left at its default (discard) never touches the current role', () => {
         const parsed = parsedDuplicateOfAcmeHelper();
         parsed.core.skills = [];
@@ -987,6 +1108,30 @@ describe('ProfileEditorComponent', () => {
       ];
       return parsed;
     }
+  });
+
+  describe('applyParsedMerge(): preserves unrecognized fields (schema forward-compat)', () => {
+    it('keeps an unknown key on core.employers instead of dropping it during a merge', async () => {
+      const withUnknownField = structuredClone(PROFILE_MOCK.profile) as ProfileDocument;
+      (withUnknownField.core.employers as unknown as Record<string, unknown>)['futureField'] = 'keep me';
+      await createWith(() =>
+        Promise.resolve({ profile: withUnknownField, revision: 1, updatedAt: '2026-08-30T00:00:00Z' }),
+      );
+
+      const dialog = TestBed.inject(MatDialog);
+      const parsed = structuredClone(PROFILE_MOCK.profile);
+      parsed.core.skills = [];
+      parsed.core.roles = [];
+      vi.spyOn(dialog, 'open').mockReturnValue({
+        afterClosed: () => of(parsed),
+      } as unknown as ReturnType<MatDialog['open']>);
+      component.openUploadDialog();
+
+      component.applyParsedMerge();
+
+      const employers = component.document()?.core.employers as unknown as Record<string, unknown>;
+      expect(employers['futureField']).toBe('keep me');
+    });
   });
 
   describe('applyParsedMerge(): summary fills from parsed when the current one is blank', () => {
