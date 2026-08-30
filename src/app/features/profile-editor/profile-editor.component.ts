@@ -17,6 +17,7 @@ import {
   ProfileSkillCategory,
 } from '../../core/api/models';
 import { UploadResumeDialogComponent } from './upload-resume-dialog/upload-resume-dialog.component';
+import { RevisionsHistoryDialogComponent } from './revisions-history-dialog/revisions-history-dialog.component';
 
 /** The skills table edits either core.skills ('core') or variants[track].skills. */
 const CORE_TAB = 'core';
@@ -611,6 +612,20 @@ export class ProfileEditorComponent {
       this.parsedDraft.set(result);
       this.skillAcceptance.set({});
       this.roleChoices.set({});
+    });
+  }
+
+  // ── F6: revision history ─────────────────────────────────────────────
+
+  openHistoryDialog(): void {
+    const ref = this.dialog.open<RevisionsHistoryDialogComponent, unknown, boolean>(
+      RevisionsHistoryDialogComponent,
+      { width: '480px' },
+    );
+    ref.afterClosed().subscribe((restored) => {
+      if (restored) {
+        this.profileResource.reload();
+      }
     });
   }
 

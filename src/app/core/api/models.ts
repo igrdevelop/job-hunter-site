@@ -439,3 +439,10 @@ export interface ProfileJob {
   result?: ProfileDocument;
   error?: string;
 }
+
+// ── Revisions (F6) ────────────────────────────────────────────────────────
+
+export interface ProfileRevision {
+  rev: number;
+  createdAt: string;
+}

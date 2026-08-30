@@ -4,7 +4,13 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { vi } from 'vitest';
 import { PROFILE_MOCK_FALLBACK_ENABLED, ProfileApi } from './profile.api';
 import { PROFILE_MOCK } from '../../features/profile-editor/mock/profile.mock';
-import { ProfileGetResponse, ProfileJob, ProfilePutResponse, ProfileUploadResponse } from './models';
+import {
+  ProfileGetResponse,
+  ProfileJob,
+  ProfilePutResponse,
+  ProfileRevision,
+  ProfileUploadResponse,
+} from './models';
 
 describe('ProfileApi', () => {
   let api: ProfileApi;
@@ -79,5 +85,26 @@ describe('ProfileApi', () => {
     expect(req.request.method).toBe('GET');
     req.flush(job);
     expect(await p).toEqual(job);
+  });
+
+  it('getRevisions() GETs /api/profile/revisions', async () => {
+    const revisions: ProfileRevision[] = [
+      { rev: 3, createdAt: '2026-08-30T12:00:00Z' },
+      { rev: 2, createdAt: '2026-08-29T12:00:00Z' },
+    ];
+    const p = api.getRevisions();
+    const req = http.expectOne('/api/profile/revisions');
+    expect(req.request.method).toBe('GET');
+    req.flush(revisions);
+    expect(await p).toEqual(revisions);
+  });
+
+  it('restoreRevision() POSTs to /api/profile/revisions/:rev/restore', async () => {
+    const response: ProfilePutResponse = { revision: 4, renderJobId: 'job-2' };
+    const p = api.restoreRevision(2);
+    const req = http.expectOne('/api/profile/revisions/2/restore');
+    expect(req.request.method).toBe('POST');
+    req.flush(response);
+    expect(await p).toEqual(response);
   });
 });

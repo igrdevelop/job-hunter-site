@@ -542,6 +542,33 @@ describe('ProfileEditorComponent', () => {
       expect(component.parsedDraft()).toBeNull();
     });
 
+    it('openHistoryDialog() reloads the profile once a restore happened', async () => {
+      const dialog = TestBed.inject(MatDialog);
+      vi.spyOn(dialog, 'open').mockReturnValue({
+        afterClosed: () => of(true),
+      } as unknown as ReturnType<MatDialog['open']>);
+      const getSpy = vi.spyOn(api, 'get');
+      const before = getSpy.mock.calls.length;
+
+      component.openHistoryDialog();
+      await fixture.whenStable();
+
+      expect(getSpy.mock.calls.length).toBeGreaterThan(before);
+    });
+
+    it('openHistoryDialog() does not reload when the dialog closes without restoring', () => {
+      const dialog = TestBed.inject(MatDialog);
+      vi.spyOn(dialog, 'open').mockReturnValue({
+        afterClosed: () => of(false),
+      } as unknown as ReturnType<MatDialog['open']>);
+      const getSpy = vi.spyOn(api, 'get');
+      const before = getSpy.mock.calls.length;
+
+      component.openHistoryDialog();
+
+      expect(getSpy.mock.calls.length).toBe(before);
+    });
+
     describe('skills merge: edited-wins default', () => {
       it('defaults a brand-new parsed category to accepted', () => {
         const parsed = structuredClone(PROFILE_MOCK.profile);

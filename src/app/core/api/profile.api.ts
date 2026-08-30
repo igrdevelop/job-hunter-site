@@ -7,6 +7,7 @@ import {
   ProfileGetResponse,
   ProfileJob,
   ProfilePutResponse,
+  ProfileRevision,
   ProfileUploadResponse,
 } from './models';
 import { cloneProfileMock } from '../../features/profile-editor/mock/profile.mock';
@@ -76,6 +77,20 @@ export class ProfileApi {
   getJob(jobId: string): Promise<ProfileJob> {
     return firstValueFrom(
       this.http.get<ProfileJob>(`${this.baseUrl}/profile/jobs/${jobId}`),
+    );
+  }
+
+  /** GET /api/profile/revisions — newest first, per the API contract. */
+  getRevisions(): Promise<ProfileRevision[]> {
+    return firstValueFrom(
+      this.http.get<ProfileRevision[]>(`${this.baseUrl}/profile/revisions`),
+    );
+  }
+
+  /** POST /api/profile/revisions/:rev/restore — same response shape as PUT; the caller re-GETs the document. */
+  restoreRevision(rev: number): Promise<ProfilePutResponse> {
+    return firstValueFrom(
+      this.http.post<ProfilePutResponse>(`${this.baseUrl}/profile/revisions/${rev}/restore`, {}),
     );
   }
 }
