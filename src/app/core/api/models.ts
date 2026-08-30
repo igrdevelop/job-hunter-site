@@ -254,3 +254,195 @@ export interface FiltersPayload {
 export interface FiltersErrors {
   errors: Record<string, string>;
 }
+
+// ── Resume profile store (GET/PUT /api/profile) ─────────────────────────────
+// Mirrors bot `hunter/profile_schema.py` (schema_version 1) field-for-field —
+// same snake_case, same shapes; the API stores/forwards the document opaquely
+// beyond a few structural checks. See docs/RESUME_PROFILE_STORE.md.
+
+/** `parsed` = came from the resume parser untouched; `edited` = the user
+ * touched it — an `edited` element is never auto-overwritten by a re-parse. */
+export type ProfileOrigin = 'parsed' | 'edited';
+
+export interface ProfileBullet {
+  text: string;
+  origin: ProfileOrigin;
+  /** Empty = shared by every track's base CV; see Role.bullets_by_track for the full-rewrite case. */
+  tracks: string[];
+}
+
+export interface ProfileIdentity {
+  full_name: string;
+  aka: string;
+  headline: string;
+  contact: string;
+  cv_filename_prefix: string;
+}
+
+export interface ProfileLocation {
+  home_city: string;
+  home_city_aliases: string[];
+  acceptable_hybrid: string[];
+  weekly_hybrid: string[];
+  work_authorization: string;
+}
+
+export interface ProfileLanguages {
+  spoken: string[];
+  cv_languages: string[];
+  disqualify_required: string[];
+}
+
+export interface ProfileFlexibleEmployer {
+  name: string;
+  period: string;
+  projects: string[];
+}
+
+export interface ProfileEmployers {
+  protected: string[];
+  flexible: ProfileFlexibleEmployer;
+}
+
+export interface ProfileEducationEntry {
+  text: string;
+  origin: ProfileOrigin;
+}
+
+export interface ProfileEducation {
+  entries: ProfileEducationEntry[];
+  school_keyword: string;
+  expected_role_count: number;
+}
+
+export interface ProfileExperience {
+  years_label: string;
+  since_year: number;
+}
+
+export interface ProfileRole {
+  id: string;
+  company: string;
+  title: string;
+  period: string;
+  subtitle: string;
+  description: string;
+  backend: string;
+  bullets_max: string;
+  legacy_stack_ok: boolean;
+  title_by_track: Record<string, string>;
+  subtitle_by_track: Record<string, string>;
+  stack_line: string;
+  stack_line_by_track: Record<string, string>;
+  bullets: ProfileBullet[];
+  /** Full per-track REPLACEMENT of `bullets` (a rewrite, not a filtered subset). Absent for a track ⇒ fall back to filtering `bullets` by their own `tracks`. */
+  bullets_by_track: Record<string, string[]>;
+  origin: ProfileOrigin;
+}
+
+export interface ProfileSkillCategory {
+  category: string;
+  items: string[];
+  origin: ProfileOrigin;
+  /** Same shared-unless-tagged semantics as ProfileBullet.tracks, for the whole category. */
+  tracks: string[];
+}
+
+export interface ProfileExtra {
+  /** Free-form in the schema (bot keeps it a plain str); known values: certification | link | award | other. */
+  kind: string;
+  text: string;
+  origin: ProfileOrigin;
+}
+
+export interface ProfileCore {
+  identity: ProfileIdentity;
+  location: ProfileLocation;
+  languages: ProfileLanguages;
+  employers: ProfileEmployers;
+  education: ProfileEducation;
+  experience: ProfileExperience;
+  summary: string;
+  roles: ProfileRole[];
+  skills: ProfileSkillCategory[];
+  extras: ProfileExtra[];
+  /** Free-text prompt tail ("story bank"); renders verbatim when non-empty. */
+  generation_notes: string;
+}
+
+/** A track "personality": a delta of presentation over `core`, never a second copy of the facts. */
+export interface ProfileVariant {
+  headline: string;
+  summary: string;
+  /** Replaces (not merges with) core.skills for this track when non-empty. */
+  skills: ProfileSkillCategory[];
+}
+
+/** A raw parser fragment that could not be confidently placed anywhere. */
+export interface ProfileLeftover {
+  text: string;
+  source_upload_id: string;
+}
+
+export interface ProfileUpload {
+  id: string;
+  filename: string;
+  sha256: string;
+  parsed_at: string;
+}
+
+/**
+ * Canonical resume-profile document. The client round-trips this whole object
+ * through the editor and PUTs it back in full — the `[key: string]: unknown`
+ * passthrough (here and it should be preserved wherever this type is
+ * reconstructed) is what lets a newer server field survive an older client's
+ * PUT instead of being silently dropped (docs/RESUME_PROFILE_STORE.md risk).
+ */
+export interface ProfileDocument {
+  schema_version: number;
+  core: ProfileCore;
+  variants: Record<string, ProfileVariant>;
+  leftovers: ProfileLeftover[];
+  uploads: ProfileUpload[];
+  [key: string]: unknown;
+}
+
+export interface ProfileGetResponse {
+  profile: ProfileDocument;
+  revision: number;
+  updatedAt: string;
+}
+
+export interface ProfilePutResponse {
+  revision: number;
+  renderJobId: string | null;
+}
+
+/** PUT 400 body — human-readable structural validation failures. */
+export interface ProfileErrors {
+  errors: string[];
+}
+
+// ── Resume upload → parse (F5) ───────────────────────────────────────────
+
+export interface ProfileUploadResponse {
+  jobId: string;
+}
+
+export type ProfileJobKind = 'render' | 'parse';
+export type ProfileJobStatus = 'pending' | 'running' | 'done' | 'error';
+
+export interface ProfileJob {
+  kind: ProfileJobKind;
+  status: ProfileJobStatus;
+  /** Parse jobs only: the draft profile extracted from the upload, leftovers included. */
+  result?: ProfileDocument;
+  error?: string;
+}
+
+// ── Revisions (F6) ────────────────────────────────────────────────────────
+
+export interface ProfileRevision {
+  rev: number;
+  createdAt: string;
+}

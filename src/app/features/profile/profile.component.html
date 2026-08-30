@@ -1,8 +1,9 @@
 <div class="page">
+  <a class="back-link" routerLink="/profile">← Profile</a>
   <div class="profile-hero">
     <div class="profile-avatar" aria-hidden="true">{{ initials() }}</div>
     <div class="profile-copy">
-      <h1>Profile</h1>
+      <h1>Files</h1>
       <p class="page-subtitle">
         @if (authService.currentUser(); as user) {
           {{ user.email }}
@@ -36,7 +37,7 @@
 
   @if (currentPath()) {
     <nav class="breadcrumbs">
-      <a routerLink="/profile">Profile</a>
+      <a routerLink="/profile/files">Files</a>
       @for (crumb of breadcrumbs(); track $index; let last = $last) {
         <span class="sep">/</span>
         @if (last) {

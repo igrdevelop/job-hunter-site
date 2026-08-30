@@ -1,0 +1,727 @@
+<div class="page">
+  <div class="page-header">
+    <h1>Profile</h1>
+  </div>
+  <p class="page-subtitle">
+    This is your career bank, not a resume — every generated CV is cut from it, so a
+    fuller profile means better tailoring. Add every role, every skill, every side
+    project. There's no "keep it to one page" here.
+  </p>
+
+  <div class="editor-shortcuts">
+    <a class="tag tag-outline" routerLink="/profile/files">Candidate files</a>
+    <a class="tag tag-outline" routerLink="/profile/templates">Templates</a>
+    @if (document() && !parsedDraft() && !saving()) {
+      <button type="button" class="tag tag-outline upload-link" (click)="openUploadDialog()">
+        Upload another resume to merge
+      </button>
+      <button type="button" class="tag tag-outline upload-link" (click)="openHistoryDialog()">
+        History
+      </button>
+    }
+  </div>
+
+  @if (loading()) {
+    <mat-spinner diameter="24"></mat-spinner>
+  }
+
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  }
+
+  @if (showEmptyState()) {
+    <div class="card elev-sm empty-state-card">
+      <h2 class="card-title">No profile yet</h2>
+      <p class="card-body">
+        Upload an existing resume and we'll extract everything we can into editable
+        fields, or start with a blank profile and fill it in yourself.
+      </p>
+      <div class="empty-actions">
+        <button type="button" class="btn btn-primary" (click)="openUploadDialog()">
+          Upload your resume
+        </button>
+        <button type="button" class="btn btn-secondary" (click)="startFromScratch()">
+          Start from scratch
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (parsedDraft(); as parsed) {
+    <section class="card elev-sm review-card">
+      <h2 class="section-title">Review parsed resume</h2>
+      <p class="hint">
+        Nothing below is saved yet — pick what to bring in, then Apply merge to fold it
+        into your draft. It only becomes permanent once you hit Save.
+      </p>
+
+      <h3 class="review-subtitle">Skills</h3>
+      @if (parsedSkillProposals().length === 0) {
+        <p class="empty-state">No skills found in this file.</p>
+      }
+      <div class="review-list">
+        @for (proposal of parsedSkillProposals(); track proposal.parsed.category) {
+          <label class="review-row">
+            <input
+              type="checkbox"
+              [checked]="acceptSkillProposal(proposal.parsed)"
+              (change)="toggleSkillProposal(proposal.parsed)"
+            />
+            <div class="review-row-body">
+              <b>{{ proposal.parsed.category }}</b>
+              @if (proposal.match) {
+                <span class="tag tag-outline">Matches your "{{ proposal.match.category }}"</span>
+                @if (proposal.isEditedCollision) {
+                  <span class="tag tag-accent">You edited this — unchecked by default</span>
+                }
+              } @else {
+                <span class="tag tag-outline">New</span>
+              }
+              <div class="chips">
+                @for (item of proposal.parsed.items; track item) {
+                  <span class="chip">{{ item }}</span>
+                }
+              </div>
+            </div>
+          </label>
+        }
+      </div>
+
+      <h3 class="review-subtitle">Roles</h3>
+      @if (parsedRoleProposals().length === 0) {
+        <p class="empty-state">No roles found in this file.</p>
+      }
+      <div class="review-list">
+        @for (proposal of parsedRoleProposals(); track proposal.parsed.id) {
+          <div class="review-row role-review-row">
+            <div class="review-row-body">
+              <b>{{ proposal.parsed.title }}</b> · {{ proposal.parsed.company }}
+              <span class="text-muted">{{ proposal.parsed.period }}</span>
+              @if (proposal.duplicate) {
+                <p class="hint">
+                  Looks like the same role as <b>{{ proposal.duplicate.title }}</b> at
+                  {{ proposal.duplicate.company }} — merge?
+                </p>
+                <div class="role-choice">
+                  <label>
+                    <input
+                      type="radio"
+                      [name]="'role-choice-' + proposal.parsed.id"
+                      [checked]="roleChoice(proposal.parsed) === 'discard'"
+                      (change)="setRoleChoice(proposal.parsed, 'discard')"
+                    />
+                    Discard parsed (keep mine)
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      [name]="'role-choice-' + proposal.parsed.id"
+                      [checked]="roleChoice(proposal.parsed) === 'accept'"
+                      (change)="setRoleChoice(proposal.parsed, 'accept')"
+                    />
+                    Replace mine with parsed
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      [name]="'role-choice-' + proposal.parsed.id"
+                      [checked]="roleChoice(proposal.parsed) === 'keep-both'"
+                      (change)="setRoleChoice(proposal.parsed, 'keep-both')"
+                    />
+                    Keep both
+                  </label>
+                </div>
+              } @else {
+                <label class="role-choice-new">
+                  <input
+                    type="checkbox"
+                    [checked]="roleChoice(proposal.parsed) !== 'discard'"
+                    (change)="setRoleChoice(proposal.parsed, $any($event.target).checked ? 'accept' : 'discard')"
+                  />
+                  <span class="tag tag-outline">New</span> — add this role
+                </label>
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      <p class="hint">
+        Identity/questionnaire gaps are filled in automatically without overwriting
+        anything you've already entered; extras and leftover fragments are always
+        added.
+      </p>
+
+      <div class="review-actions">
+        <button type="button" class="btn btn-primary" (click)="applyParsedMerge()">Apply merge</button>
+        <button type="button" class="btn btn-ghost" (click)="discardParsedDraft()">Discard parsed draft</button>
+      </div>
+    </section>
+  }
+
+  @if (!parsedDraft() && document(); as profile) {
+    <section class="card elev-sm">
+      <h2 class="section-title">Identity</h2>
+      <div class="field-grid">
+        <label class="field">
+          <span>Full name</span>
+          <input
+            class="input"
+            type="text"
+            [ngModel]="profile.core.identity.full_name"
+            (ngModelChange)="updateIdentity('full_name', $event)"
+          />
+          @if (identityFieldError('full_name'); as err) {
+            <span class="field-error">{{ err }}</span>
+          }
+        </label>
+        <label class="field">
+          <span>Also known as</span>
+          <input
+            class="input"
+            type="text"
+            [ngModel]="profile.core.identity.aka"
+            (ngModelChange)="updateIdentity('aka', $event)"
+          />
+        </label>
+        <label class="field">
+          <span>Headline</span>
+          <input
+            class="input"
+            type="text"
+            [ngModel]="profile.core.identity.headline"
+            (ngModelChange)="updateIdentity('headline', $event)"
+          />
+        </label>
+        <label class="field">
+          <span>Contact</span>
+          <input
+            class="input"
+            type="text"
+            [ngModel]="profile.core.identity.contact"
+            (ngModelChange)="updateIdentity('contact', $event)"
+          />
+          @if (identityFieldError('contact'); as err) {
+            <span class="field-error">{{ err }}</span>
+          }
+        </label>
+        <label class="field">
+          <span>CV filename prefix</span>
+          <input
+            class="input"
+            type="text"
+            [ngModel]="profile.core.identity.cv_filename_prefix"
+            (ngModelChange)="updateIdentity('cv_filename_prefix', $event)"
+          />
+          @if (identityFieldError('cv_filename_prefix'); as err) {
+            <span class="field-error">{{ err }}</span>
+          } @else {
+            <span class="field-hint">Files will be named like <code>{{ cvFilenameExample(profile) }}</code>.</span>
+          }
+        </label>
+      </div>
+    </section>
+
+    <section class="card elev-sm">
+      <h2 class="section-title">Questionnaire</h2>
+      <p class="hint">
+        Facts no resume contains — these feed the job filters and the doomed-gate
+        checks directly.
+      </p>
+      <div class="field-grid">
+        <label class="field">
+          <span>Home city</span>
+          <input
+            class="input"
+            type="text"
+            [ngModel]="profile.core.location.home_city"
+            (ngModelChange)="updateLocation('home_city', $event)"
+          />
+        </label>
+
+        <div class="field">
+          <span>Home city aliases</span>
+          <div class="chips">
+            @for (item of questionnaireList('home_city_aliases'); track item) {
+              <span class="chip">
+                {{ item }}
+                <button type="button" class="chip-x" (click)="removeQuestionnaireChip('home_city_aliases', item)" aria-label="Remove {{ item }}">×</button>
+              </span>
+            }
+            <input
+              class="chip-input"
+              type="text"
+              placeholder="Add alias…"
+              [ngModel]="questionnaireChipDrafts()['home_city_aliases'] ?? ''"
+              (ngModelChange)="setQuestionnaireChipDraft('home_city_aliases', $event)"
+              (keydown)="onQuestionnaireChipKeydown($event, 'home_city_aliases')"
+              (blur)="addQuestionnaireChip('home_city_aliases')"
+            />
+          </div>
+        </div>
+
+        <div class="field">
+          <span>Acceptable hybrid cities</span>
+          <div class="chips">
+            @for (item of questionnaireList('acceptable_hybrid'); track item) {
+              <span class="chip">
+                {{ item }}
+                <button type="button" class="chip-x" (click)="removeQuestionnaireChip('acceptable_hybrid', item)" aria-label="Remove {{ item }}">×</button>
+              </span>
+            }
+            <input
+              class="chip-input"
+              type="text"
+              placeholder="Add city…"
+              [ngModel]="questionnaireChipDrafts()['acceptable_hybrid'] ?? ''"
+              (ngModelChange)="setQuestionnaireChipDraft('acceptable_hybrid', $event)"
+              (keydown)="onQuestionnaireChipKeydown($event, 'acceptable_hybrid')"
+              (blur)="addQuestionnaireChip('acceptable_hybrid')"
+            />
+          </div>
+        </div>
+
+        <div class="field">
+          <span>Weekly hybrid cities</span>
+          <div class="chips">
+            @for (item of questionnaireList('weekly_hybrid'); track item) {
+              <span class="chip">
+                {{ item }}
+                <button type="button" class="chip-x" (click)="removeQuestionnaireChip('weekly_hybrid', item)" aria-label="Remove {{ item }}">×</button>
+              </span>
+            }
+            <input
+              class="chip-input"
+              type="text"
+              placeholder="Add city…"
+              [ngModel]="questionnaireChipDrafts()['weekly_hybrid'] ?? ''"
+              (ngModelChange)="setQuestionnaireChipDraft('weekly_hybrid', $event)"
+              (keydown)="onQuestionnaireChipKeydown($event, 'weekly_hybrid')"
+              (blur)="addQuestionnaireChip('weekly_hybrid')"
+            />
+          </div>
+        </div>
+
+        <label class="field">
+          <span>Work authorization</span>
+          <input
+            class="input"
+            type="text"
+            [ngModel]="profile.core.location.work_authorization"
+            (ngModelChange)="updateLocation('work_authorization', $event)"
+          />
+        </label>
+
+        <div class="field">
+          <span>Disqualifying languages</span>
+          <div class="chips">
+            @for (item of questionnaireList('disqualify_required'); track item) {
+              <span class="chip">
+                {{ item }}
+                <button type="button" class="chip-x" (click)="removeQuestionnaireChip('disqualify_required', item)" aria-label="Remove {{ item }}">×</button>
+              </span>
+            }
+            <input
+              class="chip-input"
+              type="text"
+              placeholder="Add language…"
+              [ngModel]="questionnaireChipDrafts()['disqualify_required'] ?? ''"
+              (ngModelChange)="setQuestionnaireChipDraft('disqualify_required', $event)"
+              (keydown)="onQuestionnaireChipKeydown($event, 'disqualify_required')"
+              (blur)="addQuestionnaireChip('disqualify_required')"
+            />
+          </div>
+        </div>
+
+        <label class="field">
+          <span>Experience label</span>
+          <input
+            class="input"
+            type="text"
+            placeholder="e.g. 6+"
+            [ngModel]="profile.core.experience.years_label"
+            (ngModelChange)="updateExperience('years_label', $event)"
+          />
+        </label>
+
+        <label class="field">
+          <span>Experience since (year)</span>
+          <input
+            class="input"
+            type="number"
+            [ngModel]="profile.core.experience.since_year || null"
+            (ngModelChange)="updateExperience('since_year', $event ?? 0)"
+          />
+        </label>
+      </div>
+    </section>
+
+    <section class="card elev-sm">
+      <div class="section-head">
+        <h2 class="section-title">Skills</h2>
+        @if (hasMultipleVariants()) {
+          <div class="tab-strip skills-tabs" role="tablist">
+            @for (tab of tabs(); track tab) {
+              <button
+                type="button"
+                class="tab-btn"
+                [class.active]="activeTab() === tab"
+                (click)="selectTab(tab)"
+              >
+                {{ tabLabel(tab) }}
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      @if (activeVariantOverridesCore()) {
+        <div class="variant-banner">
+          <span>These skills override core for <b>{{ activeTab() }}</b>.</span>
+          <button type="button" class="btn btn-ghost" (click)="resetVariantToCore()">
+            Reset to core
+          </button>
+        </div>
+      } @else if (activeTab() !== 'core') {
+        <p class="hint">
+          This track currently falls back to core skills (filtered by tag). Add a
+          category below to override it just for <b>{{ activeTab() }}</b>.
+        </p>
+      }
+
+      @if (activeSkills().length === 0) {
+        <p class="empty-state">No skills yet.</p>
+      }
+
+      <div class="skills-table">
+        @for (cat of activeSkills(); track $index) {
+          <div class="skills-row">
+            <div class="skills-category">
+              <input
+                class="category-input"
+                type="text"
+                [ngModel]="cat.category"
+                (ngModelChange)="renameCategory($index, $event)"
+                placeholder="Category name"
+              />
+              <span class="tag" [class.tag-accent]="isEdited(cat.origin)" [class.tag-outline]="!isEdited(cat.origin)">
+                {{ originLabel(cat.origin) }}
+              </span>
+              <div class="row-actions">
+                <button type="button" class="btn-icon-sm" (click)="moveCategory($index, -1)" [disabled]="$index === 0" aria-label="Move category up">↑</button>
+                <button type="button" class="btn-icon-sm" (click)="moveCategory($index, 1)" [disabled]="$index === activeSkills().length - 1" aria-label="Move category down">↓</button>
+                <button type="button" class="btn-icon-sm" (click)="removeCategory($index)" aria-label="Remove category">✕</button>
+              </div>
+              @if (hasMultipleVariants()) {
+                <div class="track-toggles">
+                  @for (track of variantTracks(); track track) {
+                    <button
+                      type="button"
+                      class="tag track-toggle"
+                      [class.tag-accent]="hasTrack(cat, track)"
+                      [class.tag-outline]="!hasTrack(cat, track)"
+                      (click)="toggleTrack($index, track)"
+                    >
+                      {{ track }}
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+            <div class="skills-items">
+              <div class="chips">
+                @for (item of cat.items; track item) {
+                  <span class="chip">
+                    {{ item }}
+                    <button type="button" class="chip-x" (click)="removeSkillItem($index, item)" aria-label="Remove {{ item }}">×</button>
+                  </span>
+                }
+                <input
+                  class="chip-input"
+                  type="text"
+                  placeholder="Add skill…"
+                  [ngModel]="chipDrafts()[$index] ?? ''"
+                  (ngModelChange)="setChipDraft($index, $event)"
+                  (keydown)="onChipKeydown($event, $index)"
+                  (blur)="addSkillItem($index)"
+                />
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+
+      <button type="button" class="btn btn-secondary" (click)="addCategory()">+ Add category</button>
+    </section>
+
+    <section class="card elev-sm">
+      <h2 class="section-title">Roles</h2>
+      @if (roles().length === 0) {
+        <p class="empty-state">No roles yet.</p>
+      }
+      @for (role of roles(); track role.id) {
+        <article class="role-card">
+          <div class="role-fields">
+            <label class="field">
+              <span>Company</span>
+              <input class="input" type="text" [ngModel]="role.company" (ngModelChange)="updateRoleField(role.id, 'company', $event)" />
+            </label>
+            <label class="field">
+              <span>Title</span>
+              <input class="input" type="text" [ngModel]="role.title" (ngModelChange)="updateRoleField(role.id, 'title', $event)" />
+            </label>
+            <label class="field">
+              <span>Period</span>
+              <input class="input" type="text" [ngModel]="role.period" (ngModelChange)="updateRoleField(role.id, 'period', $event)" />
+            </label>
+            <label class="field">
+              <span>Subtitle</span>
+              <input class="input" type="text" [ngModel]="role.subtitle" (ngModelChange)="updateRoleField(role.id, 'subtitle', $event)" />
+            </label>
+            <span class="tag" [class.tag-accent]="isEdited(role.origin)" [class.tag-outline]="!isEdited(role.origin)">
+              {{ originLabel(role.origin) }}
+            </span>
+          </div>
+
+          <label class="field notes-field">
+            <span>Description</span>
+            <textarea
+              class="input"
+              rows="3"
+              [ngModel]="role.description"
+              (ngModelChange)="updateRoleField(role.id, 'description', $event)"
+            ></textarea>
+          </label>
+
+          @if (hasMultipleVariants()) {
+            <div class="section-head">
+              <div class="tab-strip role-tabs" role="tablist">
+                @for (tab of roleTabs(role); track tab) {
+                  <button
+                    type="button"
+                    class="tab-btn"
+                    [class.active]="roleActiveTab(role) === tab"
+                    (click)="selectRoleTab(role, tab)"
+                  >
+                    {{ tabLabel(tab) }}
+                  </button>
+                }
+              </div>
+              @if (roleAvailableTracksToAdd(role).length > 0) {
+                <select
+                  class="input add-track-select"
+                  [ngModel]="''"
+                  (ngModelChange)="startTrackRewrite(role, $event)"
+                >
+                  <option value="" disabled selected>+ Rewrite for…</option>
+                  @for (track of roleAvailableTracksToAdd(role); track track) {
+                    <option [value]="track">{{ track }}</option>
+                  }
+                </select>
+              }
+            </div>
+          }
+
+          @if (roleActiveTab(role) === 'core') {
+            <div class="bullets-editor">
+              @for (bullet of role.bullets; track $index) {
+                <div class="bullet-row">
+                  <textarea
+                    class="input"
+                    rows="2"
+                    [ngModel]="bullet.text"
+                    (ngModelChange)="updateBulletText(role.id, $index, $event)"
+                  ></textarea>
+                  <span class="tag" [class.tag-accent]="isEdited(bullet.origin)" [class.tag-outline]="!isEdited(bullet.origin)">
+                    {{ originLabel(bullet.origin) }}
+                  </span>
+                  <div class="row-actions">
+                    <button type="button" class="btn-icon-sm" (click)="moveBullet(role.id, $index, -1)" [disabled]="$index === 0" aria-label="Move bullet up">↑</button>
+                    <button type="button" class="btn-icon-sm" (click)="moveBullet(role.id, $index, 1)" [disabled]="$index === role.bullets.length - 1" aria-label="Move bullet down">↓</button>
+                    <button type="button" class="btn-icon-sm" (click)="removeBullet(role.id, $index)" aria-label="Remove bullet">✕</button>
+                  </div>
+                </div>
+              }
+              <button type="button" class="btn btn-secondary" (click)="addBullet(role.id)">+ Add bullet</button>
+            </div>
+          } @else {
+            @let track = roleActiveTab(role);
+            <div class="track-override">
+              <div class="variant-banner">
+                <span>Rewritten for <b>{{ track }}</b>.</span>
+                <button type="button" class="btn btn-ghost" (click)="removeTrackOverride(role, track)">
+                  Remove override
+                </button>
+              </div>
+              <div class="field-grid">
+                <label class="field">
+                  <span>Title for {{ track }}</span>
+                  <input
+                    class="input"
+                    type="text"
+                    [ngModel]="role.title_by_track[track] ?? ''"
+                    (ngModelChange)="updateRoleTrackField(role.id, 'title_by_track', track, $event)"
+                  />
+                </label>
+                <label class="field">
+                  <span>Subtitle for {{ track }}</span>
+                  <input
+                    class="input"
+                    type="text"
+                    [ngModel]="role.subtitle_by_track[track] ?? ''"
+                    (ngModelChange)="updateRoleTrackField(role.id, 'subtitle_by_track', track, $event)"
+                  />
+                </label>
+                <label class="field">
+                  <span>Stack line for {{ track }}</span>
+                  <input
+                    class="input"
+                    type="text"
+                    [ngModel]="role.stack_line_by_track[track] ?? ''"
+                    (ngModelChange)="updateRoleTrackField(role.id, 'stack_line_by_track', track, $event)"
+                  />
+                </label>
+              </div>
+              <div class="bullets-editor">
+                @for (text of trackBullets(role, track); track $index) {
+                  <div class="bullet-row">
+                    <textarea
+                      class="input"
+                      rows="2"
+                      [ngModel]="text"
+                      (ngModelChange)="updateTrackBulletText(role.id, track, $index, $event)"
+                    ></textarea>
+                    <div class="row-actions">
+                      <button type="button" class="btn-icon-sm" (click)="moveTrackBullet(role.id, track, $index, -1)" [disabled]="$index === 0" aria-label="Move bullet up">↑</button>
+                      <button type="button" class="btn-icon-sm" (click)="moveTrackBullet(role.id, track, $index, 1)" [disabled]="$index === trackBullets(role, track).length - 1" aria-label="Move bullet down">↓</button>
+                      <button type="button" class="btn-icon-sm" (click)="removeTrackBullet(role.id, track, $index)" aria-label="Remove bullet">✕</button>
+                    </div>
+                  </div>
+                }
+                <button type="button" class="btn btn-secondary" (click)="addTrackBullet(role.id, track)">+ Add bullet</button>
+              </div>
+            </div>
+          }
+
+          <details class="advanced">
+            <summary>Advanced</summary>
+            <p class="hint">These feed the generation prompt's red lines — edit carefully.</p>
+            <div class="field-grid">
+              <label class="field">
+                <span>Backend</span>
+                <input class="input" type="text" [ngModel]="role.backend" (ngModelChange)="updateRoleField(role.id, 'backend', $event)" />
+              </label>
+              <label class="field">
+                <span>Bullets max</span>
+                <input
+                  class="input"
+                  type="text"
+                  placeholder="e.g. 2-3"
+                  [ngModel]="role.bullets_max"
+                  (ngModelChange)="updateRoleField(role.id, 'bullets_max', $event)"
+                />
+              </label>
+              <label class="checkbox-field">
+                <input
+                  type="checkbox"
+                  [ngModel]="role.legacy_stack_ok"
+                  (ngModelChange)="updateRoleField(role.id, 'legacy_stack_ok', $event)"
+                />
+                <span>Legacy stack OK</span>
+              </label>
+            </div>
+          </details>
+        </article>
+      }
+    </section>
+
+    <section class="card elev-sm">
+      <h2 class="section-title">Extras</h2>
+      <p class="hint">Certifications, links, awards — anything else worth a line on the CV.</p>
+      @if (profile.core.extras.length === 0) {
+        <p class="empty-state">No extras yet.</p>
+      }
+      <div class="extras-list">
+        @for (extra of profile.core.extras; track $index) {
+          <div class="extra-row">
+            <select class="input extra-kind" [ngModel]="extra.kind" (ngModelChange)="updateExtra($index, 'kind', $event)">
+              <option value="certification">Certification</option>
+              <option value="link">Link</option>
+              <option value="award">Award</option>
+              <option value="other">Other</option>
+            </select>
+            <input class="input" type="text" [ngModel]="extra.text" (ngModelChange)="updateExtra($index, 'text', $event)" />
+            <span class="tag" [class.tag-accent]="isEdited(extra.origin)" [class.tag-outline]="!isEdited(extra.origin)">
+              {{ originLabel(extra.origin) }}
+            </span>
+            <button type="button" class="btn-icon-sm" (click)="removeExtra($index)" aria-label="Remove extra">✕</button>
+          </div>
+        }
+      </div>
+      <button type="button" class="btn btn-secondary" (click)="addExtra()">+ Add extra</button>
+
+      <label class="field notes-field">
+        <span>Generation notes</span>
+        <textarea
+          class="input"
+          rows="4"
+          placeholder="Free-form notes — a story bank of anecdotes and achievements for the generator to pull from."
+          [ngModel]="profile.core.generation_notes"
+          (ngModelChange)="updateGenerationNotes($event)"
+        ></textarea>
+      </label>
+    </section>
+
+    @if (leftovers().length > 0) {
+      <section class="card elev-sm">
+        <h2 class="section-title">Couldn't place this</h2>
+        <p class="hint">
+          Fragments the parser found but couldn't confidently place anywhere — nothing
+          here is silently dropped.
+        </p>
+        <ul class="leftovers-list">
+          @for (item of leftovers(); track $index) {
+            <li>
+              {{ item.text }}
+              @if (leftoverSourceFilename(item); as filename) {
+                <span class="text-muted">— from {{ filename }}</span>
+              }
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    @if (fieldErrors().length > 0) {
+      <ul class="field-errors">
+        @for (msg of fieldErrors(); track $index) {
+          <li>{{ msg }}</li>
+        }
+      </ul>
+    }
+
+    @if (isDirty() || saveError()) {
+      <div class="savebar" role="region" aria-label="Unsaved profile changes">
+        <button
+          type="button"
+          class="btn btn-primary"
+          [disabled]="saving() || !isDirty() || hasBlockingErrors()"
+          (click)="save()"
+        >
+          @if (saving()) { Saving… } @else { Save }
+        </button>
+        <button type="button" class="btn btn-ghost" [disabled]="saving() || !isDirty()" (click)="discard()">
+          Discard changes
+        </button>
+        @if (hasBlockingErrors()) {
+          <span class="save-error">Fix the identity errors above before saving.</span>
+        } @else if (isDirty()) {
+          <span class="dirty">● Unsaved changes</span>
+        }
+        @if (saveError()) {
+          <span class="save-error">{{ saveError() }}</span>
+        }
+      </div>
+    }
+  }
+</div>

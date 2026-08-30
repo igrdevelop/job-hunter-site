@@ -4,6 +4,17 @@
   gap: var(--space-4);
 }
 
+.back-link {
+  align-self: flex-start;
+  font-size: 13px;
+  color: var(--color-accent-600);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
 .profile-hero {
   display: flex;
   align-items: center;
