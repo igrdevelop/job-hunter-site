@@ -789,7 +789,25 @@ export class ProfileEditorComponent {
     let skills = [...current.core.skills];
     for (const cat of acceptedSkills) {
       const idx = skills.findIndex((c) => this.skillProposalKey(c) === this.skillProposalKey(cat));
-      skills = idx >= 0 ? skills.map((c, i) => (i === idx ? cat : c)) : [...skills, cat];
+      if (idx < 0) {
+        skills = [...skills, cat];
+        continue;
+      }
+      // A collision: union into the EXISTING category rather than replacing it
+      // outright — every other merge in this function is additive, and a bare
+      // replace would silently drop whatever items this particular upload
+      // doesn't happen to mention (docs/RESUME_PROFILE_STORE.md: nothing gets
+      // silently dropped, fuller is always better).
+      const existing = skills[idx];
+      skills = skills.map((c, i) =>
+        i === idx
+          ? {
+              ...existing,
+              items: unionCaseInsensitive(existing.items, cat.items),
+              tracks: unionCaseInsensitive(existing.tracks, cat.tracks),
+            }
+          : c,
+      );
     }
 
     let roles = [...current.core.roles];

@@ -764,6 +764,19 @@ describe('ProfileEditorComponent', () => {
         expect(component.isDirty()).toBe(true);
       });
 
+      it('accepting a collision with a non-edited category unions items instead of replacing them', () => {
+        // "Tools" is a non-edited (parsed) category in the mock with items [Jest, Cypress, Git, Webpack].
+        const parsed = structuredClone(PROFILE_MOCK.profile);
+        parsed.core.skills = [{ category: 'Tools', items: ['Vite'], origin: 'parsed', tracks: [] }];
+        parsed.core.roles = [];
+        openDialogWith(parsed);
+
+        component.applyParsedMerge();
+
+        const tools = component.document()?.core.skills.find((s) => s.category === 'Tools');
+        expect(tools?.items).toEqual(['Jest', 'Cypress', 'Git', 'Webpack', 'Vite']);
+      });
+
       it('a duplicate role left at its default (discard) never touches the current role', () => {
         const parsed = parsedDuplicateOfAcmeHelper();
         parsed.core.skills = [];
