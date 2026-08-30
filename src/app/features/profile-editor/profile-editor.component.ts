@@ -522,7 +522,7 @@ export class ProfileEditorComponent {
     track: string,
     value: string,
   ): void {
-    this.updateRole(roleId, (r) => ({ ...r, [field]: { ...r[field], [track]: value } }));
+    this.updateRole(roleId, (r) => ({ ...r, [field]: { ...r[field], [track]: value }, origin: 'edited' }));
   }
 
   trackBullets(role: ProfileRole, track: string): string[] {
@@ -536,6 +536,7 @@ export class ProfileEditorComponent {
         ...r.bullets_by_track,
         [track]: (r.bullets_by_track[track] ?? []).map((t, i) => (i === index ? text : t)),
       },
+      origin: 'edited',
     }));
   }
 
@@ -543,6 +544,7 @@ export class ProfileEditorComponent {
     this.updateRole(roleId, (r) => ({
       ...r,
       bullets_by_track: { ...r.bullets_by_track, [track]: [...(r.bullets_by_track[track] ?? []), ''] },
+      origin: 'edited',
     }));
   }
 
@@ -553,6 +555,7 @@ export class ProfileEditorComponent {
         ...r.bullets_by_track,
         [track]: (r.bullets_by_track[track] ?? []).filter((_, i) => i !== index),
       },
+      origin: 'edited',
     }));
   }
 
@@ -563,7 +566,7 @@ export class ProfileEditorComponent {
       if (target < 0 || target >= list.length) return r;
       const next = [...list];
       [next[index], next[target]] = [next[target], next[index]];
-      return { ...r, bullets_by_track: { ...r.bullets_by_track, [track]: next } };
+      return { ...r, bullets_by_track: { ...r.bullets_by_track, [track]: next }, origin: 'edited' };
     });
   }
 
@@ -582,6 +585,7 @@ export class ProfileEditorComponent {
         ...r.bullets_by_track,
         [track]: r.bullets_by_track[track] ?? r.bullets.map((b) => b.text),
       },
+      origin: 'edited',
     }));
     this.selectRoleTab(role, track);
   }

@@ -603,6 +603,38 @@ describe('ProfileEditorComponent', () => {
       expect(component.roleActiveTab(updated)).toBe('core');
     });
 
+    it('per-track edits flip the role origin the same way core-field edits do', () => {
+      const beta = component.roles()[1]; // origin 'parsed', no by-track overrides yet
+      expect(beta.origin).toBe('parsed');
+
+      component.updateRoleTrackField(beta.id, 'title_by_track', 'angular', 'Angular Lead');
+      expect(component.roles()[1].origin).toBe('edited');
+    });
+
+    it('startTrackRewrite()/addTrackBullet()/updateTrackBulletText()/removeTrackBullet()/moveTrackBullet() all flip the role origin', () => {
+      const beta = component.roles()[1];
+      component.startTrackRewrite(beta, 'angular');
+      expect(component.roles()[1].origin).toBe('edited');
+
+      // Reset to re-isolate each mutator against a still-'parsed' role.
+      component.discard();
+      const acme = component.roles()[0]; // already 'edited' in the mock — use it only to exercise bullets_by_track
+      component.addTrackBullet(acme.id, 'react');
+      expect(component.roles()[0].origin).toBe('edited');
+
+      component.discard();
+      component.updateTrackBulletText(component.roles()[0].id, 'react', 0, 'Rewritten.');
+      expect(component.roles()[0].origin).toBe('edited');
+
+      component.discard();
+      component.removeTrackBullet(component.roles()[0].id, 'react', 0);
+      expect(component.roles()[0].origin).toBe('edited');
+
+      component.discard();
+      component.moveTrackBullet(component.roles()[0].id, 'react', 0, 1);
+      expect(component.roles()[0].origin).toBe('edited');
+    });
+
     it('addTrackBullet()/updateTrackBulletText()/removeTrackBullet() edit the by-track bullets', () => {
       const acme = component.roles()[0];
       const before = component.trackBullets(acme, 'react').length;
