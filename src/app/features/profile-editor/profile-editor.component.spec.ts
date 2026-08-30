@@ -128,6 +128,36 @@ describe('ProfileEditorComponent', () => {
     });
   });
 
+  describe('lossless round-trip guarantees (docs/RESUME_PROFILE_STORE.md risk)', () => {
+    it('save() sends a document identical to baseline except for the one edited field', async () => {
+      await createWith(() => Promise.resolve(structuredClone(PROFILE_MOCK)));
+      const putSpy = vi.spyOn(api, 'put').mockResolvedValue({ revision: 2, renderJobId: null });
+
+      component.updateGenerationNotes('A note that touches nothing else.');
+      await component.save();
+
+      const sent = putSpy.mock.calls[0][0];
+      const expected = structuredClone(PROFILE_MOCK.profile);
+      expected.core.generation_notes = 'A note that touches nothing else.';
+      expect(sent).toEqual(expected);
+    });
+
+    it('an unknown top-level field on the loaded document survives an ordinary edit + save', async () => {
+      const withUnknownField = structuredClone(PROFILE_MOCK.profile) as ProfileDocument;
+      (withUnknownField as Record<string, unknown>)['futureTopLevelField'] = { nested: 'data' };
+      await createWith(() =>
+        Promise.resolve({ profile: withUnknownField, revision: 1, updatedAt: '2026-08-30T00:00:00Z' }),
+      );
+      const putSpy = vi.spyOn(api, 'put').mockResolvedValue({ revision: 2, renderJobId: null });
+
+      component.updateIdentity('headline', 'Staff Frontend Developer');
+      await component.save();
+
+      const sent = putSpy.mock.calls[0][0] as Record<string, unknown>;
+      expect(sent['futureTopLevelField']).toEqual({ nested: 'data' });
+    });
+  });
+
   describe('skills table editing (F2)', () => {
     beforeEach(async () => {
       await createWith(() => Promise.resolve(structuredClone(PROFILE_MOCK)));
