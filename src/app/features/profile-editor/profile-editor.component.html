@@ -240,7 +240,7 @@
       <div class="section-head">
         <h2 class="section-title">Skills</h2>
         @if (hasMultipleVariants()) {
-          <div class="tab-strip" role="tablist">
+          <div class="tab-strip skills-tabs" role="tablist">
             @for (tab of tabs(); track tab) {
               <button
                 type="button"
@@ -341,33 +341,215 @@
       }
       @for (role of roles(); track role.id) {
         <article class="role-card">
-          <header class="role-head">
-            <div>
-              <b>{{ role.title }}</b> · {{ role.company }}
-              <span class="tag" [class.tag-accent]="isEdited(role.origin)" [class.tag-outline]="!isEdited(role.origin)">
-                {{ originLabel(role.origin) }}
-              </span>
-            </div>
-            <span class="text-muted">{{ role.period }}</span>
-          </header>
-          @if (role.subtitle) {
-            <p class="role-subtitle">{{ role.subtitle }}</p>
-          }
-          @if (role.description) {
-            <p class="card-body">{{ role.description }}</p>
-          }
-          <ul class="bullets">
-            @for (bullet of role.bullets; track $index) {
-              <li>
-                {{ bullet.text }}
-                @if (isEdited(bullet.origin)) {
-                  <span class="tag tag-accent">Edited</span>
+          <div class="role-fields">
+            <label class="field">
+              <span>Company</span>
+              <input class="input" type="text" [ngModel]="role.company" (ngModelChange)="updateRoleField(role.id, 'company', $event)" />
+            </label>
+            <label class="field">
+              <span>Title</span>
+              <input class="input" type="text" [ngModel]="role.title" (ngModelChange)="updateRoleField(role.id, 'title', $event)" />
+            </label>
+            <label class="field">
+              <span>Period</span>
+              <input class="input" type="text" [ngModel]="role.period" (ngModelChange)="updateRoleField(role.id, 'period', $event)" />
+            </label>
+            <label class="field">
+              <span>Subtitle</span>
+              <input class="input" type="text" [ngModel]="role.subtitle" (ngModelChange)="updateRoleField(role.id, 'subtitle', $event)" />
+            </label>
+            <span class="tag" [class.tag-accent]="isEdited(role.origin)" [class.tag-outline]="!isEdited(role.origin)">
+              {{ originLabel(role.origin) }}
+            </span>
+          </div>
+
+          <label class="field notes-field">
+            <span>Description</span>
+            <textarea
+              class="input"
+              rows="3"
+              [ngModel]="role.description"
+              (ngModelChange)="updateRoleField(role.id, 'description', $event)"
+            ></textarea>
+          </label>
+
+          @if (hasMultipleVariants()) {
+            <div class="section-head">
+              <div class="tab-strip role-tabs" role="tablist">
+                @for (tab of roleTabs(role); track tab) {
+                  <button
+                    type="button"
+                    class="tab-btn"
+                    [class.active]="roleActiveTab(role) === tab"
+                    (click)="selectRoleTab(role, tab)"
+                  >
+                    {{ tabLabel(tab) }}
+                  </button>
                 }
-              </li>
-            }
-          </ul>
+              </div>
+              @if (roleAvailableTracksToAdd(role).length > 0) {
+                <select
+                  class="input add-track-select"
+                  [ngModel]="''"
+                  (ngModelChange)="startTrackRewrite(role, $event)"
+                >
+                  <option value="" disabled selected>+ Rewrite for…</option>
+                  @for (track of roleAvailableTracksToAdd(role); track track) {
+                    <option [value]="track">{{ track }}</option>
+                  }
+                </select>
+              }
+            </div>
+          }
+
+          @if (roleActiveTab(role) === 'core') {
+            <div class="bullets-editor">
+              @for (bullet of role.bullets; track $index) {
+                <div class="bullet-row">
+                  <textarea
+                    class="input"
+                    rows="2"
+                    [ngModel]="bullet.text"
+                    (ngModelChange)="updateBulletText(role.id, $index, $event)"
+                  ></textarea>
+                  <span class="tag" [class.tag-accent]="isEdited(bullet.origin)" [class.tag-outline]="!isEdited(bullet.origin)">
+                    {{ originLabel(bullet.origin) }}
+                  </span>
+                  <div class="row-actions">
+                    <button type="button" class="btn-icon-sm" (click)="moveBullet(role.id, $index, -1)" [disabled]="$index === 0" aria-label="Move bullet up">↑</button>
+                    <button type="button" class="btn-icon-sm" (click)="moveBullet(role.id, $index, 1)" [disabled]="$index === role.bullets.length - 1" aria-label="Move bullet down">↓</button>
+                    <button type="button" class="btn-icon-sm" (click)="removeBullet(role.id, $index)" aria-label="Remove bullet">✕</button>
+                  </div>
+                </div>
+              }
+              <button type="button" class="btn btn-secondary" (click)="addBullet(role.id)">+ Add bullet</button>
+            </div>
+          } @else {
+            @let track = roleActiveTab(role);
+            <div class="track-override">
+              <div class="variant-banner">
+                <span>Rewritten for <b>{{ track }}</b>.</span>
+                <button type="button" class="btn btn-ghost" (click)="removeTrackOverride(role, track)">
+                  Remove override
+                </button>
+              </div>
+              <div class="field-grid">
+                <label class="field">
+                  <span>Title for {{ track }}</span>
+                  <input
+                    class="input"
+                    type="text"
+                    [ngModel]="role.title_by_track[track] ?? ''"
+                    (ngModelChange)="updateRoleTrackField(role.id, 'title_by_track', track, $event)"
+                  />
+                </label>
+                <label class="field">
+                  <span>Subtitle for {{ track }}</span>
+                  <input
+                    class="input"
+                    type="text"
+                    [ngModel]="role.subtitle_by_track[track] ?? ''"
+                    (ngModelChange)="updateRoleTrackField(role.id, 'subtitle_by_track', track, $event)"
+                  />
+                </label>
+                <label class="field">
+                  <span>Stack line for {{ track }}</span>
+                  <input
+                    class="input"
+                    type="text"
+                    [ngModel]="role.stack_line_by_track[track] ?? ''"
+                    (ngModelChange)="updateRoleTrackField(role.id, 'stack_line_by_track', track, $event)"
+                  />
+                </label>
+              </div>
+              <div class="bullets-editor">
+                @for (text of trackBullets(role, track); track $index) {
+                  <div class="bullet-row">
+                    <textarea
+                      class="input"
+                      rows="2"
+                      [ngModel]="text"
+                      (ngModelChange)="updateTrackBulletText(role.id, track, $index, $event)"
+                    ></textarea>
+                    <div class="row-actions">
+                      <button type="button" class="btn-icon-sm" (click)="moveTrackBullet(role.id, track, $index, -1)" [disabled]="$index === 0" aria-label="Move bullet up">↑</button>
+                      <button type="button" class="btn-icon-sm" (click)="moveTrackBullet(role.id, track, $index, 1)" [disabled]="$index === trackBullets(role, track).length - 1" aria-label="Move bullet down">↓</button>
+                      <button type="button" class="btn-icon-sm" (click)="removeTrackBullet(role.id, track, $index)" aria-label="Remove bullet">✕</button>
+                    </div>
+                  </div>
+                }
+                <button type="button" class="btn btn-secondary" (click)="addTrackBullet(role.id, track)">+ Add bullet</button>
+              </div>
+            </div>
+          }
+
+          <details class="advanced">
+            <summary>Advanced</summary>
+            <p class="hint">These feed the generation prompt's red lines — edit carefully.</p>
+            <div class="field-grid">
+              <label class="field">
+                <span>Backend</span>
+                <input class="input" type="text" [ngModel]="role.backend" (ngModelChange)="updateRoleField(role.id, 'backend', $event)" />
+              </label>
+              <label class="field">
+                <span>Bullets max</span>
+                <input
+                  class="input"
+                  type="text"
+                  placeholder="e.g. 2-3"
+                  [ngModel]="role.bullets_max"
+                  (ngModelChange)="updateRoleField(role.id, 'bullets_max', $event)"
+                />
+              </label>
+              <label class="checkbox-field">
+                <input
+                  type="checkbox"
+                  [ngModel]="role.legacy_stack_ok"
+                  (ngModelChange)="updateRoleField(role.id, 'legacy_stack_ok', $event)"
+                />
+                <span>Legacy stack OK</span>
+              </label>
+            </div>
+          </details>
         </article>
       }
+    </section>
+
+    <section class="card elev-sm">
+      <h2 class="section-title">Extras</h2>
+      <p class="hint">Certifications, links, awards — anything else worth a line on the CV.</p>
+      @if (profile.core.extras.length === 0) {
+        <p class="empty-state">No extras yet.</p>
+      }
+      <div class="extras-list">
+        @for (extra of profile.core.extras; track $index) {
+          <div class="extra-row">
+            <select class="input extra-kind" [ngModel]="extra.kind" (ngModelChange)="updateExtra($index, 'kind', $event)">
+              <option value="certification">Certification</option>
+              <option value="link">Link</option>
+              <option value="award">Award</option>
+              <option value="other">Other</option>
+            </select>
+            <input class="input" type="text" [ngModel]="extra.text" (ngModelChange)="updateExtra($index, 'text', $event)" />
+            <span class="tag" [class.tag-accent]="isEdited(extra.origin)" [class.tag-outline]="!isEdited(extra.origin)">
+              {{ originLabel(extra.origin) }}
+            </span>
+            <button type="button" class="btn-icon-sm" (click)="removeExtra($index)" aria-label="Remove extra">✕</button>
+          </div>
+        }
+      </div>
+      <button type="button" class="btn btn-secondary" (click)="addExtra()">+ Add extra</button>
+
+      <label class="field notes-field">
+        <span>Generation notes</span>
+        <textarea
+          class="input"
+          rows="4"
+          placeholder="Free-form notes — a story bank of anecdotes and achievements for the generator to pull from."
+          [ngModel]="profile.core.generation_notes"
+          (ngModelChange)="updateGenerationNotes($event)"
+        ></textarea>
+      </label>
     </section>
 
     @if (leftovers().length > 0) {

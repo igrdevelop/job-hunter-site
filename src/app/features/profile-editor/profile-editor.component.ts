@@ -12,11 +12,26 @@ import {
   ProfileIdentity,
   ProfileLocation,
   ProfileOrigin,
+  ProfileRole,
   ProfileSkillCategory,
 } from '../../core/api/models';
 
 /** The skills table edits either core.skills ('core') or variants[track].skills. */
 const CORE_TAB = 'core';
+
+/** The four per-role maps a track "rewrite" touches together. */
+const ROLE_TRACK_MAP_FIELDS = [
+  'title_by_track',
+  'subtitle_by_track',
+  'stack_line_by_track',
+  'bullets_by_track',
+] as const;
+
+function omitKey<T>(obj: Record<string, T>, key: string): Record<string, T> {
+  const next = { ...obj };
+  delete next[key];
+  return next;
+}
 
 /** Required identity fields — the server's PUT 400 list mirrors these exact messages. */
 const REQUIRED_IDENTITY_FIELDS: { key: keyof ProfileIdentity; message: string }[] = [
@@ -108,6 +123,7 @@ export class ProfileEditorComponent {
       this.draft.set(doc ? structuredClone(doc) : null);
       this.activeTab.set(CORE_TAB);
       this.chipDrafts.set({});
+      this.roleActiveTabs.set({});
       this.saveError.set(null);
       this.fieldErrors.set([]);
     });
@@ -318,11 +334,200 @@ export class ProfileEditorComponent {
     });
   }
 
+  // ── Roles ──────────────────────────────────────────────────────────────
+
+  private readonly roleActiveTabs = signal<Record<string, string>>({});
+
+  roleActiveTab(role: ProfileRole): string {
+    return this.roleActiveTabs()[role.id] ?? CORE_TAB;
+  }
+
+  selectRoleTab(role: ProfileRole, tab: string): void {
+    this.roleActiveTabs.update((m) => ({ ...m, [role.id]: tab }));
+  }
+
+  /** Tracks this role already has an override for, in any of the four *_by_track maps. */
+  roleOverrideTracks(role: ProfileRole): string[] {
+    const keys = new Set<string>();
+    for (const field of ROLE_TRACK_MAP_FIELDS) {
+      for (const track of Object.keys(role[field])) keys.add(track);
+    }
+    return Array.from(keys);
+  }
+
+  roleTabs(role: ProfileRole): string[] {
+    return [CORE_TAB, ...this.roleOverrideTracks(role)];
+  }
+
+  /** Known variant tracks this role has NOT started a rewrite for yet. */
+  roleAvailableTracksToAdd(role: ProfileRole): string[] {
+    const existing = new Set(this.roleOverrideTracks(role));
+    return this.variantTracks().filter((t) => !existing.has(t));
+  }
+
+  private updateRole(roleId: string, mutate: (role: ProfileRole) => ProfileRole): void {
+    const doc = this.draft();
+    if (!doc) return;
+    this.draft.set({
+      ...doc,
+      core: { ...doc.core, roles: doc.core.roles.map((r) => (r.id === roleId ? mutate(r) : r)) },
+    });
+  }
+
+  updateRoleField<K extends keyof ProfileRole>(roleId: string, field: K, value: ProfileRole[K]): void {
+    this.updateRole(roleId, (r) => ({ ...r, [field]: value, origin: 'edited' }));
+  }
+
+  updateBulletText(roleId: string, index: number, text: string): void {
+    this.updateRole(roleId, (r) => ({
+      ...r,
+      bullets: r.bullets.map((b, i) => (i === index ? { ...b, text, origin: 'edited' } : b)),
+    }));
+  }
+
+  addBullet(roleId: string): void {
+    this.updateRole(roleId, (r) => ({
+      ...r,
+      bullets: [...r.bullets, { text: '', origin: 'edited', tracks: [] }],
+    }));
+  }
+
+  removeBullet(roleId: string, index: number): void {
+    this.updateRole(roleId, (r) => ({ ...r, bullets: r.bullets.filter((_, i) => i !== index) }));
+  }
+
+  moveBullet(roleId: string, index: number, direction: -1 | 1): void {
+    this.updateRole(roleId, (r) => {
+      const target = index + direction;
+      if (target < 0 || target >= r.bullets.length) return r;
+      const next = [...r.bullets];
+      [next[index], next[target]] = [next[target], next[index]];
+      return { ...r, bullets: next };
+    });
+  }
+
+  updateRoleTrackField(
+    roleId: string,
+    field: 'title_by_track' | 'subtitle_by_track' | 'stack_line_by_track',
+    track: string,
+    value: string,
+  ): void {
+    this.updateRole(roleId, (r) => ({ ...r, [field]: { ...r[field], [track]: value } }));
+  }
+
+  trackBullets(role: ProfileRole, track: string): string[] {
+    return role.bullets_by_track[track] ?? [];
+  }
+
+  updateTrackBulletText(roleId: string, track: string, index: number, text: string): void {
+    this.updateRole(roleId, (r) => ({
+      ...r,
+      bullets_by_track: {
+        ...r.bullets_by_track,
+        [track]: (r.bullets_by_track[track] ?? []).map((t, i) => (i === index ? text : t)),
+      },
+    }));
+  }
+
+  addTrackBullet(roleId: string, track: string): void {
+    this.updateRole(roleId, (r) => ({
+      ...r,
+      bullets_by_track: { ...r.bullets_by_track, [track]: [...(r.bullets_by_track[track] ?? []), ''] },
+    }));
+  }
+
+  removeTrackBullet(roleId: string, track: string, index: number): void {
+    this.updateRole(roleId, (r) => ({
+      ...r,
+      bullets_by_track: {
+        ...r.bullets_by_track,
+        [track]: (r.bullets_by_track[track] ?? []).filter((_, i) => i !== index),
+      },
+    }));
+  }
+
+  moveTrackBullet(roleId: string, track: string, index: number, direction: -1 | 1): void {
+    this.updateRole(roleId, (r) => {
+      const list = r.bullets_by_track[track] ?? [];
+      const target = index + direction;
+      if (target < 0 || target >= list.length) return r;
+      const next = [...list];
+      [next[index], next[target]] = [next[target], next[index]];
+      return { ...r, bullets_by_track: { ...r.bullets_by_track, [track]: next } };
+    });
+  }
+
+  /** Seeds an override with a copy of the current core values, so editing starts from what renders today. */
+  startTrackRewrite(role: ProfileRole, track: string): void {
+    if (!track) return;
+    this.updateRole(role.id, (r) => ({
+      ...r,
+      title_by_track: { ...r.title_by_track, [track]: r.title_by_track[track] ?? r.title },
+      subtitle_by_track: { ...r.subtitle_by_track, [track]: r.subtitle_by_track[track] ?? r.subtitle },
+      stack_line_by_track: {
+        ...r.stack_line_by_track,
+        [track]: r.stack_line_by_track[track] ?? r.stack_line,
+      },
+      bullets_by_track: {
+        ...r.bullets_by_track,
+        [track]: r.bullets_by_track[track] ?? r.bullets.map((b) => b.text),
+      },
+    }));
+    this.selectRoleTab(role, track);
+  }
+
+  removeTrackOverride(role: ProfileRole, track: string): void {
+    this.updateRole(role.id, (r) => ({
+      ...r,
+      title_by_track: omitKey(r.title_by_track, track),
+      subtitle_by_track: omitKey(r.subtitle_by_track, track),
+      stack_line_by_track: omitKey(r.stack_line_by_track, track),
+      bullets_by_track: omitKey(r.bullets_by_track, track),
+    }));
+    this.selectRoleTab(role, CORE_TAB);
+  }
+
+  // ── Extras + generation notes ─────────────────────────────────────────
+
+  addExtra(): void {
+    const doc = this.draft();
+    if (!doc) return;
+    this.draft.set({
+      ...doc,
+      core: { ...doc.core, extras: [...doc.core.extras, { kind: 'other', text: '', origin: 'edited' }] },
+    });
+  }
+
+  updateExtra(index: number, field: 'kind' | 'text', value: string): void {
+    const doc = this.draft();
+    if (!doc) return;
+    this.draft.set({
+      ...doc,
+      core: {
+        ...doc.core,
+        extras: doc.core.extras.map((e, i) => (i === index ? { ...e, [field]: value, origin: 'edited' } : e)),
+      },
+    });
+  }
+
+  removeExtra(index: number): void {
+    const doc = this.draft();
+    if (!doc) return;
+    this.draft.set({ ...doc, core: { ...doc.core, extras: doc.core.extras.filter((_, i) => i !== index) } });
+  }
+
+  updateGenerationNotes(value: string): void {
+    const doc = this.draft();
+    if (!doc) return;
+    this.draft.set({ ...doc, core: { ...doc.core, generation_notes: value } });
+  }
+
   discard(): void {
     const b = this.baseline();
     this.draft.set(b ? structuredClone(b) : null);
     this.activeTab.set(CORE_TAB);
     this.chipDrafts.set({});
+    this.roleActiveTabs.set({});
     this.saveError.set(null);
     this.fieldErrors.set([]);
   }

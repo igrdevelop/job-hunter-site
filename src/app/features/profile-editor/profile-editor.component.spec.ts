@@ -99,10 +99,18 @@ describe('ProfileEditorComponent', () => {
     });
 
     it('renders roles with company/title/period and bullets', () => {
-      const text = fixture.nativeElement.textContent as string;
-      expect(text).toContain('Acme Corp');
-      expect(text).toContain('Jan 2024 - Present');
-      expect(text).toContain('Built and maintained a payments dashboard');
+      const roleCards = fixture.nativeElement.querySelectorAll('.role-card');
+      const fields = Array.from(
+        roleCards[0].querySelectorAll('.role-fields input'),
+      ) as HTMLInputElement[];
+      expect(fields.map((el) => el.value)).toEqual([
+        'Acme Corp',
+        'Senior Frontend Developer',
+        'Jan 2024 - Present',
+        'FinTech, Payments Platform',
+      ]);
+      const firstBullet = roleCards[0].querySelector('.bullets-editor textarea') as HTMLTextAreaElement;
+      expect(firstBullet.value).toContain('Built and maintained a payments dashboard');
     });
 
     it('flags edited elements with an Edited badge', () => {
@@ -315,6 +323,86 @@ describe('ProfileEditorComponent', () => {
     });
   });
 
+  describe('roles + extras editing (F4)', () => {
+    beforeEach(async () => {
+      await createWith(() => Promise.resolve(structuredClone(PROFILE_MOCK)));
+    });
+
+    function roleId(index: number): string {
+      return PROFILE_MOCK.profile.core.roles[index].id;
+    }
+
+    it('updateRoleField() edits a field and flips the role origin to edited', () => {
+      expect(component.roles()[1].origin).toBe('parsed');
+      component.updateRoleField(roleId(1), 'title', 'Staff Frontend Developer');
+      expect(component.roles()[1].title).toBe('Staff Frontend Developer');
+      expect(component.roles()[1].origin).toBe('edited');
+      expect(component.isDirty()).toBe(true);
+    });
+
+    it('addBullet()/removeBullet() edit the bullets list', () => {
+      const before = component.roles()[0].bullets.length;
+      component.addBullet(roleId(0));
+      expect(component.roles()[0].bullets.length).toBe(before + 1);
+      expect(component.roles()[0].bullets.at(-1)?.origin).toBe('edited');
+
+      component.removeBullet(roleId(0), before);
+      expect(component.roles()[0].bullets.length).toBe(before);
+    });
+
+    it('updateBulletText() flips only that bullet\'s origin, not the whole role', () => {
+      expect(component.roles()[1].origin).toBe('parsed');
+      component.updateBulletText(roleId(1), 0, 'Rewrote this bullet.');
+      expect(component.roles()[1].bullets[0].text).toBe('Rewrote this bullet.');
+      expect(component.roles()[1].bullets[0].origin).toBe('edited');
+      expect(component.roles()[1].origin).toBe('parsed');
+    });
+
+    it('moveBullet() reorders and clamps at the edges', () => {
+      const texts = component.roles()[0].bullets.map((b) => b.text);
+      component.moveBullet(roleId(0), 0, 1);
+      expect(component.roles()[0].bullets.map((b) => b.text)).toEqual([texts[1], texts[0], texts[2]]);
+      component.moveBullet(roleId(0), 0, -1);
+      expect(component.roles()[0].bullets[0].text).toBe(texts[1]);
+    });
+
+    it('addExtra()/updateExtra()/removeExtra() edit the extras list', () => {
+      const before = component.document()?.core.extras.length ?? 0;
+      component.addExtra();
+      expect(component.document()?.core.extras.length).toBe(before + 1);
+
+      component.updateExtra(before, 'text', 'AWS Certified Developer');
+      const added = component.document()?.core.extras[before];
+      expect(added?.text).toBe('AWS Certified Developer');
+      expect(added?.origin).toBe('edited');
+
+      component.removeExtra(before);
+      expect(component.document()?.core.extras.length).toBe(before);
+    });
+
+    it('updateGenerationNotes() edits the free-text story-bank field', () => {
+      component.updateGenerationNotes('Led a migration from AngularJS to Angular 19.');
+      expect(component.document()?.core.generation_notes).toBe(
+        'Led a migration from AngularJS to Angular 19.',
+      );
+      expect(component.isDirty()).toBe(true);
+    });
+
+    it('save() carries edited roles/extras while skills and identity stay untouched', async () => {
+      const putSpy = vi.spyOn(api, 'put').mockResolvedValue({ revision: 2, renderJobId: null });
+      component.updateRoleField(roleId(0), 'title', 'Lead Frontend Engineer');
+      component.updateGenerationNotes('Story bank entry.');
+
+      await component.save();
+
+      const sent = putSpy.mock.calls[0][0];
+      expect(sent.core.roles[0].title).toBe('Lead Frontend Engineer');
+      expect(sent.core.generation_notes).toBe('Story bank entry.');
+      expect(sent.core.skills).toEqual(PROFILE_MOCK.profile.core.skills);
+      expect(sent.core.identity).toEqual(PROFILE_MOCK.profile.core.identity);
+    });
+  });
+
   describe('with multiple variants', () => {
     function twoVariantResponse(): ReturnType<ProfileApi['get']> {
       const profile = structuredClone(PROFILE_MOCK.profile);
@@ -328,8 +416,8 @@ describe('ProfileEditorComponent', () => {
 
     it('shows a tab strip with Core plus each variant track', () => {
       expect(component.hasMultipleVariants()).toBe(true);
-      const tabs = Array.from(fixture.nativeElement.querySelectorAll('.tab-btn')).map((el) =>
-        (el as HTMLElement).textContent?.trim(),
+      const tabs = Array.from(fixture.nativeElement.querySelectorAll('.skills-tabs .tab-btn')).map(
+        (el) => (el as HTMLElement).textContent?.trim(),
       );
       expect(tabs).toEqual(['Core', 'angular', 'react']);
     });
@@ -363,6 +451,63 @@ describe('ProfileEditorComponent', () => {
       expect(component.activeSkills()[0].origin).toBe('edited');
       component.toggleTrack(0, 'react');
       expect(component.hasTrack(component.activeSkills()[0], 'react')).toBe(false);
+    });
+
+    it('shows a role tab per track the role already has an override for', () => {
+      const acme = component.roles()[0]; // has title_by_track.ai, stack_line_by_track/bullets_by_track.react
+      expect(component.roleTabs(acme)).toEqual(['core', 'ai', 'react']);
+      expect(component.roleAvailableTracksToAdd(acme)).toEqual(['angular']);
+
+      const beta = component.roles()[1]; // no by-track overrides at all
+      expect(component.roleTabs(beta)).toEqual(['core']);
+      expect(component.roleAvailableTracksToAdd(beta)).toEqual(['angular', 'react']);
+    });
+
+    it('startTrackRewrite() seeds a new override from the current core values', () => {
+      const beta = component.roles()[1];
+      component.startTrackRewrite(beta, 'angular');
+
+      const updated = component.roles()[1];
+      expect(updated.title_by_track['angular']).toBe(beta.title);
+      expect(updated.subtitle_by_track['angular']).toBe(beta.subtitle);
+      expect(updated.stack_line_by_track['angular']).toBe(beta.stack_line);
+      expect(updated.bullets_by_track['angular']).toEqual(beta.bullets.map((b) => b.text));
+      expect(component.roleActiveTab(updated)).toBe('angular');
+    });
+
+    it('startTrackRewrite() does not clobber an existing override', () => {
+      const acme = component.roles()[0];
+      const before = acme.bullets_by_track['react'];
+      component.startTrackRewrite(acme, 'react');
+      expect(component.roles()[0].bullets_by_track['react']).toEqual(before);
+    });
+
+    it('removeTrackOverride() clears all four by-track maps for that track and resets the tab', () => {
+      const acme = component.roles()[0];
+      component.selectRoleTab(acme, 'react');
+      component.removeTrackOverride(acme, 'react');
+
+      const updated = component.roles()[0];
+      expect(updated.stack_line_by_track['react']).toBeUndefined();
+      expect(updated.bullets_by_track['react']).toBeUndefined();
+      expect(component.roleTabs(updated)).toEqual(['core', 'ai']);
+      expect(component.roleActiveTab(updated)).toBe('core');
+    });
+
+    it('addTrackBullet()/updateTrackBulletText()/removeTrackBullet() edit the by-track bullets', () => {
+      const acme = component.roles()[0];
+      const before = component.trackBullets(acme, 'react').length;
+
+      component.addTrackBullet(acme.id, 'react');
+      expect(component.trackBullets(component.roles()[0], 'react').length).toBe(before + 1);
+
+      component.updateTrackBulletText(acme.id, 'react', before, 'A brand-new React bullet.');
+      expect(component.trackBullets(component.roles()[0], 'react')[before]).toBe(
+        'A brand-new React bullet.',
+      );
+
+      component.removeTrackBullet(acme.id, 'react', before);
+      expect(component.trackBullets(component.roles()[0], 'react').length).toBe(before);
     });
   });
 
