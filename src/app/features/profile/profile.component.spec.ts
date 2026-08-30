@@ -92,13 +92,13 @@ describe('ProfileComponent — download flow', () => {
   it('openFolder() navigates to the folder URL', () => {
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     component.openFolder(FOLDER);
-    expect(navigate).toHaveBeenCalledWith(['/profile', 'attachments']);
+    expect(navigate).toHaveBeenCalledWith(['/profile', 'files', 'attachments']);
   });
 
-  it('goRoot() navigates back to /profile', () => {
+  it('goRoot() navigates back to /profile/files', () => {
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     component.goRoot();
-    expect(navigate).toHaveBeenCalledWith(['/profile']);
+    expect(navigate).toHaveBeenCalledWith(['/profile', 'files']);
   });
 
   it('shows a Templates shortcut linking to /profile/templates at root', () => {
@@ -144,15 +144,15 @@ describe('ProfileComponent — URL-driven subfolder', () => {
 
   it('builds cumulative breadcrumb links per segment', () => {
     expect(component.breadcrumbs()).toEqual([
-      { label: 'examples', link: ['/profile', 'examples'] },
-      { label: 'covers', link: ['/profile', 'examples', 'covers'] },
+      { label: 'examples', link: ['/profile', 'files', 'examples'] },
+      { label: 'covers', link: ['/profile', 'files', 'examples', 'covers'] },
     ]);
   });
 
   it('openFolder() navigates relative to the current URL path', () => {
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     component.openFolder(FOLDER);
-    expect(navigate).toHaveBeenCalledWith(['/profile', 'examples', 'covers', 'attachments']);
+    expect(navigate).toHaveBeenCalledWith(['/profile', 'files', 'examples', 'covers', 'attachments']);
   });
 
   it('hides the Templates shortcut inside a subfolder', () => {

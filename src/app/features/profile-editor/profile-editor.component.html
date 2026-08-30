@@ -1,0 +1,188 @@
+<div class="page">
+  <div class="page-header">
+    <h1>Profile</h1>
+  </div>
+  <p class="page-subtitle">
+    This is your career bank, not a resume — every generated CV is cut from it, so a
+    fuller profile means better tailoring. Add every role, every skill, every side
+    project. There's no "keep it to one page" here.
+  </p>
+
+  <div class="editor-shortcuts">
+    <a class="tag tag-outline" routerLink="/profile/files">Candidate files</a>
+    <a class="tag tag-outline" routerLink="/profile/templates">Templates</a>
+  </div>
+
+  @if (loading()) {
+    <mat-spinner diameter="24"></mat-spinner>
+  }
+
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  }
+
+  @if (showEmptyState()) {
+    <div class="card elev-sm empty-state-card">
+      <h2 class="card-title">No profile yet</h2>
+      <p class="card-body">
+        Upload an existing resume and we'll extract everything we can into editable
+        fields, or start with a blank profile and fill it in yourself.
+      </p>
+      <div class="empty-actions">
+        <button type="button" class="btn btn-primary" disabled title="Coming in a later phase">
+          Upload your resume
+        </button>
+        <button type="button" class="btn btn-secondary" disabled title="Coming in a later phase">
+          Start from scratch
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (document(); as profile) {
+    <section class="card elev-sm">
+      <h2 class="section-title">Identity</h2>
+      <dl class="fact-list">
+        <div class="fact">
+          <dt>Full name</dt>
+          <dd>{{ profile.core.identity.full_name || '—' }}</dd>
+        </div>
+        <div class="fact">
+          <dt>Also known as</dt>
+          <dd>{{ profile.core.identity.aka || '—' }}</dd>
+        </div>
+        <div class="fact">
+          <dt>Headline</dt>
+          <dd>{{ profile.core.identity.headline || '—' }}</dd>
+        </div>
+        <div class="fact">
+          <dt>Contact</dt>
+          <dd>{{ profile.core.identity.contact || '—' }}</dd>
+        </div>
+        <div class="fact">
+          <dt>CV filename prefix</dt>
+          <dd>{{ profile.core.identity.cv_filename_prefix || '—' }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="card elev-sm">
+      <h2 class="section-title">Questionnaire</h2>
+      <p class="hint">
+        Facts no resume contains — these feed the job filters and the doomed-gate
+        checks directly.
+      </p>
+      <dl class="fact-list">
+        <div class="fact">
+          <dt>Home city</dt>
+          <dd>
+            {{ profile.core.location.home_city || '—' }}
+            @if (profile.core.location.home_city_aliases.length) {
+              <span class="text-muted">
+                (aka {{ profile.core.location.home_city_aliases.join(', ') }})
+              </span>
+            }
+          </dd>
+        </div>
+        <div class="fact">
+          <dt>Hybrid tolerance</dt>
+          <dd>{{ hybridSummary(profile.core.location) }}</dd>
+        </div>
+        <div class="fact">
+          <dt>Work authorization</dt>
+          <dd>{{ profile.core.location.work_authorization || '—' }}</dd>
+        </div>
+        <div class="fact">
+          <dt>Disqualifying languages</dt>
+          <dd>{{ profile.core.languages.disqualify_required.join(', ') || 'None' }}</dd>
+        </div>
+        <div class="fact">
+          <dt>Experience</dt>
+          <dd>{{ experienceSummary(profile.core.experience) }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="card elev-sm">
+      <h2 class="section-title">Skills</h2>
+      @if (skills().length === 0) {
+        <p class="empty-state">No skills yet.</p>
+      }
+      <div class="skills-table">
+        @for (cat of skills(); track cat.category) {
+          <div class="skills-row">
+            <div class="skills-category">
+              <span>{{ cat.category }}</span>
+              <span class="tag" [class.tag-accent]="isEdited(cat.origin)" [class.tag-outline]="!isEdited(cat.origin)">
+                {{ originLabel(cat.origin) }}
+              </span>
+              @if (hasMultipleVariants()) {
+                @for (track of cat.tracks; track track) {
+                  <span class="tag tag-outline">{{ track }}</span>
+                }
+              }
+            </div>
+            <div class="skills-items">
+              <div class="chips">
+                @for (item of cat.items; track item) {
+                  <span class="chip">{{ item }}</span>
+                }
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+    </section>
+
+    <section class="card elev-sm">
+      <h2 class="section-title">Roles</h2>
+      @if (roles().length === 0) {
+        <p class="empty-state">No roles yet.</p>
+      }
+      @for (role of roles(); track role.id) {
+        <article class="role-card">
+          <header class="role-head">
+            <div>
+              <b>{{ role.title }}</b> · {{ role.company }}
+              <span class="tag" [class.tag-accent]="isEdited(role.origin)" [class.tag-outline]="!isEdited(role.origin)">
+                {{ originLabel(role.origin) }}
+              </span>
+            </div>
+            <span class="text-muted">{{ role.period }}</span>
+          </header>
+          @if (role.subtitle) {
+            <p class="role-subtitle">{{ role.subtitle }}</p>
+          }
+          @if (role.description) {
+            <p class="card-body">{{ role.description }}</p>
+          }
+          <ul class="bullets">
+            @for (bullet of role.bullets; track $index) {
+              <li>
+                {{ bullet.text }}
+                @if (isEdited(bullet.origin)) {
+                  <span class="tag tag-accent">Edited</span>
+                }
+              </li>
+            }
+          </ul>
+        </article>
+      }
+    </section>
+
+    @if (leftovers().length > 0) {
+      <section class="card elev-sm">
+        <h2 class="section-title">Couldn't place this</h2>
+        <p class="hint">
+          Fragments the parser found but couldn't confidently place anywhere — nothing
+          here is silently dropped.
+        </p>
+        <ul class="leftovers-list">
+          @for (item of leftovers(); track $index) {
+            <li>{{ item.text }}</li>
+          }
+        </ul>
+      </section>
+    }
+  }
+</div>

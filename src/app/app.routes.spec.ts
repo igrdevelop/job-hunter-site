@@ -9,8 +9,10 @@ import { routes } from './app.routes';
 import { AuthService } from './core/auth/auth.service';
 import { TemplatesApi } from './core/api/templates.api';
 import { FilesApi } from './core/api/files.api';
+import { ProfileApi } from './core/api/profile.api';
 import { TemplatesComponent } from './features/templates/templates.component';
 import { ProfileComponent } from './features/profile/profile.component';
+import { ProfileEditorComponent } from './features/profile-editor/profile-editor.component';
 
 describe('app routes — Templates under Profile', () => {
   let router: Router;
@@ -29,6 +31,7 @@ describe('app routes — Templates under Profile', () => {
     vi.spyOn(TestBed.inject(AuthService), 'isLoggedIn').mockReturnValue(true);
     vi.spyOn(TestBed.inject(TemplatesApi), 'getAll').mockResolvedValue([]);
     vi.spyOn(TestBed.inject(FilesApi), 'getProfileFiles').mockResolvedValue([]);
+    vi.spyOn(TestBed.inject(ProfileApi), 'get').mockResolvedValue(null);
   });
 
   afterEach(() => vi.restoreAllMocks());
@@ -46,16 +49,31 @@ describe('app routes — Templates under Profile', () => {
     expect(router.url).toBe('/profile/templates');
   });
 
-  it('still renders ProfileComponent at /profile', async () => {
+  it('renders ProfileEditorComponent at /profile', async () => {
     const harness = await RouterTestingHarness.create();
-    const component = await harness.navigateByUrl('/profile', ProfileComponent);
+    const component = await harness.navigateByUrl('/profile', ProfileEditorComponent);
+    expect(component).toBeInstanceOf(ProfileEditorComponent);
+  });
+
+  it('renders ProfileComponent (file browser) at /profile/files', async () => {
+    const harness = await RouterTestingHarness.create();
+    const component = await harness.navigateByUrl('/profile/files', ProfileComponent);
     expect(component).toBeInstanceOf(ProfileComponent);
   });
 
-  it('renders ProfileComponent for nested candidate-file paths', async () => {
+  it('renders ProfileComponent for nested candidate-file paths under /profile/files', async () => {
     const harness = await RouterTestingHarness.create();
-    const component = await harness.navigateByUrl('/profile/examples/covers', ProfileComponent);
+    const component = await harness.navigateByUrl(
+      '/profile/files/examples/covers',
+      ProfileComponent,
+    );
     expect(component).toBeInstanceOf(ProfileComponent);
     expect(component.currentPath()).toBe('examples/covers');
+  });
+
+  it('redirects legacy /profile/<path> deep links to /profile/files/<path>', async () => {
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/profile/examples/covers');
+    expect(router.url).toBe('/profile/files/examples/covers');
   });
 });

@@ -4,6 +4,8 @@ import { adminGuard } from './core/auth/role.guard';
 
 const loadFiles = () =>
   import('./features/files/files.component').then((m) => m.FilesComponent);
+const loadProfileFiles = () =>
+  import('./features/profile/profile.component').then((m) => m.ProfileComponent);
 
 export const routes: Routes = [
   {
@@ -49,15 +51,27 @@ export const routes: Routes = [
               ),
           },
           {
-            path: '',
-            loadComponent: () =>
-              import('./features/profile/profile.component').then((m) => m.ProfileComponent),
+            // Candidate-file browser, at any depth: /profile/files, /profile/files/examples/x, …
+            path: 'files',
+            children: [
+              { path: '', loadComponent: loadProfileFiles },
+              { path: '**', loadComponent: loadProfileFiles },
+            ],
           },
           {
-            // Candidate-file browser at any depth: /profile/examples, /profile/notes/x, …
-            path: '**',
+            path: '',
             loadComponent: () =>
-              import('./features/profile/profile.component').then((m) => m.ProfileComponent),
+              import('./features/profile-editor/profile-editor.component').then(
+                (m) => m.ProfileEditorComponent,
+              ),
+          },
+          {
+            // Legacy deep links: /profile/<path> → /profile/files/<path>.
+            path: '**',
+            redirectTo: (data) => {
+              const path = data.url.map((s) => s.path).join('/');
+              return path ? `/profile/files/${path}` : '/profile/files';
+            },
           },
         ],
       },

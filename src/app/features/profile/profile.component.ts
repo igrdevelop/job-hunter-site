@@ -60,7 +60,7 @@ export class ProfileComponent {
     const segments = this.urlSegments().map((s) => s.path);
     return segments.map((label, i) => ({
       label,
-      link: ['/profile', ...segments.slice(0, i + 1)],
+      link: ['/profile', 'files', ...segments.slice(0, i + 1)],
     }));
   });
 
@@ -84,11 +84,11 @@ export class ProfileComponent {
 
   openFolder(folder: FolderInfo): void {
     const segments = this.urlSegments().map((s) => s.path);
-    void this.router.navigate(['/profile', ...segments, folder.name]);
+    void this.router.navigate(['/profile', 'files', ...segments, folder.name]);
   }
 
   goRoot(): void {
-    void this.router.navigate(['/profile']);
+    void this.router.navigate(['/profile', 'files']);
   }
 
   private entryPath(entry: FileInfo): string {

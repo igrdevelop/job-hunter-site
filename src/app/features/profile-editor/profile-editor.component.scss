@@ -1,0 +1,141 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.editor-shortcuts {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.editor-shortcuts a {
+  text-decoration: none;
+}
+
+.section-title {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-heading);
+  font-size: 16px;
+}
+
+.hint {
+  margin: 0 0 var(--space-3);
+  font-size: 13px;
+  color: var(--color-neutral-600);
+}
+
+.error {
+  color: var(--color-error);
+}
+
+.empty-state {
+  color: var(--color-neutral-600);
+}
+
+.fact-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.fact dt {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+  margin-bottom: 2px;
+}
+
+.fact dd {
+  margin: 0;
+  font-size: 14px;
+}
+
+.skills-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.skills-row {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-neutral-200);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.skills-category {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-neutral-200);
+  font-size: 13px;
+}
+
+.role-card {
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--color-neutral-200);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.role-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.role-subtitle {
+  margin: var(--space-1) 0 0;
+  color: var(--color-neutral-600);
+  font-size: 13px;
+}
+
+.bullets {
+  margin: var(--space-2) 0 0;
+  padding-left: 18px;
+
+  li {
+    margin-bottom: 4px;
+  }
+}
+
+.leftovers-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.empty-state-card {
+  padding: var(--space-5);
+}
+
+.empty-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
