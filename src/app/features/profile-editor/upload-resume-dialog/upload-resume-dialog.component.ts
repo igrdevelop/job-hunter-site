@@ -239,6 +239,13 @@ export class UploadResumeDialogComponent {
     try {
       const job = await this.api.getJob(jobId);
       if (job.status === 'done') {
+        if (!job.result) {
+          // A malformed "done" (no draft) is not a cancel — say so instead of
+          // closing the dialog silently as if nothing happened.
+          this.state.set('error');
+          this.errorMessage.set('The parse finished but returned no data. Please try again.');
+          return;
+        }
         this.state.set('done');
         this.dialogRef.close(job.result);
         return;

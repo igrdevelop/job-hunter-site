@@ -16,11 +16,14 @@ import { cloneProfileMock } from '../../features/profile-editor/mock/profile.moc
  * Temporary GET 404 → mock fixture bridge while `/api/profile` is undeployed
  * (job-hunter-api P1 not shipped yet). Exact FILTERS_MOCK_FALLBACK_ENABLED
  * semantics: PUT never fakes success.
- * TODO(profile-api): set to `false` (then delete the flag + mock fallback
- * path) once GET /api/profile is live — a real 404 there legitimately means
- * "no profile yet" and must reach the empty state, not this mock.
+ * Gated on `!environment.production` — unlike a plain `true` constant, this
+ * can't accidentally keep serving fake "Jane Doe" data to real new users
+ * once GET /api/profile deploys to production. A real 404 there legitimately
+ * means "no profile yet" and must reach the empty state, not this mock.
+ * TODO(profile-api): delete the flag + mock fallback path entirely once
+ * GET /api/profile is live in dev too.
  */
-export const PROFILE_MOCK_FALLBACK_ENABLED = true;
+export const PROFILE_MOCK_FALLBACK_ENABLED = !environment.production;
 
 @Injectable({ providedIn: 'root' })
 export class ProfileApi {

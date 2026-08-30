@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { vi } from 'vitest';
 import { RevisionsHistoryDialogComponent } from './revisions-history-dialog.component';
@@ -19,7 +19,10 @@ describe('RevisionsHistoryDialogComponent', () => {
     { rev: 2, createdAt: '2026-08-29T12:00:00Z' },
   ];
 
-  async function createWith(getRevisionsImpl: () => Promise<ProfileRevision[]>): Promise<void> {
+  async function createWith(
+    getRevisionsImpl: () => Promise<ProfileRevision[]>,
+    hasUnsavedEdits = false,
+  ): Promise<void> {
     dialogRef = { close: vi.fn() };
     await TestBed.configureTestingModule({
       imports: [RevisionsHistoryDialogComponent],
@@ -28,6 +31,7 @@ describe('RevisionsHistoryDialogComponent', () => {
         provideHttpClientTesting(),
         provideAnimationsAsync(),
         { provide: MatDialogRef, useValue: dialogRef },
+        { provide: MAT_DIALOG_DATA, useValue: { hasUnsavedEdits } },
       ],
     }).compileComponents();
 
@@ -110,5 +114,23 @@ describe('RevisionsHistoryDialogComponent', () => {
     await createWith(() => Promise.resolve(REVISIONS));
     component.close();
     expect(dialogRef.close).toHaveBeenCalledWith(false);
+  });
+
+  it('shows no unsaved-edits warning when the caller has nothing unsaved', async () => {
+    await createWith(() => Promise.resolve(REVISIONS), false);
+    expect(fixture.nativeElement.querySelector('.warning')).toBeNull();
+  });
+
+  it('warns about unsaved edits, both in the banner and the confirm prompt, when the caller is dirty', async () => {
+    await createWith(() => Promise.resolve(REVISIONS), true);
+    expect(fixture.nativeElement.querySelector('.warning')?.textContent).toContain('unsaved edits');
+
+    const confirmSpy = vi.fn(() => true);
+    vi.stubGlobal('confirm', confirmSpy);
+    vi.spyOn(api, 'restoreRevision').mockResolvedValue({ revision: 4, renderJobId: null });
+
+    await component.restore(2);
+
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('unsaved edits'));
   });
 });

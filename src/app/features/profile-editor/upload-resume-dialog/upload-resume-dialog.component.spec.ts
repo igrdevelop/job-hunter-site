@@ -138,6 +138,20 @@ describe('UploadResumeDialogComponent', () => {
     expect(dialogRef.close).not.toHaveBeenCalled();
   });
 
+  it('shows an error instead of closing silently when a "done" job carries no result', async () => {
+    vi.useFakeTimers();
+    selectFile(pdfFile());
+    vi.spyOn(api, 'upload').mockResolvedValue({ jobId: 'job-1' });
+    vi.spyOn(api, 'getJob').mockResolvedValue({ kind: 'parse', status: 'done' });
+
+    await component.submit();
+    await vi.advanceTimersByTimeAsync(PROFILE_UPLOAD_POLL_INTERVAL_MS);
+
+    expect(component.state()).toBe('error');
+    expect(component.errorMessage()).toContain('returned no data');
+    expect(dialogRef.close).not.toHaveBeenCalled();
+  });
+
   it('a poll network error surfaces a retry-able error state without closing', async () => {
     vi.useFakeTimers();
     selectFile(pdfFile());

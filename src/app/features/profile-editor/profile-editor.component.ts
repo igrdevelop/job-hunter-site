@@ -17,7 +17,11 @@ import {
   ProfileSkillCategory,
 } from '../../core/api/models';
 import { UploadResumeDialogComponent } from './upload-resume-dialog/upload-resume-dialog.component';
-import { RevisionsHistoryDialogComponent } from './revisions-history-dialog/revisions-history-dialog.component';
+import {
+  RevisionsHistoryDialogComponent,
+  RevisionsHistoryDialogData,
+} from './revisions-history-dialog/revisions-history-dialog.component';
+import { safeResourceValue } from '../../core/utils/resource-value';
 
 /** The skills table edits either core.skills ('core') or variants[track].skills. */
 const CORE_TAB = 'core';
@@ -50,10 +54,40 @@ function isSameRole(a: ProfileRole, b: ProfileRole): boolean {
   );
 }
 
+/** Unions two string lists case-insensitively, deduping WITHIN `incoming` too (not just against `current`). */
 function unionCaseInsensitive(current: string[], incoming: string[]): string[] {
   const seen = new Set(current.map((s) => s.toLowerCase()));
-  const additions = incoming.filter((s) => !seen.has(s.toLowerCase()));
+  const additions: string[] = [];
+  for (const item of incoming) {
+    const key = item.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      additions.push(item);
+    }
+  }
   return [...current, ...additions];
+}
+
+/** Same as unionCaseInsensitive, for a list of objects keyed by their own `.text` (e.g. education entries). */
+function unionByTextCaseInsensitive<T extends { text: string }>(current: T[], incoming: T[]): T[] {
+  const seen = new Set(current.map((e) => e.text.trim().toLowerCase()));
+  const additions: T[] = [];
+  for (const item of incoming) {
+    const key = item.text.trim().toLowerCase();
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      additions.push(item);
+    }
+  }
+  return [...current, ...additions];
+}
+
+/** Appends `-2`, `-3`, … until the id no longer collides — the merge's last line of defense against id reuse. */
+function uniqueRoleId(existingIds: Set<string>, id: string): string {
+  if (!existingIds.has(id)) return id;
+  let n = 2;
+  while (existingIds.has(`${id}-${n}`)) n++;
+  return `${id}-${n}`;
 }
 
 /** Fills only the CURRENTLY EMPTY string fields in `keys` from `parsed` — never overwrites existing content. */
@@ -115,7 +149,11 @@ export class ProfileEditorComponent {
   readonly document = computed(() => this.draft());
 
   readonly showEmptyState = computed(
-    () => this.profileResource.hasValue() && !this.errorMessage() && this.document() === null,
+    () =>
+      this.profileResource.hasValue() &&
+      !this.errorMessage() &&
+      this.document() === null &&
+      !this.parsedDraft(),
   );
 
   readonly roles = computed(() => this.document()?.core.roles ?? []);
@@ -155,14 +193,19 @@ export class ProfileEditorComponent {
   readonly saveError = signal<string | null>(null);
   readonly fieldErrors = signal<string[]>([]);
 
+  /** Bumped every time the load effect re-seeds baseline/draft from the server (initial load or a reload). */
+  private loadGeneration = 0;
+
   constructor() {
     effect(() => {
       if (!this.profileResource.hasValue()) return;
-      const doc = this.profileResource.value()?.profile ?? null;
+      const doc = safeResourceValue(this.profileResource)?.profile ?? null;
+      this.loadGeneration++;
       this.baseline.set(doc ? structuredClone(doc) : null);
       this.draft.set(doc ? structuredClone(doc) : null);
       this.activeTab.set(CORE_TAB);
       this.chipDrafts.set({});
+      this.questionnaireChipDrafts.set({});
       this.roleActiveTabs.set({});
       this.saveError.set(null);
       this.fieldErrors.set([]);
@@ -281,6 +324,10 @@ export class ProfileEditorComponent {
 
   selectTab(tab: string): void {
     this.activeTab.set(tab);
+    // chipDrafts is keyed by row position within the ACTIVE tab's list — an index
+    // from the previous tab means nothing here, so drop any uncommitted text
+    // rather than let it silently attach to an unrelated category on the new tab.
+    this.chipDrafts.set({});
   }
 
   tabLabel(tab: string): string {
@@ -296,14 +343,37 @@ export class ProfileEditorComponent {
 
   removeCategory(index: number): void {
     this.updateActiveSkills((skills) => skills.filter((_, i) => i !== index));
+    // chipDrafts is keyed by row position — shift every key above the removed
+    // row down by one so an uncommitted draft stays attached to its own category.
+    this.chipDrafts.update((m) => {
+      const next: Record<number, string> = {};
+      for (const [key, value] of Object.entries(m)) {
+        const i = Number(key);
+        if (i < index) next[i] = value;
+        else if (i > index) next[i - 1] = value;
+      }
+      return next;
+    });
   }
 
   moveCategory(index: number, direction: -1 | 1): void {
+    const target = index + direction;
+    if (target < 0 || target >= this.activeSkills().length) return;
     this.updateActiveSkills((skills) => {
-      const target = index + direction;
-      if (target < 0 || target >= skills.length) return skills;
       const next = [...skills];
       [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+    // Swap the chip drafts along with the rows so an uncommitted draft follows
+    // the category it was typed into, not whatever now sits at that index.
+    this.chipDrafts.update((m) => {
+      const next = { ...m };
+      const a = next[index];
+      const b = next[target];
+      if (b !== undefined) next[index] = b;
+      else delete next[index];
+      if (a !== undefined) next[target] = a;
+      else delete next[target];
       return next;
     });
   }
@@ -618,9 +688,9 @@ export class ProfileEditorComponent {
   // ── F6: revision history ─────────────────────────────────────────────
 
   openHistoryDialog(): void {
-    const ref = this.dialog.open<RevisionsHistoryDialogComponent, unknown, boolean>(
+    const ref = this.dialog.open<RevisionsHistoryDialogComponent, RevisionsHistoryDialogData, boolean>(
       RevisionsHistoryDialogComponent,
-      { width: '480px' },
+      { width: '480px', data: { hasUnsavedEdits: this.isDirty() } },
     );
     ref.afterClosed().subscribe((restored) => {
       if (restored) {
@@ -637,7 +707,16 @@ export class ProfileEditorComponent {
     const parsed = this.parsedDraft();
     if (!parsed) return [];
     const current = this.document();
-    return parsed.core.skills.map((cat) => {
+    // Collapse same-named categories WITHIN the parsed draft itself first — a
+    // resume that yields e.g. both "Tools" and "tools" must produce one
+    // proposal (items unioned), not two that fight over the same merge slot.
+    const collapsed = new Map<string, ProfileSkillCategory>();
+    for (const cat of parsed.core.skills) {
+      const key = this.skillProposalKey(cat);
+      const existing = collapsed.get(key);
+      collapsed.set(key, existing ? { ...existing, items: unionCaseInsensitive(existing.items, cat.items) } : cat);
+    }
+    return Array.from(collapsed.values()).map((cat) => {
       const match = current?.core.skills.find(
         (c) => this.skillProposalKey(c) === this.skillProposalKey(cat),
       );
@@ -717,9 +796,21 @@ export class ProfileEditorComponent {
     for (const proposal of acceptedRoles) {
       const choice = this.roleChoice(proposal.parsed);
       if (choice === 'keep-both' || !proposal.duplicate) {
-        roles = [...roles, proposal.parsed];
+        // A genuinely new slot — the parsed role's own id could still collide
+        // with an existing (or already-pushed-this-loop) role's id, so make
+        // sure whatever lands in `roles` is unique before it does.
+        const existingIds = new Set(roles.map((r) => r.id));
+        const role = existingIds.has(proposal.parsed.id)
+          ? { ...proposal.parsed, id: uniqueRoleId(existingIds, proposal.parsed.id) }
+          : proposal.parsed;
+        roles = [...roles, role];
       } else {
-        roles = roles.map((r) => (r.id === proposal.duplicate!.id ? proposal.parsed : r));
+        // Replacing an existing role's content in place — keep ITS id rather
+        // than adopting the parsed role's id, which both avoids a possible
+        // collision with a third, unrelated role and keeps the role's
+        // identity in the document stable across the merge.
+        const targetId = proposal.duplicate.id;
+        roles = roles.map((r) => (r.id === targetId ? { ...proposal.parsed, id: targetId } : r));
       }
     }
 
@@ -759,6 +850,26 @@ export class ProfileEditorComponent {
             parsed.core.languages.disqualify_required,
           ),
         },
+        employers: {
+          protected: unionCaseInsensitive(current.core.employers.protected, parsed.core.employers.protected),
+          flexible: {
+            ...fillEmptyStrings(current.core.employers.flexible, parsed.core.employers.flexible, [
+              'name',
+              'period',
+            ]),
+            projects: unionCaseInsensitive(
+              current.core.employers.flexible.projects,
+              parsed.core.employers.flexible.projects,
+            ),
+          },
+        },
+        education: {
+          ...fillEmptyStrings(current.core.education, parsed.core.education, ['school_keyword']),
+          entries: unionByTextCaseInsensitive(current.core.education.entries, parsed.core.education.entries),
+          expected_role_count:
+            current.core.education.expected_role_count || parsed.core.education.expected_role_count,
+        },
+        summary: current.core.summary.trim() ? current.core.summary : parsed.core.summary,
         experience: {
           ...fillEmptyStrings(current.core.experience, parsed.core.experience, ['years_label']),
           since_year: current.core.experience.since_year || parsed.core.experience.since_year,
@@ -780,6 +891,7 @@ export class ProfileEditorComponent {
     this.draft.set(b ? structuredClone(b) : null);
     this.activeTab.set(CORE_TAB);
     this.chipDrafts.set({});
+    this.questionnaireChipDrafts.set({});
     this.roleActiveTabs.set({});
     this.saveError.set(null);
     this.fieldErrors.set([]);
@@ -788,12 +900,18 @@ export class ProfileEditorComponent {
   async save(): Promise<void> {
     const doc = this.draft();
     if (this.saving() || !this.isDirty() || !doc || this.hasBlockingErrors()) return;
+    const generationAtStart = this.loadGeneration;
     this.saving.set(true);
     this.saveError.set(null);
     this.fieldErrors.set([]);
     try {
       await this.api.put(doc);
-      this.baseline.set(structuredClone(doc));
+      // If a reload (e.g. a revision restore) landed while this save was in
+      // flight, its fresh baseline is more current than this stale snapshot —
+      // applying `doc` here would silently revert what the reload just set.
+      if (this.loadGeneration === generationAtStart) {
+        this.baseline.set(structuredClone(doc));
+      }
       this.snackBar.open('Saved — applies to the next generated CV.', undefined, { duration: 4000 });
     } catch (err) {
       if (err instanceof HttpErrorResponse) {

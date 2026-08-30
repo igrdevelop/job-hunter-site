@@ -11,7 +11,7 @@
   <div class="editor-shortcuts">
     <a class="tag tag-outline" routerLink="/profile/files">Candidate files</a>
     <a class="tag tag-outline" routerLink="/profile/templates">Templates</a>
-    @if (document() && !parsedDraft()) {
+    @if (document() && !parsedDraft() && !saving()) {
       <button type="button" class="tag tag-outline upload-link" (click)="openUploadDialog()">
         Upload another resume to merge
       </button>
@@ -132,7 +132,14 @@
                   </label>
                 </div>
               } @else {
-                <span class="tag tag-outline">New</span>
+                <label class="role-choice-new">
+                  <input
+                    type="checkbox"
+                    [checked]="roleChoice(proposal.parsed) !== 'discard'"
+                    (change)="setRoleChoice(proposal.parsed, $any($event.target).checked ? 'accept' : 'discard')"
+                  />
+                  <span class="tag tag-outline">New</span> — add this role
+                </label>
               }
             </div>
           </div>

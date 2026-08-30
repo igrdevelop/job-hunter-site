@@ -1,9 +1,15 @@
 import { ChangeDetectionStrategy, Component, computed, inject, resource, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
-import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ProfileApi } from '../../../core/api/profile.api';
+import { safeResourceValue } from '../../../core/utils/resource-value';
+
+export interface RevisionsHistoryDialogData {
+  /** True when the caller has unsaved local edits — a restore would discard them too, not just move the server-side revision. */
+  hasUnsavedEdits: boolean;
+}
 
 /**
  * Undo-after-bad-merge is the only reason this exists — keep it boring
@@ -18,6 +24,12 @@ import { ProfileApi } from '../../../core/api/profile.api';
     <h2 mat-dialog-title>History</h2>
     <mat-dialog-content>
       <div class="history-body">
+        @if (data.hasUnsavedEdits) {
+          <p class="warning">
+            You have unsaved edits in the editor — restoring a revision will discard them too, not
+            just move the saved version.
+          </p>
+        }
         @if (loading()) {
           <mat-spinner diameter="24"></mat-spinner>
         }
@@ -87,6 +99,11 @@ import { ProfileApi } from '../../../core/api/profile.api';
         font-size: 13px;
         color: var(--color-neutral-600);
       }
+      .warning {
+        margin: 0;
+        font-size: 13px;
+        color: #e8a33d;
+      }
       .error {
         color: var(--color-error);
         margin: 0;
@@ -102,15 +119,14 @@ import { ProfileApi } from '../../../core/api/profile.api';
 export class RevisionsHistoryDialogComponent {
   private readonly api = inject(ProfileApi);
   private readonly dialogRef = inject(MatDialogRef<RevisionsHistoryDialogComponent, boolean>);
+  readonly data = inject<RevisionsHistoryDialogData>(MAT_DIALOG_DATA);
 
   private readonly revisionsResource = resource({
     loader: () => this.api.getRevisions(),
   });
 
   readonly loading = this.revisionsResource.isLoading;
-  readonly revisions = computed(() =>
-    this.revisionsResource.hasValue() ? this.revisionsResource.value() : [],
-  );
+  readonly revisions = computed(() => safeResourceValue(this.revisionsResource) ?? []);
 
   readonly notAvailable = computed(() => {
     const err = this.revisionsResource.error();
@@ -130,7 +146,12 @@ export class RevisionsHistoryDialogComponent {
   }
 
   async restore(rev: number): Promise<void> {
-    const ok = confirm(`Restore revision ${rev}? This replaces your current draft with that saved version.`);
+    const warning = this.data.hasUnsavedEdits
+      ? ' You also have unsaved edits in the editor that will be lost.'
+      : '';
+    const ok = confirm(
+      `Restore revision ${rev}? This replaces your current draft with that saved version.${warning}`,
+    );
     if (!ok) return;
     this.restoring.set(rev);
     this.restoreError.set(null);

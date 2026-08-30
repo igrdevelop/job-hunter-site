@@ -73,6 +73,14 @@
   }
 }
 
+.role-choice-new {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
 .review-actions {
   display: flex;
   gap: var(--space-3);

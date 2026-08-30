@@ -76,4 +76,10 @@ describe('app routes — Templates under Profile', () => {
     await harness.navigateByUrl('/profile/examples/covers');
     expect(router.url).toBe('/profile/files/examples/covers');
   });
+
+  it('preserves query params and fragment on the legacy /profile/<path> redirect', async () => {
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/profile/examples/covers?highlight=abc#section');
+    expect(router.url).toBe('/profile/files/examples/covers?highlight=abc#section');
+  });
 });

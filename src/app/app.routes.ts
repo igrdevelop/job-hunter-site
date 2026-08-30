@@ -1,4 +1,5 @@
-import { Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { Router, Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
 import { adminGuard } from './core/auth/role.guard';
 
@@ -52,6 +53,10 @@ export const routes: Routes = [
           },
           {
             // Candidate-file browser, at any depth: /profile/files, /profile/files/examples/x, …
+            // "files" (like "templates" above) is a reserved top-level segment under
+            // /profile — a real candidate folder literally named "files" would be
+            // shadowed at this exact URL, same accepted tradeoff as "templates".
+            // It's still reachable one level deeper, e.g. /profile/files/files.
             path: 'files',
             children: [
               { path: '', loadComponent: loadProfileFiles },
@@ -66,11 +71,19 @@ export const routes: Routes = [
               ),
           },
           {
-            // Legacy deep links: /profile/<path> → /profile/files/<path>.
+            // Legacy deep links: /profile/<path> → /profile/files/<path>. Builds a
+            // UrlTree (not a bare string) so query params and the fragment carry
+            // over — a redirectTo string only forwards them via positional :param
+            // placeholders, which this redirect doesn't have. Matrix params on
+            // individual segments are not round-tripped; this app doesn't use them
+            // anywhere in its own routing.
             path: '**',
             redirectTo: (data) => {
-              const path = data.url.map((s) => s.path).join('/');
-              return path ? `/profile/files/${path}` : '/profile/files';
+              const segments = data.url.map((s) => s.path);
+              return inject(Router).createUrlTree(['/profile', 'files', ...segments], {
+                queryParams: data.queryParams,
+                fragment: data.fragment ?? undefined,
+              });
             },
           },
         ],
