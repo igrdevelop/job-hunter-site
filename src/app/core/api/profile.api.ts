@@ -2,7 +2,13 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { ProfileDocument, ProfileGetResponse, ProfilePutResponse } from './models';
+import {
+  ProfileDocument,
+  ProfileGetResponse,
+  ProfileJob,
+  ProfilePutResponse,
+  ProfileUploadResponse,
+} from './models';
 import { cloneProfileMock } from '../../features/profile-editor/mock/profile.mock';
 
 /**
@@ -54,6 +60,22 @@ export class ProfileApi {
   put(profile: ProfileDocument): Promise<ProfilePutResponse> {
     return firstValueFrom(
       this.http.put<ProfilePutResponse>(`${this.baseUrl}/profile`, profile),
+    );
+  }
+
+  /** POST /api/profile/uploads — multipart docx|pdf|txt|md ≤ 10 MB → { jobId }. */
+  upload(file: File): Promise<ProfileUploadResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return firstValueFrom(
+      this.http.post<ProfileUploadResponse>(`${this.baseUrl}/profile/uploads`, formData),
+    );
+  }
+
+  /** GET /api/profile/jobs/:id — poll a render/parse job's status. */
+  getJob(jobId: string): Promise<ProfileJob> {
+    return firstValueFrom(
+      this.http.get<ProfileJob>(`${this.baseUrl}/profile/jobs/${jobId}`),
     );
   }
 }

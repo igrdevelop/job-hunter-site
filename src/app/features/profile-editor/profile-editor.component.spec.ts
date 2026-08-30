@@ -3,9 +3,12 @@ import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { MatDialog } from '@angular/material/dialog';
+import { of } from 'rxjs';
 import { vi } from 'vitest';
 import { ProfileEditorComponent } from './profile-editor.component';
 import { ProfileApi } from '../../core/api/profile.api';
+import { ProfileDocument } from '../../core/api/models';
 import { PROFILE_MOCK } from './mock/profile.mock';
 
 describe('ProfileEditorComponent', () => {
@@ -511,6 +514,268 @@ describe('ProfileEditorComponent', () => {
     });
   });
 
+  describe('upload → parse → confirmation (F5)', () => {
+    beforeEach(async () => {
+      await createWith(() => Promise.resolve(structuredClone(PROFILE_MOCK)));
+    });
+
+    function openDialogWith(parsed: ProfileDocument): void {
+      const dialog = TestBed.inject(MatDialog);
+      vi.spyOn(dialog, 'open').mockReturnValue({
+        afterClosed: () => of(parsed),
+      } as unknown as ReturnType<MatDialog['open']>);
+      component.openUploadDialog();
+    }
+
+    it('openUploadDialog() sets parsedDraft from the dialog result', () => {
+      const parsed = structuredClone(PROFILE_MOCK.profile);
+      openDialogWith(parsed);
+      expect(component.parsedDraft()).toEqual(parsed);
+    });
+
+    it('openUploadDialog() ignores a cancelled dialog (undefined result)', () => {
+      const dialog = TestBed.inject(MatDialog);
+      vi.spyOn(dialog, 'open').mockReturnValue({
+        afterClosed: () => of(undefined),
+      } as unknown as ReturnType<MatDialog['open']>);
+      component.openUploadDialog();
+      expect(component.parsedDraft()).toBeNull();
+    });
+
+    describe('skills merge: edited-wins default', () => {
+      it('defaults a brand-new parsed category to accepted', () => {
+        const parsed = structuredClone(PROFILE_MOCK.profile);
+        parsed.core.skills = [{ category: 'Cloud', items: ['AWS'], origin: 'parsed', tracks: [] }];
+        openDialogWith(parsed);
+        expect(component.acceptSkillProposal(parsed.core.skills[0])).toBe(true);
+      });
+
+      it('defaults a collision with an EDITED category to unaccepted (keep mine)', () => {
+        // "Core Stack" in the mock already has origin 'edited'.
+        const parsed = structuredClone(PROFILE_MOCK.profile);
+        parsed.core.skills = [{ category: 'Core Stack', items: ['Vue'], origin: 'parsed', tracks: [] }];
+        openDialogWith(parsed);
+        expect(component.acceptSkillProposal(parsed.core.skills[0])).toBe(false);
+      });
+
+      it('defaults a collision with a non-edited (parsed) category to accepted', () => {
+        // "Tools" in the mock has origin 'parsed'.
+        const parsed = structuredClone(PROFILE_MOCK.profile);
+        parsed.core.skills = [{ category: 'Tools', items: ['Vite'], origin: 'parsed', tracks: [] }];
+        openDialogWith(parsed);
+        expect(component.acceptSkillProposal(parsed.core.skills[0])).toBe(true);
+      });
+
+      it('toggleSkillProposal() flips the default explicitly', () => {
+        const parsed = structuredClone(PROFILE_MOCK.profile);
+        parsed.core.skills = [{ category: 'Core Stack', items: ['Vue'], origin: 'parsed', tracks: [] }];
+        openDialogWith(parsed);
+        expect(component.acceptSkillProposal(parsed.core.skills[0])).toBe(false);
+        component.toggleSkillProposal(parsed.core.skills[0]);
+        expect(component.acceptSkillProposal(parsed.core.skills[0])).toBe(true);
+      });
+    });
+
+    describe('roles merge: duplicate-role prompt, never auto-merged', () => {
+      function parsedDuplicateOfAcme(): ProfileDocument {
+        const parsed = structuredClone(PROFILE_MOCK.profile);
+        const acme = PROFILE_MOCK.profile.core.roles[0];
+        parsed.core.roles = [
+          {
+            ...acme,
+            id: 'parsed-role-acme',
+            title: 'Lead Frontend Developer (from parse)',
+            origin: 'parsed',
+          },
+        ];
+        return parsed;
+      }
+
+      it('flags a same-company/same-period parsed role as a duplicate and defaults to discard', () => {
+        const parsed = parsedDuplicateOfAcme();
+        openDialogWith(parsed);
+        const proposal = component.parsedRoleProposals()[0];
+        expect(proposal.duplicate?.id).toBe(PROFILE_MOCK.profile.core.roles[0].id);
+        expect(component.roleChoice(parsed.core.roles[0])).toBe('discard');
+      });
+
+      it('a brand-new parsed role (no company/period match) defaults to accepted', () => {
+        const parsed = structuredClone(PROFILE_MOCK.profile);
+        parsed.core.roles = [
+          {
+            ...PROFILE_MOCK.profile.core.roles[0],
+            id: 'role-new',
+            company: 'Totally New Co',
+            period: 'Jan 2026 - Present',
+            origin: 'parsed',
+          },
+        ];
+        openDialogWith(parsed);
+        const proposal = component.parsedRoleProposals()[0];
+        expect(proposal.duplicate).toBeNull();
+        expect(component.roleChoice(parsed.core.roles[0])).toBe('accept');
+      });
+
+      it('setRoleChoice() requires an explicit call to replace or keep both — the default never auto-merges', () => {
+        const parsed = parsedDuplicateOfAcme();
+        openDialogWith(parsed);
+        const role = parsed.core.roles[0];
+        expect(component.roleChoice(role)).toBe('discard');
+        component.setRoleChoice(role, 'keep-both');
+        expect(component.roleChoice(role)).toBe('keep-both');
+        component.setRoleChoice(role, 'accept');
+        expect(component.roleChoice(role)).toBe('accept');
+      });
+    });
+
+    describe('applyParsedMerge()', () => {
+      it('adds a new skill category and skips a collision with edited content by default', () => {
+        const parsed = structuredClone(PROFILE_MOCK.profile);
+        parsed.core.skills = [
+          { category: 'Cloud', items: ['AWS'], origin: 'parsed', tracks: [] },
+          { category: 'Core Stack', items: ['Vue'], origin: 'parsed', tracks: [] },
+        ];
+        parsed.core.roles = [];
+        openDialogWith(parsed);
+
+        component.applyParsedMerge();
+
+        const skills = component.document()?.core.skills ?? [];
+        expect(skills.some((s) => s.category === 'Cloud')).toBe(true);
+        const coreStack = skills.find((s) => s.category === 'Core Stack');
+        expect(coreStack?.items).toEqual(PROFILE_MOCK.profile.core.skills[0].items); // untouched
+        expect(component.parsedDraft()).toBeNull();
+        expect(component.isDirty()).toBe(true);
+      });
+
+      it('a duplicate role left at its default (discard) never touches the current role', () => {
+        const parsed = parsedDuplicateOfAcmeHelper();
+        parsed.core.skills = [];
+        openDialogWith(parsed);
+
+        component.applyParsedMerge();
+
+        const roles = component.document()?.core.roles ?? [];
+        expect(roles).toHaveLength(PROFILE_MOCK.profile.core.roles.length);
+        expect(roles[0].title).toBe(PROFILE_MOCK.profile.core.roles[0].title);
+      });
+
+      it('"keep both" adds the parsed role alongside the existing one', () => {
+        const parsed = parsedDuplicateOfAcmeHelper();
+        parsed.core.skills = [];
+        openDialogWith(parsed);
+        component.setRoleChoice(parsed.core.roles[0], 'keep-both');
+
+        component.applyParsedMerge();
+
+        const roles = component.document()?.core.roles ?? [];
+        expect(roles).toHaveLength(PROFILE_MOCK.profile.core.roles.length + 1);
+        expect(roles.some((r) => r.id === 'parsed-role-acme')).toBe(true);
+      });
+
+      it('"replace mine with parsed" swaps the existing role for the parsed one', () => {
+        const parsed = parsedDuplicateOfAcmeHelper();
+        parsed.core.skills = [];
+        openDialogWith(parsed);
+        component.setRoleChoice(parsed.core.roles[0], 'accept');
+
+        component.applyParsedMerge();
+
+        const roles = component.document()?.core.roles ?? [];
+        expect(roles).toHaveLength(PROFILE_MOCK.profile.core.roles.length);
+        expect(roles[0].title).toBe('Lead Frontend Developer (from parse)');
+      });
+
+      it('fills empty identity/questionnaire fields without overwriting non-empty ones', () => {
+        const parsed = structuredClone(PROFILE_MOCK.profile);
+        parsed.core.skills = [];
+        parsed.core.roles = [];
+        parsed.core.identity.aka = 'JD'; // current aka is '' in the mock
+        parsed.core.identity.full_name = 'Someone Else'; // current is non-empty — must NOT overwrite
+        parsed.core.location.home_city_aliases = ['warszawa', 'wwa']; // 'wwa' is new
+        openDialogWith(parsed);
+
+        component.applyParsedMerge();
+
+        const doc = component.document();
+        expect(doc?.core.identity.aka).toBe('JD');
+        expect(doc?.core.identity.full_name).toBe(PROFILE_MOCK.profile.core.identity.full_name);
+        expect(doc?.core.location.home_city_aliases).toEqual(['warszawa', 'warsaw', 'wwa']);
+      });
+
+      it('appends extras, leftovers, and uploads unconditionally', () => {
+        const parsed = structuredClone(PROFILE_MOCK.profile);
+        parsed.core.skills = [];
+        parsed.core.roles = [];
+        parsed.core.extras = [{ kind: 'certification', text: 'New Cert', origin: 'parsed' }];
+        parsed.leftovers = [{ text: 'A stray fragment.', source_upload_id: 'upload-2' }];
+        parsed.uploads = [
+          { id: 'upload-2', filename: 'new_resume.pdf', sha256: 'abc', parsed_at: '2026-08-30T00:00:00Z' },
+        ];
+        openDialogWith(parsed);
+
+        component.applyParsedMerge();
+
+        const doc = component.document();
+        expect(doc?.core.extras).toHaveLength(PROFILE_MOCK.profile.core.extras.length + 1);
+        expect(doc?.leftovers).toHaveLength(PROFILE_MOCK.profile.leftovers.length + 1);
+        expect(doc?.uploads).toHaveLength(PROFILE_MOCK.profile.uploads.length + 1);
+        expect(component.leftoverSourceFilename({ source_upload_id: 'upload-2' })).toBe(
+          'new_resume.pdf',
+        );
+      });
+    });
+
+    it('discardParsedDraft() clears the review screen without touching the draft', () => {
+      const before = component.document();
+      const parsed = structuredClone(PROFILE_MOCK.profile);
+      parsed.core.skills = [{ category: 'Cloud', items: ['AWS'], origin: 'parsed', tracks: [] }];
+      openDialogWith(parsed);
+
+      component.discardParsedDraft();
+
+      expect(component.parsedDraft()).toBeNull();
+      expect(component.document()).toEqual(before);
+    });
+
+    it('renders the review screen in the DOM: a new-skill checkbox and a duplicate-role radio prompt', () => {
+      const parsed = structuredClone(PROFILE_MOCK.profile);
+      parsed.core.skills = [{ category: 'Cloud', items: ['AWS'], origin: 'parsed', tracks: [] }];
+      const acme = PROFILE_MOCK.profile.core.roles[0];
+      parsed.core.roles = [
+        { ...acme, id: 'parsed-role-acme', title: 'Lead Frontend Developer (from parse)', origin: 'parsed' },
+      ];
+      openDialogWith(parsed);
+      fixture.detectChanges();
+
+      const text = fixture.nativeElement.textContent as string;
+      expect(text).toContain('Review parsed resume');
+      expect(text).toContain('Cloud');
+      expect(text).toContain('Looks like the same role as');
+      expect(text).toContain('merge?');
+
+      const skillCheckbox = fixture.nativeElement.querySelector(
+        '.review-row input[type="checkbox"]',
+      ) as HTMLInputElement;
+      expect(skillCheckbox.checked).toBe(true); // new category — accepted by default
+
+      const roleRadios = Array.from(
+        fixture.nativeElement.querySelectorAll('.role-choice input[type="radio"]'),
+      ) as HTMLInputElement[];
+      expect(roleRadios).toHaveLength(3);
+      expect(roleRadios.find((r) => r.checked)?.parentElement?.textContent).toContain('Discard');
+    });
+
+    function parsedDuplicateOfAcmeHelper(): ProfileDocument {
+      const parsed = structuredClone(PROFILE_MOCK.profile);
+      const acme = PROFILE_MOCK.profile.core.roles[0];
+      parsed.core.roles = [
+        { ...acme, id: 'parsed-role-acme', title: 'Lead Frontend Developer (from parse)', origin: 'parsed' },
+      ];
+      return parsed;
+    }
+  });
+
   describe('with no profile (404)', () => {
     beforeEach(async () => {
       await createWith(() => Promise.resolve(null));
@@ -522,6 +787,29 @@ describe('ProfileEditorComponent', () => {
       expect(text).toContain('No profile yet');
       expect(text).toContain('Upload your resume');
       expect(text).toContain('Start from scratch');
+    });
+
+    it('startFromScratch() creates a blank, dirty draft and hides the empty state', () => {
+      component.startFromScratch();
+      expect(component.showEmptyState()).toBe(false);
+      expect(component.isDirty()).toBe(true);
+      expect(component.document()?.core.identity.full_name).toBe('');
+      expect(component.document()?.core.skills).toEqual([]);
+    });
+
+    it('applyParsedMerge() with no current profile adopts the parsed draft wholesale', () => {
+      const dialog = TestBed.inject(MatDialog);
+      const parsed = structuredClone(PROFILE_MOCK.profile);
+      vi.spyOn(dialog, 'open').mockReturnValue({
+        afterClosed: () => of(parsed),
+      } as unknown as ReturnType<MatDialog['open']>);
+      component.openUploadDialog();
+
+      component.applyParsedMerge();
+
+      expect(component.document()?.core.identity.full_name).toBe('Jane Doe');
+      expect(component.document()?.core.skills).toEqual(parsed.core.skills);
+      expect(component.isDirty()).toBe(true);
     });
   });
 

@@ -4,7 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { vi } from 'vitest';
 import { PROFILE_MOCK_FALLBACK_ENABLED, ProfileApi } from './profile.api';
 import { PROFILE_MOCK } from '../../features/profile-editor/mock/profile.mock';
-import { ProfileGetResponse, ProfilePutResponse } from './models';
+import { ProfileGetResponse, ProfileJob, ProfilePutResponse, ProfileUploadResponse } from './models';
 
 describe('ProfileApi', () => {
   let api: ProfileApi;
@@ -58,5 +58,26 @@ describe('ProfileApi', () => {
     const p = api.put(PROFILE_MOCK.profile);
     http.expectOne('/api/profile').flush('missing', { status: 404, statusText: 'Not Found' });
     await expect(p).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('upload() POSTs the file as multipart to /api/profile/uploads', async () => {
+    const file = new File(['resume content'], 'resume.pdf', { type: 'application/pdf' });
+    const response: ProfileUploadResponse = { jobId: 'job-1' };
+    const p = api.upload(file);
+    const req = http.expectOne('/api/profile/uploads');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toBeInstanceOf(FormData);
+    expect((req.request.body as FormData).get('file')).toBe(file);
+    req.flush(response);
+    expect(await p).toEqual(response);
+  });
+
+  it('getJob() GETs /api/profile/jobs/:id', async () => {
+    const job: ProfileJob = { kind: 'parse', status: 'done', result: PROFILE_MOCK.profile };
+    const p = api.getJob('job-1');
+    const req = http.expectOne('/api/profile/jobs/job-1');
+    expect(req.request.method).toBe('GET');
+    req.flush(job);
+    expect(await p).toEqual(job);
   });
 });

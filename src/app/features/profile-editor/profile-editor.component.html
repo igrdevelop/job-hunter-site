@@ -11,6 +11,11 @@
   <div class="editor-shortcuts">
     <a class="tag tag-outline" routerLink="/profile/files">Candidate files</a>
     <a class="tag tag-outline" routerLink="/profile/templates">Templates</a>
+    @if (document() && !parsedDraft()) {
+      <button type="button" class="tag tag-outline upload-link" (click)="openUploadDialog()">
+        Upload another resume to merge
+      </button>
+    }
   </div>
 
   @if (loading()) {
@@ -29,17 +34,122 @@
         fields, or start with a blank profile and fill it in yourself.
       </p>
       <div class="empty-actions">
-        <button type="button" class="btn btn-primary" disabled title="Coming in a later phase">
+        <button type="button" class="btn btn-primary" (click)="openUploadDialog()">
           Upload your resume
         </button>
-        <button type="button" class="btn btn-secondary" disabled title="Coming in a later phase">
+        <button type="button" class="btn btn-secondary" (click)="startFromScratch()">
           Start from scratch
         </button>
       </div>
     </div>
   }
 
-  @if (document(); as profile) {
+  @if (parsedDraft(); as parsed) {
+    <section class="card elev-sm review-card">
+      <h2 class="section-title">Review parsed resume</h2>
+      <p class="hint">
+        Nothing below is saved yet — pick what to bring in, then Apply merge to fold it
+        into your draft. It only becomes permanent once you hit Save.
+      </p>
+
+      <h3 class="review-subtitle">Skills</h3>
+      @if (parsedSkillProposals().length === 0) {
+        <p class="empty-state">No skills found in this file.</p>
+      }
+      <div class="review-list">
+        @for (proposal of parsedSkillProposals(); track proposal.parsed.category) {
+          <label class="review-row">
+            <input
+              type="checkbox"
+              [checked]="acceptSkillProposal(proposal.parsed)"
+              (change)="toggleSkillProposal(proposal.parsed)"
+            />
+            <div class="review-row-body">
+              <b>{{ proposal.parsed.category }}</b>
+              @if (proposal.match) {
+                <span class="tag tag-outline">Matches your "{{ proposal.match.category }}"</span>
+                @if (proposal.isEditedCollision) {
+                  <span class="tag tag-accent">You edited this — unchecked by default</span>
+                }
+              } @else {
+                <span class="tag tag-outline">New</span>
+              }
+              <div class="chips">
+                @for (item of proposal.parsed.items; track item) {
+                  <span class="chip">{{ item }}</span>
+                }
+              </div>
+            </div>
+          </label>
+        }
+      </div>
+
+      <h3 class="review-subtitle">Roles</h3>
+      @if (parsedRoleProposals().length === 0) {
+        <p class="empty-state">No roles found in this file.</p>
+      }
+      <div class="review-list">
+        @for (proposal of parsedRoleProposals(); track proposal.parsed.id) {
+          <div class="review-row role-review-row">
+            <div class="review-row-body">
+              <b>{{ proposal.parsed.title }}</b> · {{ proposal.parsed.company }}
+              <span class="text-muted">{{ proposal.parsed.period }}</span>
+              @if (proposal.duplicate) {
+                <p class="hint">
+                  Looks like the same role as <b>{{ proposal.duplicate.title }}</b> at
+                  {{ proposal.duplicate.company }} — merge?
+                </p>
+                <div class="role-choice">
+                  <label>
+                    <input
+                      type="radio"
+                      [name]="'role-choice-' + proposal.parsed.id"
+                      [checked]="roleChoice(proposal.parsed) === 'discard'"
+                      (change)="setRoleChoice(proposal.parsed, 'discard')"
+                    />
+                    Discard parsed (keep mine)
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      [name]="'role-choice-' + proposal.parsed.id"
+                      [checked]="roleChoice(proposal.parsed) === 'accept'"
+                      (change)="setRoleChoice(proposal.parsed, 'accept')"
+                    />
+                    Replace mine with parsed
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      [name]="'role-choice-' + proposal.parsed.id"
+                      [checked]="roleChoice(proposal.parsed) === 'keep-both'"
+                      (change)="setRoleChoice(proposal.parsed, 'keep-both')"
+                    />
+                    Keep both
+                  </label>
+                </div>
+              } @else {
+                <span class="tag tag-outline">New</span>
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      <p class="hint">
+        Identity/questionnaire gaps are filled in automatically without overwriting
+        anything you've already entered; extras and leftover fragments are always
+        added.
+      </p>
+
+      <div class="review-actions">
+        <button type="button" class="btn btn-primary" (click)="applyParsedMerge()">Apply merge</button>
+        <button type="button" class="btn btn-ghost" (click)="discardParsedDraft()">Discard parsed draft</button>
+      </div>
+    </section>
+  }
+
+  @if (!parsedDraft() && document(); as profile) {
     <section class="card elev-sm">
       <h2 class="section-title">Identity</h2>
       <div class="field-grid">
@@ -561,7 +671,12 @@
         </p>
         <ul class="leftovers-list">
           @for (item of leftovers(); track $index) {
-            <li>{{ item.text }}</li>
+            <li>
+              {{ item.text }}
+              @if (leftoverSourceFilename(item); as filename) {
+                <span class="text-muted">— from {{ filename }}</span>
+              }
+            </li>
           }
         </ul>
       </section>

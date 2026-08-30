@@ -422,3 +422,20 @@ export interface ProfilePutResponse {
 export interface ProfileErrors {
   errors: string[];
 }
+
+// ── Resume upload → parse (F5) ───────────────────────────────────────────
+
+export interface ProfileUploadResponse {
+  jobId: string;
+}
+
+export type ProfileJobKind = 'render' | 'parse';
+export type ProfileJobStatus = 'pending' | 'running' | 'done' | 'error';
+
+export interface ProfileJob {
+  kind: ProfileJobKind;
+  status: ProfileJobStatus;
+  /** Parse jobs only: the draft profile extracted from the upload, leftovers included. */
+  result?: ProfileDocument;
+  error?: string;
+}

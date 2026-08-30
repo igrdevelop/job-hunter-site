@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, resource,
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { MatDialog } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ProfileApi } from '../../core/api/profile.api';
@@ -15,6 +16,7 @@ import {
   ProfileRole,
   ProfileSkillCategory,
 } from '../../core/api/models';
+import { UploadResumeDialogComponent } from './upload-resume-dialog/upload-resume-dialog.component';
 
 /** The skills table edits either core.skills ('core') or variants[track].skills. */
 const CORE_TAB = 'core';
@@ -31,6 +33,41 @@ function omitKey<T>(obj: Record<string, T>, key: string): Record<string, T> {
   const next = { ...obj };
   delete next[key];
   return next;
+}
+
+/** "Same role" heuristic (F5): normalized company + an identical period string.
+ * Free-text date-range overlap math is out of scope — an exact period match
+ * is the safe, simple case the doc's heuristic is meant to catch. */
+function normalizeCompany(name: string): string {
+  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+function isSameRole(a: ProfileRole, b: ProfileRole): boolean {
+  return (
+    normalizeCompany(a.company) === normalizeCompany(b.company) &&
+    a.period.trim().toLowerCase() === b.period.trim().toLowerCase()
+  );
+}
+
+function unionCaseInsensitive(current: string[], incoming: string[]): string[] {
+  const seen = new Set(current.map((s) => s.toLowerCase()));
+  const additions = incoming.filter((s) => !seen.has(s.toLowerCase()));
+  return [...current, ...additions];
+}
+
+/** Fills only the CURRENTLY EMPTY string fields in `keys` from `parsed` — never overwrites existing content. */
+function fillEmptyStrings<T extends object>(current: T, parsed: T, keys: (keyof T)[]): T {
+  const next = { ...current } as Record<string, unknown>;
+  const parsedRecord = parsed as Record<string, unknown>;
+  for (const key of keys) {
+    const k = key as string;
+    const curVal = next[k];
+    const parsedVal = parsedRecord[k];
+    if (typeof curVal === 'string' && typeof parsedVal === 'string' && !curVal.trim() && parsedVal.trim()) {
+      next[k] = parsedVal;
+    }
+  }
+  return next as T;
 }
 
 /** Required identity fields — the server's PUT 400 list mirrors these exact messages. */
@@ -57,6 +94,7 @@ type QuestionnaireListKey =
 export class ProfileEditorComponent {
   private readonly api = inject(ProfileApi);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
 
   private readonly profileResource = resource({
     loader: () => this.api.get(),
@@ -107,7 +145,8 @@ export class ProfileEditorComponent {
   readonly isDirty = computed(() => {
     const b = this.baseline();
     const d = this.draft();
-    if (!b || !d) return false;
+    if (!d) return false;
+    if (!b) return true; // no server-side profile yet — a "start from scratch" draft is always worth saving
     return JSON.stringify(b) !== JSON.stringify(d);
   });
 
@@ -520,6 +559,205 @@ export class ProfileEditorComponent {
     const doc = this.draft();
     if (!doc) return;
     this.draft.set({ ...doc, core: { ...doc.core, generation_notes: value } });
+  }
+
+  // ── F5: upload → parse → confirmation ────────────────────────────────
+
+  /** Set once a parse job finishes — the confirmation screen replaces the normal editor while this is non-null. */
+  readonly parsedDraft = signal<ProfileDocument | null>(null);
+  private readonly skillAcceptance = signal<Record<string, boolean>>({});
+  private readonly roleChoices = signal<Record<string, 'accept' | 'discard' | 'keep-both'>>({});
+
+  leftoverSourceFilename(leftover: { source_upload_id: string }): string | null {
+    return this.document()?.uploads.find((u) => u.id === leftover.source_upload_id)?.filename ?? null;
+  }
+
+  startFromScratch(): void {
+    const blank: ProfileDocument = {
+      schema_version: 1,
+      core: {
+        identity: { full_name: '', aka: '', headline: '', contact: '', cv_filename_prefix: '' },
+        location: {
+          home_city: '',
+          home_city_aliases: [],
+          acceptable_hybrid: [],
+          weekly_hybrid: [],
+          work_authorization: '',
+        },
+        languages: { spoken: [], cv_languages: [], disqualify_required: [] },
+        employers: { protected: [], flexible: { name: '', period: '', projects: [] } },
+        education: { entries: [], school_keyword: '', expected_role_count: 0 },
+        experience: { years_label: '', since_year: 0 },
+        summary: '',
+        roles: [],
+        skills: [],
+        extras: [],
+        generation_notes: '',
+      },
+      variants: {},
+      leftovers: [],
+      uploads: [],
+    };
+    this.draft.set(blank);
+  }
+
+  openUploadDialog(): void {
+    const ref = this.dialog.open<UploadResumeDialogComponent, unknown, ProfileDocument | undefined>(
+      UploadResumeDialogComponent,
+      { width: '480px' },
+    );
+    ref.afterClosed().subscribe((result) => {
+      if (!result) return;
+      this.parsedDraft.set(result);
+      this.skillAcceptance.set({});
+      this.roleChoices.set({});
+    });
+  }
+
+  private skillProposalKey(cat: ProfileSkillCategory): string {
+    return cat.category.trim().toLowerCase();
+  }
+
+  readonly parsedSkillProposals = computed(() => {
+    const parsed = this.parsedDraft();
+    if (!parsed) return [];
+    const current = this.document();
+    return parsed.core.skills.map((cat) => {
+      const match = current?.core.skills.find(
+        (c) => this.skillProposalKey(c) === this.skillProposalKey(cat),
+      );
+      return { parsed: cat, match: match ?? null, isEditedCollision: match?.origin === 'edited' };
+    });
+  });
+
+  /** Default: accept a new category or a non-edited collision; skip (keep mine) a collision with edited content. */
+  acceptSkillProposal(cat: ProfileSkillCategory): boolean {
+    const key = this.skillProposalKey(cat);
+    const explicit = this.skillAcceptance()[key];
+    if (explicit !== undefined) return explicit;
+    const proposal = this.parsedSkillProposals().find((p) => this.skillProposalKey(p.parsed) === key);
+    return proposal ? !proposal.isEditedCollision : true;
+  }
+
+  toggleSkillProposal(cat: ProfileSkillCategory): void {
+    const key = this.skillProposalKey(cat);
+    this.skillAcceptance.update((m) => ({ ...m, [key]: !this.acceptSkillProposal(cat) }));
+  }
+
+  readonly parsedRoleProposals = computed(() => {
+    const parsed = this.parsedDraft();
+    if (!parsed) return [];
+    const current = this.document();
+    return parsed.core.roles.map((role) => ({
+      parsed: role,
+      duplicate: current?.core.roles.find((r) => isSameRole(r, role)) ?? null,
+    }));
+  });
+
+  /** Never auto-merges a duplicate — the safe default is to discard the incoming copy, same "keep mine" spirit as skills. */
+  roleChoice(role: ProfileRole): 'accept' | 'discard' | 'keep-both' {
+    const explicit = this.roleChoices()[role.id];
+    if (explicit) return explicit;
+    const proposal = this.parsedRoleProposals().find((p) => p.parsed.id === role.id);
+    return proposal?.duplicate ? 'discard' : 'accept';
+  }
+
+  setRoleChoice(role: ProfileRole, choice: 'accept' | 'discard' | 'keep-both'): void {
+    this.roleChoices.update((m) => ({ ...m, [role.id]: choice }));
+  }
+
+  discardParsedDraft(): void {
+    this.parsedDraft.set(null);
+    this.skillAcceptance.set({});
+    this.roleChoices.set({});
+  }
+
+  applyParsedMerge(): void {
+    const parsed = this.parsedDraft();
+    if (!parsed) return;
+    const current = this.document();
+
+    const acceptedSkills = this.parsedSkillProposals()
+      .filter((p) => this.acceptSkillProposal(p.parsed))
+      .map((p) => p.parsed);
+    const acceptedRoles = this.parsedRoleProposals().filter((p) => this.roleChoice(p.parsed) !== 'discard');
+
+    if (!current) {
+      // Nothing to merge with yet — adopt the parsed draft wholesale (still respecting per-item choices).
+      this.draft.set({
+        ...parsed,
+        core: { ...parsed.core, skills: acceptedSkills, roles: acceptedRoles.map((p) => p.parsed) },
+      });
+      this.discardParsedDraft();
+      return;
+    }
+
+    let skills = [...current.core.skills];
+    for (const cat of acceptedSkills) {
+      const idx = skills.findIndex((c) => this.skillProposalKey(c) === this.skillProposalKey(cat));
+      skills = idx >= 0 ? skills.map((c, i) => (i === idx ? cat : c)) : [...skills, cat];
+    }
+
+    let roles = [...current.core.roles];
+    for (const proposal of acceptedRoles) {
+      const choice = this.roleChoice(proposal.parsed);
+      if (choice === 'keep-both' || !proposal.duplicate) {
+        roles = [...roles, proposal.parsed];
+      } else {
+        roles = roles.map((r) => (r.id === proposal.duplicate!.id ? proposal.parsed : r));
+      }
+    }
+
+    const merged: ProfileDocument = {
+      ...current,
+      core: {
+        ...current.core,
+        identity: fillEmptyStrings(current.core.identity, parsed.core.identity, [
+          'full_name',
+          'aka',
+          'headline',
+          'contact',
+          'cv_filename_prefix',
+        ]),
+        location: {
+          ...fillEmptyStrings(current.core.location, parsed.core.location, [
+            'home_city',
+            'work_authorization',
+          ]),
+          home_city_aliases: unionCaseInsensitive(
+            current.core.location.home_city_aliases,
+            parsed.core.location.home_city_aliases,
+          ),
+          acceptable_hybrid: unionCaseInsensitive(
+            current.core.location.acceptable_hybrid,
+            parsed.core.location.acceptable_hybrid,
+          ),
+          weekly_hybrid: unionCaseInsensitive(
+            current.core.location.weekly_hybrid,
+            parsed.core.location.weekly_hybrid,
+          ),
+        },
+        languages: {
+          ...current.core.languages,
+          disqualify_required: unionCaseInsensitive(
+            current.core.languages.disqualify_required,
+            parsed.core.languages.disqualify_required,
+          ),
+        },
+        experience: {
+          ...fillEmptyStrings(current.core.experience, parsed.core.experience, ['years_label']),
+          since_year: current.core.experience.since_year || parsed.core.experience.since_year,
+        },
+        skills,
+        roles,
+        extras: [...current.core.extras, ...parsed.core.extras],
+      },
+      leftovers: [...current.leftovers, ...parsed.leftovers],
+      uploads: [...current.uploads, ...parsed.uploads],
+    };
+
+    this.draft.set(merged);
+    this.discardParsedDraft();
   }
 
   discard(): void {
