@@ -869,6 +869,7 @@ export class ProfileEditorComponent {
           ),
         },
         employers: {
+          ...current.core.employers,
           protected: unionCaseInsensitive(current.core.employers.protected, parsed.core.employers.protected),
           flexible: {
             ...fillEmptyStrings(current.core.employers.flexible, parsed.core.employers.flexible, [

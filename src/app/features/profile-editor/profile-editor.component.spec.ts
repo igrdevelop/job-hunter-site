@@ -1002,6 +1002,30 @@ describe('ProfileEditorComponent', () => {
     }
   });
 
+  describe('applyParsedMerge(): preserves unrecognized fields (schema forward-compat)', () => {
+    it('keeps an unknown key on core.employers instead of dropping it during a merge', async () => {
+      const withUnknownField = structuredClone(PROFILE_MOCK.profile) as ProfileDocument;
+      (withUnknownField.core.employers as unknown as Record<string, unknown>)['futureField'] = 'keep me';
+      await createWith(() =>
+        Promise.resolve({ profile: withUnknownField, revision: 1, updatedAt: '2026-08-30T00:00:00Z' }),
+      );
+
+      const dialog = TestBed.inject(MatDialog);
+      const parsed = structuredClone(PROFILE_MOCK.profile);
+      parsed.core.skills = [];
+      parsed.core.roles = [];
+      vi.spyOn(dialog, 'open').mockReturnValue({
+        afterClosed: () => of(parsed),
+      } as unknown as ReturnType<MatDialog['open']>);
+      component.openUploadDialog();
+
+      component.applyParsedMerge();
+
+      const employers = component.document()?.core.employers as unknown as Record<string, unknown>;
+      expect(employers['futureField']).toBe('keep me');
+    });
+  });
+
   describe('applyParsedMerge(): summary fills from parsed when the current one is blank', () => {
     beforeEach(async () => {
       const blankSummaryDoc = structuredClone(PROFILE_MOCK.profile);
