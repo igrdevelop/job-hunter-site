@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { MatDialog } from '@angular/material/dialog';
 import { of } from 'rxjs';
@@ -11,6 +11,11 @@ import { ProfileApi } from '../../core/api/profile.api';
 import { ProfileDocument } from '../../core/api/models';
 import { PROFILE_MOCK } from './mock/profile.mock';
 import { ProfileDraftBridgeService } from './profile-draft-bridge.service';
+import { AuthService } from '../../core/auth/auth.service';
+import { User } from '../../core/auth/user.model';
+
+const OWNER: User = { id: '1', email: 'owner@example.com', role: 'user', emailVerified: true, isOwner: true };
+const NON_OWNER: User = { id: '2', email: 'other@example.com', role: 'user', emailVerified: true, isOwner: false };
 
 describe('ProfileEditorComponent', () => {
   let fixture: ComponentFixture<ProfileEditorComponent>;
@@ -633,12 +638,12 @@ describe('ProfileEditorComponent', () => {
       await createWith(twoVariantResponse);
     });
 
-    it('shows a tab strip with Core plus each variant track', () => {
-      expect(component.hasMultipleVariants()).toBe(true);
-      const tabs = Array.from(fixture.nativeElement.querySelectorAll('.skills-tabs .tab-btn')).map(
+    it('shows one chip per variant track (no Core chip — Core is the default view)', () => {
+      expect(component.showVariantChips()).toBe(true);
+      const chips = Array.from(fixture.nativeElement.querySelectorAll('.variant-chip')).map(
         (el) => (el as HTMLElement).textContent?.trim(),
       );
-      expect(tabs).toEqual(['Core', 'angular', 'react']);
+      expect(chips).toEqual(['angular', 'react']);
     });
 
     it('selectTab() clears chipDrafts — a row index means nothing across tabs', () => {
@@ -648,12 +653,24 @@ describe('ProfileEditorComponent', () => {
       expect(component.chipDrafts()[0]).toBeUndefined();
     });
 
-    it('shows the core-fallback hint (not the override banner) for an empty variant', () => {
+    it('shows an inherited read-only view (not an editable empty list) for a variant with no override', () => {
       component.selectTab('react');
       fixture.detectChanges();
       expect(component.activeVariantOverridesCore()).toBe(false);
-      expect(fixture.nativeElement.querySelector('.variant-banner')).toBeNull();
-      expect(fixture.nativeElement.textContent).toContain('falls back to core skills');
+      expect(fixture.nativeElement.querySelector('.skills-variant-banner')).toBeNull();
+      expect(fixture.nativeElement.textContent).toContain('Inherited from Core');
+      expect(fixture.nativeElement.querySelector('.skills-table-readonly')).not.toBeNull();
+      // Read-only: no editable category input, no add-item chip input in the skills section.
+      expect(fixture.nativeElement.querySelector('.category-input')).toBeNull();
+    });
+
+    it('"Override for this track" seeds the variant with a copy of core skills', () => {
+      component.selectTab('react');
+      fixture.detectChanges();
+      component.overrideSkillsForTrack('react');
+      fixture.detectChanges();
+      expect(component.activeVariantOverridesCore()).toBe(true);
+      expect(component.document()?.variants['react'].skills).toEqual(PROFILE_MOCK.profile.core.skills);
     });
 
     it('shows the override banner once a variant gets its own category, and Reset to core clears it', () => {
@@ -661,7 +678,7 @@ describe('ProfileEditorComponent', () => {
       component.addCategory();
       fixture.detectChanges();
       expect(component.activeVariantOverridesCore()).toBe(true);
-      expect(fixture.nativeElement.querySelector('.variant-banner')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('.skills-variant-banner')).not.toBeNull();
 
       component.resetVariantToCore();
       fixture.detectChanges();
@@ -766,6 +783,277 @@ describe('ProfileEditorComponent', () => {
 
       component.removeTrackBullet(acme.id, 'react', before);
       expect(component.trackBullets(component.roles()[0], 'react').length).toBe(before);
+    });
+  });
+
+  describe('variant chips (docs/PROFILE_PAGE_TABS.md S5)', () => {
+    function twoVariantProfile(): ProfileDocument {
+      const profile = structuredClone(PROFILE_MOCK.profile);
+      profile.variants['react'] = { headline: '', summary: '', skills: [] };
+      return profile;
+    }
+
+    /** Same as the top-level createWith(), but also mocks isOwner and an
+     * initial `?track=` — both must be set BEFORE the first fixture.detectChanges()
+     * (isOwner because `AuthService.isOwner` is a computed() over a signal a
+     * vi.spyOn mock swaps out from under, so a post-hoc spy on an already-read
+     * computed can stay stale; `?track=` because it's read once, from the route
+     * SNAPSHOT, in the profile-load effect). */
+    async function createWithOwner(
+      profile: ProfileDocument | null,
+      options: { isOwner?: boolean; initialTrackParam?: string } = {},
+    ): Promise<void> {
+      const routeStub = {
+        snapshot: {
+          queryParamMap: convertToParamMap(
+            options.initialTrackParam ? { track: options.initialTrackParam } : {},
+          ),
+        },
+      };
+
+      await TestBed.configureTestingModule({
+        imports: [ProfileEditorComponent],
+        providers: [
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          provideRouter([]),
+          provideAnimationsAsync(),
+          { provide: ActivatedRoute, useValue: routeStub },
+        ],
+      }).compileComponents();
+
+      api = TestBed.inject(ProfileApi);
+      vi.spyOn(api, 'get').mockResolvedValue(
+        profile ? { profile, revision: 1, updatedAt: '2026-08-30T00:00:00Z' } : null,
+      );
+
+      const authService = TestBed.inject(AuthService);
+      vi.spyOn(authService, 'currentUser').mockReturnValue(options.isOwner === false ? NON_OWNER : OWNER);
+
+      const router = TestBed.inject(Router);
+      vi.spyOn(router, 'navigate').mockResolvedValue(true);
+
+      fixture = TestBed.createComponent(ProfileEditorComponent);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+
+    function chipTracks(): string[] {
+      return Array.from(fixture.nativeElement.querySelectorAll('.variant-chip')).map(
+        (el) => (el as HTMLElement).textContent?.trim(),
+      );
+    }
+
+    it('hides the chip row for a non-owner even when variants exist', async () => {
+      await createWithOwner(twoVariantProfile(), { isOwner: false });
+      expect(component.showVariantChips()).toBe(false);
+      expect(fixture.nativeElement.querySelector('.variant-chip-row')).toBeNull();
+    });
+
+    it('hides the chip row for the owner when there are zero variants', async () => {
+      const profile = structuredClone(PROFILE_MOCK.profile);
+      profile.variants = {};
+      await createWithOwner(profile, { isOwner: true });
+      expect(component.showVariantChips()).toBe(false);
+      expect(fixture.nativeElement.querySelector('.variant-chip-row')).toBeNull();
+    });
+
+    it('shows the chip row for the owner with a single variant (>= 1, not > 1)', async () => {
+      await createWithOwner(structuredClone(PROFILE_MOCK.profile), { isOwner: true });
+      expect(component.hasMultipleVariants()).toBe(false); // only 1 variant
+      expect(component.showVariantChips()).toBe(true);
+      expect(chipTracks()).toEqual(['angular']);
+    });
+
+    it('clicking a chip enters the overlay and pushes ?track= via the router', async () => {
+      await createWithOwner(twoVariantProfile(), { isOwner: true });
+      const router = TestBed.inject(Router);
+
+      const chip = (Array.from(fixture.nativeElement.querySelectorAll('.variant-chip')) as HTMLElement[]).find(
+        (el) => el.textContent?.trim() === 'react',
+      );
+      chip?.click();
+      fixture.detectChanges();
+
+      expect(component.activeTrack()).toBe('react');
+      expect(router.navigate).toHaveBeenCalledWith(
+        [],
+        expect.objectContaining({ queryParams: { track: 'react' }, queryParamsHandling: 'merge' }),
+      );
+      expect(fixture.nativeElement.textContent).toContain('Viewing variant');
+      expect(fixture.nativeElement.textContent).toContain('← Back to Core');
+    });
+
+    it('"← Back to Core" returns to the Core view and clears ?track=', async () => {
+      await createWithOwner(twoVariantProfile(), { isOwner: true });
+      const router = TestBed.inject(Router);
+      component.selectVariantChip('react');
+      fixture.detectChanges();
+
+      const back = (Array.from(fixture.nativeElement.querySelectorAll('button')) as HTMLElement[]).find(
+        (el) => el.textContent?.trim() === '← Back to Core',
+      );
+      back?.click();
+      fixture.detectChanges();
+
+      expect(component.activeTrack()).toBeNull();
+      expect(router.navigate).toHaveBeenCalledWith(
+        [],
+        expect.objectContaining({ queryParams: { track: null }, queryParamsHandling: 'merge' }),
+      );
+      expect(fixture.nativeElement.querySelector('.variant-overlay-banner')).toBeNull();
+    });
+
+    it('opens straight into the overlay for a valid initial ?track= (deep link survives reload)', async () => {
+      await createWithOwner(twoVariantProfile(), { isOwner: true, initialTrackParam: 'react' });
+      expect(component.activeTrack()).toBe('react');
+    });
+
+    it('ignores an initial ?track= that names a track the profile does not have', async () => {
+      await createWithOwner(twoVariantProfile(), { isOwner: true, initialTrackParam: 'ai' });
+      expect(component.activeTrack()).toBeNull();
+    });
+
+    describe('roles overlay: inherited vs. overridden', () => {
+      it('shows a read-only inherited view + "Override for this track" for a role with no override', async () => {
+        await createWithOwner(twoVariantProfile(), { isOwner: true });
+        component.selectVariantChip('react');
+        fixture.detectChanges();
+
+        // beta (roles()[1] in the mock) has no by-track overrides at all.
+        const beta = component.roles()[1];
+        expect(component.roleOverrideTracks(beta).includes('react')).toBe(false);
+        expect(fixture.nativeElement.textContent).toContain('Inherited from Core for');
+        expect(fixture.nativeElement.querySelector('.bullets-readonly')).not.toBeNull();
+
+        const overrideBtn = fixture.nativeElement.querySelector('.role-override-btn') as HTMLElement | null;
+        overrideBtn?.click();
+        fixture.detectChanges();
+
+        // Reuses startTrackRewrite() — same seed-from-core mutation F4 already had.
+        const updated = component.roles()[1];
+        expect(updated.bullets_by_track['react']).toEqual(beta.bullets.map((b) => b.text));
+      });
+
+      it('shows the existing by-track editor + "Remove override" for a role that already has one', async () => {
+        const profile = twoVariantProfile();
+        // acme (roles()[0] in the mock fixture) already has a 'react' override baked in.
+        await createWithOwner(profile, { isOwner: true });
+        component.selectVariantChip('react');
+        fixture.detectChanges();
+
+        const acme = component.roles()[0];
+        expect(component.roleOverrideTracks(acme).includes('react')).toBe(true);
+        expect(fixture.nativeElement.textContent).toContain('Rewritten for');
+
+        const removeBtn = (
+          Array.from(fixture.nativeElement.querySelectorAll('button')) as HTMLElement[]
+        ).find((el) => el.textContent?.trim() === 'Remove override');
+        removeBtn?.click();
+        fixture.detectChanges();
+
+        expect(component.roles()[0].bullets_by_track['react']).toBeUndefined();
+      });
+    });
+
+    describe('add variant', () => {
+      it('openAddVariantDialog() passes only the known slugs not already present', async () => {
+        await createWithOwner(twoVariantProfile(), { isOwner: true }); // has angular + react
+        const dialog = TestBed.inject(MatDialog);
+        const openSpy = vi.spyOn(dialog, 'open').mockReturnValue({
+          afterClosed: () => of(undefined),
+        } as unknown as ReturnType<MatDialog['open']>);
+
+        component.openAddVariantDialog();
+
+        expect(openSpy).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ data: { availableTracks: ['ai', 'fullstack_node', 'fullstack_python'] } }),
+        );
+      });
+
+      it('adds an empty variant (inherits from core) as a normal dirty edit and selects it', async () => {
+        await createWithOwner(structuredClone(PROFILE_MOCK.profile), { isOwner: true }); // has angular only
+        const dialog = TestBed.inject(MatDialog);
+        vi.spyOn(dialog, 'open').mockReturnValue({
+          afterClosed: () => of('react'),
+        } as unknown as ReturnType<MatDialog['open']>);
+
+        expect(component.isDirty()).toBe(false);
+        component.openAddVariantDialog();
+        fixture.detectChanges();
+
+        expect(component.document()?.variants['react']).toEqual({ headline: '', summary: '', skills: [] });
+        expect(component.isDirty()).toBe(true);
+        expect(component.activeTrack()).toBe('react');
+      });
+
+      it('addVariant() rejects a slug that is not a known, currently-unused track', async () => {
+        await createWithOwner(structuredClone(PROFILE_MOCK.profile), { isOwner: true }); // already has 'angular'
+        component.addVariant('angular'); // known, but already present
+        expect(component.document()?.variants['angular']).toEqual(PROFILE_MOCK.profile.variants['angular']);
+
+        component.addVariant('not_a_real_track'); // not in the known slug list
+        expect(component.document()?.variants['not_a_real_track']).toBeUndefined();
+      });
+    });
+
+    describe('delete variant', () => {
+      it('does nothing when the user cancels the confirmation', async () => {
+        await createWithOwner(twoVariantProfile(), { isOwner: true });
+        vi.stubGlobal('confirm', () => false);
+
+        component.confirmDeleteVariant('react');
+
+        expect(component.document()?.variants['react']).toBeDefined();
+        vi.unstubAllGlobals();
+      });
+
+      it('removes the variant key as a normal dirty edit on confirmation', async () => {
+        await createWithOwner(twoVariantProfile(), { isOwner: true });
+        vi.stubGlobal('confirm', () => true);
+
+        component.confirmDeleteVariant('react');
+
+        expect(component.document()?.variants['react']).toBeUndefined();
+        expect(component.document()?.variants['angular']).toBeDefined(); // untouched
+        expect(component.isDirty()).toBe(true);
+        vi.unstubAllGlobals();
+      });
+
+      it('save() PUTs the document with the variant key gone and every other section byte-identical', async () => {
+        const original = twoVariantProfile();
+        await createWithOwner(structuredClone(original), { isOwner: true });
+        vi.stubGlobal('confirm', () => true);
+        const putSpy = vi.spyOn(api, 'put').mockResolvedValue({ revision: 2, renderJobId: null });
+
+        component.confirmDeleteVariant('react');
+        await component.save();
+
+        expect(putSpy).toHaveBeenCalledTimes(1);
+        const sent = putSpy.mock.calls[0][0];
+        expect(sent.variants['react']).toBeUndefined();
+        expect(sent.variants['angular']).toEqual(original.variants['angular']);
+        expect(sent.core).toEqual(original.core);
+        expect(sent.leftovers).toEqual(original.leftovers);
+        expect(sent.uploads).toEqual(original.uploads);
+        vi.unstubAllGlobals();
+      });
+
+      it('returns to Core when the deleted variant was the active one', async () => {
+        await createWithOwner(twoVariantProfile(), { isOwner: true });
+        component.selectVariantChip('react');
+        fixture.detectChanges();
+        vi.stubGlobal('confirm', () => true);
+
+        component.confirmDeleteVariant('react');
+        fixture.detectChanges();
+
+        expect(component.activeTrack()).toBeNull();
+        vi.unstubAllGlobals();
+      });
     });
   });
 
