@@ -17,33 +17,16 @@
   <div class="tab-content">
     @switch (activeTab()) {
       @case ('uploads') {
-        <section class="card elev-sm profile-section">
-          <h2 class="section-title">Загрузки</h2>
-          <p class="hint">
-            Upload a resume to parse into your profile, and see past uploads with their parse status
-            here.
-          </p>
-        </section>
+        <app-profile-uploads (completed)="selectTab('editor')" />
       }
       @case ('editor') {
         <app-profile-editor />
       }
       @case ('files') {
-        <section class="card elev-sm profile-section">
-          <h2 class="section-title">Итоговые файлы</h2>
-          <p class="hint">
-            A read-only view of the files your profile renders into — candidate.yaml, the per-track
-            base CVs, the career narrative.
-          </p>
-        </section>
+        <app-profile-rendered-files />
       }
       @case ('preview') {
-        <section class="card elev-sm profile-section">
-          <h2 class="section-title">Тестовое резюме</h2>
-          <p class="hint">
-            Generate a no-vacancy preview CV from your profile per track, and browse past previews.
-          </p>
-        </section>
+        <app-profile-test-resume />
       }
     }
   </div>

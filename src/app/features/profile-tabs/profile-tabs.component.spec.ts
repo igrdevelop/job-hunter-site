@@ -9,12 +9,14 @@ import {
   provideRouter,
 } from '@angular/router';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { By } from '@angular/platform-browser';
 import { BehaviorSubject } from 'rxjs';
 import { vi } from 'vitest';
 import { PROFILE_FILES_TAB_ENABLED, ProfileTabsComponent } from './profile-tabs.component';
 import { ProfileApi } from '../../core/api/profile.api';
 import { AuthService } from '../../core/auth/auth.service';
 import { User } from '../../core/auth/user.model';
+import { ProfileUploadsComponent } from '../profile-uploads/profile-uploads.component';
 
 const OWNER: User = {
   id: '1',
@@ -59,6 +61,9 @@ describe('ProfileTabsComponent', () => {
 
     const api = TestBed.inject(ProfileApi);
     vi.spyOn(api, 'get').mockResolvedValue(null);
+    vi.spyOn(api, 'listUploads').mockResolvedValue([]);
+    vi.spyOn(api, 'listRenderedFiles').mockResolvedValue([]);
+    vi.spyOn(api, 'listPreviews').mockResolvedValue([]);
 
     const authService = TestBed.inject(AuthService);
     vi.spyOn(authService, 'currentUser').mockReturnValue(options.user);
@@ -94,7 +99,7 @@ describe('ProfileTabsComponent', () => {
     });
 
     it('renders all four tabs, including the owner-only preview tab', () => {
-      expect(tabLabels()).toEqual(['Загрузки', 'Редактор', 'Итоговые файлы', 'Тестовое резюме']);
+      expect(tabLabels()).toEqual(['Uploads', 'Editor', 'Rendered Files', 'Test Resume']);
     });
 
     it('switches to the preview tab and updates the URL', () => {
@@ -128,8 +133,8 @@ describe('ProfileTabsComponent', () => {
     });
 
     it('never renders the preview tab button or its content', () => {
-      expect(tabLabels()).toEqual(['Загрузки', 'Редактор', 'Итоговые файлы']);
-      expect(tabLabels()).not.toContain('Тестовое резюме');
+      expect(tabLabels()).toEqual(['Uploads', 'Editor', 'Rendered Files']);
+      expect(tabLabels()).not.toContain('Test Resume');
     });
 
     it('falls back to editor when ?tab=preview is requested directly', async () => {
@@ -137,7 +142,7 @@ describe('ProfileTabsComponent', () => {
       fixture.detectChanges();
       expect(component.activeTab()).toBe('editor');
       // The preview section must never reach the DOM for a non-owner, not just be hidden.
-      expect(fixture.nativeElement.textContent).not.toContain('Тестовое резюме');
+      expect(fixture.nativeElement.textContent).not.toContain('Test Resume');
     });
   });
 
@@ -147,14 +152,33 @@ describe('ProfileTabsComponent', () => {
     });
 
     it('removes the files tab entirely', () => {
-      expect(tabLabels()).toEqual(['Загрузки', 'Редактор', 'Тестовое резюме']);
+      expect(tabLabels()).toEqual(['Uploads', 'Editor', 'Test Resume']);
     });
 
     it('falls back to editor when ?tab=files is requested directly', async () => {
       queryParams$.next(convertToParamMap({ tab: 'files' }));
       fixture.detectChanges();
       expect(component.activeTab()).toBe('editor');
-      expect(fixture.nativeElement.textContent).not.toContain('Итоговые файлы');
+      expect(fixture.nativeElement.textContent).not.toContain('Rendered Files');
+    });
+  });
+
+  describe('uploads tab hand-off (docs/PROFILE_PAGE_TABS.md S2)', () => {
+    beforeEach(async () => {
+      await createWith({ user: OWNER, initialQueryParams: { tab: 'uploads' } });
+    });
+
+    it("switches to the editor tab when the uploads tab's dialog completes a parse", () => {
+      const uploads = fixture.debugElement.query(By.directive(ProfileUploadsComponent));
+      expect(uploads).toBeTruthy();
+      uploads.componentInstance.completed.emit();
+      expect(router.navigate).toHaveBeenCalledWith(
+        [],
+        expect.objectContaining({
+          queryParams: { tab: 'editor' },
+          queryParamsHandling: 'merge',
+        }),
+      );
     });
   });
 });

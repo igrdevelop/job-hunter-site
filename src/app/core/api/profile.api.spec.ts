@@ -7,8 +7,12 @@ import { PROFILE_MOCK } from '../../features/profile-editor/mock/profile.mock';
 import {
   ProfileGetResponse,
   ProfileJob,
+  ProfilePreviewCreated,
+  ProfilePreviewListItem,
   ProfilePutResponse,
+  ProfileRenderedFile,
   ProfileRevision,
+  ProfileUploadListEntry,
   ProfileUploadResponse,
 } from './models';
 
@@ -106,5 +110,81 @@ describe('ProfileApi', () => {
     expect(req.request.method).toBe('POST');
     req.flush(response);
     expect(await p).toEqual(response);
+  });
+
+  it('listUploads() GETs /api/profile/uploads', async () => {
+    const entries: ProfileUploadListEntry[] = [
+      { id: 'u1', filename: 'resume.pdf', sha256: 'abc', uploadedAt: '2026-08-30T12:00:00Z', jobId: 'job-1', jobStatus: 'done' },
+    ];
+    const p = api.listUploads();
+    const req = http.expectOne('/api/profile/uploads');
+    expect(req.request.method).toBe('GET');
+    req.flush(entries);
+    expect(await p).toEqual(entries);
+  });
+
+  it('listUploads() rejects (not faked) on 404', async () => {
+    const p = api.listUploads();
+    http.expectOne('/api/profile/uploads').flush('missing', { status: 404, statusText: 'Not Found' });
+    await expect(p).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('listRenderedFiles() GETs /api/profile/files', async () => {
+    const files: ProfileRenderedFile[] = [
+      { name: 'candidate.yaml', size: 512, modifiedAt: '2026-08-30T12:00:00Z' },
+    ];
+    const p = api.listRenderedFiles();
+    const req = http.expectOne('/api/profile/files');
+    expect(req.request.method).toBe('GET');
+    req.flush(files);
+    expect(await p).toEqual(files);
+  });
+
+  it('getRenderedFileContent() GETs /api/profile/files/:name as text', async () => {
+    const p = api.getRenderedFileContent('candidate.yaml');
+    const req = http.expectOne('/api/profile/files/candidate.yaml');
+    expect(req.request.method).toBe('GET');
+    expect(req.request.responseType).toBe('text');
+    req.flush('identity:\n  full_name: Jane Doe\n');
+    expect(await p).toBe('identity:\n  full_name: Jane Doe\n');
+  });
+
+  it('getRenderedFileContent() URL-encodes the file name', async () => {
+    void api.getRenderedFileContent('base_cv_ai.md');
+    const req = http.expectOne('/api/profile/files/base_cv_ai.md');
+    req.flush('');
+  });
+
+  it('requestPreview() POSTs { track } to /api/profile/preview', async () => {
+    const response: ProfilePreviewCreated = { jobId: 'job-3' };
+    const p = api.requestPreview('angular');
+    const req = http.expectOne('/api/profile/preview');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ track: 'angular' });
+    req.flush(response, { status: 201, statusText: 'Created' });
+    expect(await p).toEqual(response);
+  });
+
+  it('requestPreview() rejects with the 409 when no stored profile exists', async () => {
+    const p = api.requestPreview('core');
+    http.expectOne('/api/profile/preview').flush('no profile', { status: 409, statusText: 'Conflict' });
+    await expect(p).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('listPreviews() GETs /api/profile/previews', async () => {
+    const items: ProfilePreviewListItem[] = [
+      { track: 'angular', timestamp: '2026-08-30T12-00-00Z', files: ['preview.pdf'] },
+    ];
+    const p = api.listPreviews();
+    const req = http.expectOne('/api/profile/previews');
+    expect(req.request.method).toBe('GET');
+    req.flush(items);
+    expect(await p).toEqual(items);
+  });
+
+  it('getPreviewFileUrl() builds the per-file download URL', () => {
+    expect(api.getPreviewFileUrl('angular', '2026-08-30T12-00-00Z', 'preview.pdf')).toBe(
+      '/api/profile/previews/angular/2026-08-30T12-00-00Z/preview.pdf',
+    );
   });
 });

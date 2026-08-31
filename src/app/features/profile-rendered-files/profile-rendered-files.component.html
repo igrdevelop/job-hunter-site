@@ -1,0 +1,65 @@
+<section class="card elev-sm profile-section">
+  <h2 class="section-title">Rendered Files</h2>
+  <p class="hint">
+    A read-only view of the files your profile renders into — candidate.yaml, the
+    per-track base CVs, the career narrative.
+  </p>
+
+  @if (stale()) {
+    <div class="stale-banner">
+      Profile changed since last publish — publish again to refresh these files.
+    </div>
+  }
+
+  @if (loading()) {
+    <mat-spinner diameter="24" class="spinner"></mat-spinner>
+  }
+
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  }
+
+  @if (unavailable()) {
+    <p class="hint unavailable">Rendered files aren't available yet — check back soon.</p>
+  } @else if (showEmptyState()) {
+    <p class="hint">Publish your profile to see rendered files.</p>
+  } @else if (files().length > 0) {
+    <div class="file-list">
+      @for (file of files(); track file.name) {
+        <button
+          type="button"
+          class="file-row"
+          [class.active]="selectedFile()?.name === file.name"
+          (click)="viewFile(file)"
+        >
+          <mat-icon class="file-icon">description</mat-icon>
+          <span class="file-name">{{ file.name }}</span>
+          <span class="modified">{{ file.modifiedAt | date: 'medium' }}</span>
+        </button>
+      }
+    </div>
+  }
+
+  @if (selectedFile(); as file) {
+    <div class="viewer card elev-sm">
+      <div class="viewer-header">
+        <h3 class="viewer-title">{{ file.name }}</h3>
+        <div class="viewer-actions">
+          <button mat-button type="button" [disabled]="!selectedContent()" (click)="copyContent()">
+            Copy
+          </button>
+          <button mat-button type="button" (click)="closeViewer()">Close</button>
+        </div>
+      </div>
+      @if (viewerLoading()) {
+        <mat-spinner diameter="20"></mat-spinner>
+      }
+      @if (viewerError()) {
+        <p class="error">{{ viewerError() }}</p>
+      }
+      @if (selectedContent(); as content) {
+        <pre class="viewer-content">{{ content }}</pre>
+      }
+    </div>
+  }
+</section>

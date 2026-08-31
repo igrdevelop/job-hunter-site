@@ -407,10 +407,23 @@ export interface ProfileDocument {
   [key: string]: unknown;
 }
 
+/** docs/PROFILE_PAGE_TABS.md tab 3 staleness: the most recent kind='render' job for the user. */
+export interface ProfileLastRenderJob {
+  id: string;
+  status: ProfileJobStatus;
+  updatedAt: string;
+}
+
 export interface ProfileGetResponse {
   profile: ProfileDocument;
   revision: number;
   updatedAt: string;
+  /**
+   * Optional until api T2 ships (docs/PROFILE_PAGE_TABS.md) — absent means
+   * the staleness banner on tab 3 simply never renders (derived "only when
+   * both are available", per the work order), not an error.
+   */
+  lastRenderJob?: ProfileLastRenderJob | null;
 }
 
 export interface ProfilePutResponse {
@@ -429,7 +442,7 @@ export interface ProfileUploadResponse {
   jobId: string;
 }
 
-export type ProfileJobKind = 'render' | 'parse';
+export type ProfileJobKind = 'render' | 'parse' | 'preview';
 export type ProfileJobStatus = 'pending' | 'running' | 'done' | 'error';
 
 export interface ProfileJob {
@@ -445,4 +458,44 @@ export interface ProfileJob {
 export interface ProfileRevision {
   rev: number;
   createdAt: string;
+}
+
+// ── Profile page tabs (docs/PROFILE_PAGE_TABS.md S2-S4) ────────────────────
+// api T2 (uploads/files listing) and T3 (isOwner) are not deployed yet — see
+// that doc's "REST surface additions" section for the shapes below. Every
+// consumer of these types must degrade gracefully on a 404 rather than
+// assume the endpoint exists.
+
+/** Tab 1 (Uploads) row — GET /api/profile/uploads. */
+export interface ProfileUploadListEntry {
+  id: string;
+  filename: string;
+  sha256: string;
+  uploadedAt: string;
+  jobId: string;
+  jobStatus: ProfileJobStatus;
+}
+
+/** Tab 3 (Rendered files) row — GET /api/profile/files. Whitelist-enforced server-side. */
+export interface ProfileRenderedFile {
+  name: string;
+  size: number;
+  modifiedAt: string;
+}
+
+/** Tab 4 (Test resume) — POST /api/profile/preview body. */
+export interface ProfilePreviewRequest {
+  track: string;
+}
+
+/** POST /api/profile/preview response (201) — poll via the existing ProfileJob/getJob(). */
+export interface ProfilePreviewCreated {
+  jobId: string;
+}
+
+/** Tab 4 history row — GET /api/profile/previews, newest-first. */
+export interface ProfilePreviewListItem {
+  track: string;
+  timestamp: string;
+  files: string[];
 }
