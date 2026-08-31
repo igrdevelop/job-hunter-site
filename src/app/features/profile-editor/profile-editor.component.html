@@ -48,7 +48,7 @@
   }
 
   @if (parsedDraft(); as parsed) {
-    <section class="card elev-sm review-card">
+    <section class="card elev-sm review-card profile-section">
       <h2 class="section-title">Review parsed resume</h2>
       <p class="hint">
         Nothing below is saved yet — pick what to bring in, then Apply merge to fold it
@@ -160,7 +160,7 @@
   }
 
   @if (!parsedDraft() && document(); as profile) {
-    <section class="card elev-sm">
+    <section class="card elev-sm profile-section">
       <h2 class="section-title">Identity</h2>
       <div class="field-grid">
         <label class="field">
@@ -222,7 +222,7 @@
       </div>
     </section>
 
-    <section class="card elev-sm">
+    <section class="card elev-sm profile-section">
       <h2 class="section-title">Questionnaire</h2>
       <p class="hint">
         Facts no resume contains — these feed the job filters and the doomed-gate
@@ -356,7 +356,7 @@
       </div>
     </section>
 
-    <section class="card elev-sm">
+    <section class="card elev-sm profile-section">
       <h2 class="section-title">Employers</h2>
       <p class="hint">
         Protected employers are redacted or generalized on generated CVs; the flexible
@@ -427,7 +427,7 @@
       </div>
     </section>
 
-    <section class="card elev-sm">
+    <section class="card elev-sm profile-section">
       <h2 class="section-title">Education</h2>
       <p class="hint">
         Degrees, courses, certifications — anything worth listing. School keyword and
@@ -476,7 +476,7 @@
       </div>
     </section>
 
-    <section class="card elev-sm">
+    <section class="card elev-sm profile-section">
       <div class="section-head">
         <h2 class="section-title">Skills</h2>
         @if (hasMultipleVariants()) {
@@ -574,7 +574,7 @@
       <button type="button" class="btn btn-secondary" (click)="addCategory()">+ Add category</button>
     </section>
 
-    <section class="card elev-sm">
+    <section class="card elev-sm profile-section">
       <h2 class="section-title">Roles</h2>
       @if (roles().length === 0) {
         <p class="empty-state">No roles yet.</p>
@@ -584,7 +584,7 @@
           <div class="role-fields">
             <label class="field">
               <span>Company</span>
-              <input class="input" type="text" [ngModel]="role.company" (ngModelChange)="updateRoleField(role.id, 'company', $event)" />
+              <input class="input role-company-input" type="text" [ngModel]="role.company" (ngModelChange)="updateRoleField(role.id, 'company', $event)" />
             </label>
             <label class="field">
               <span>Title</span>
@@ -592,7 +592,7 @@
             </label>
             <label class="field">
               <span>Period</span>
-              <input class="input" type="text" [ngModel]="role.period" (ngModelChange)="updateRoleField(role.id, 'period', $event)" />
+              <input class="input role-period-input" type="text" [ngModel]="role.period" (ngModelChange)="updateRoleField(role.id, 'period', $event)" />
             </label>
             <label class="field">
               <span>Subtitle</span>
@@ -755,7 +755,7 @@
       }
     </section>
 
-    <section class="card elev-sm">
+    <section class="card elev-sm profile-section">
       <h2 class="section-title">Extras</h2>
       <p class="hint">Certifications, links, awards — anything else worth a line on the CV.</p>
       @if (profile.core.extras.length === 0) {
@@ -793,7 +793,7 @@
     </section>
 
     @if (leftovers().length > 0) {
-      <section class="card elev-sm">
+      <section class="card elev-sm profile-section">
         <h2 class="section-title">Couldn't place this</h2>
         <p class="hint">
           Fragments the parser found but couldn't confidently place anywhere — nothing

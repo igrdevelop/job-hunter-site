@@ -6,6 +6,7 @@
 
 .editor-shortcuts {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-3);
 }
 
@@ -17,6 +18,12 @@
   border: none;
   cursor: pointer;
   font: inherit;
+}
+
+// Shared padding for every profile-editor section card — mirrors Filters'
+// `.filter-section` so section content isn't flush against the card border.
+.profile-section {
+  padding: var(--space-4) var(--space-5);
 }
 
 .review-card {
@@ -90,7 +97,8 @@
 .section-title {
   margin: 0 0 var(--space-3);
   font-family: var(--font-heading);
-  font-size: 16px;
+  font-size: 18px;
+  font-weight: 600;
 }
 
 .section-head {
@@ -101,25 +109,35 @@
   gap: var(--space-3);
 }
 
+// Material-style underline tabs (M3 tab indicator look, in the app's dark theme).
 .tab-strip {
   display: flex;
-  gap: 4px;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--color-neutral-300);
 }
 
 .tab-btn {
-  border: 1px solid var(--color-neutral-300);
+  border: none;
+  border-bottom: 2px solid transparent;
   background: transparent;
   color: var(--color-neutral-600);
-  border-radius: var(--radius-sm);
-  padding: 4px 12px;
+  padding: var(--space-2) 2px;
+  margin-bottom: -1px;
   font-size: 13px;
+  font-weight: 500;
   font-family: inherit;
   cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+
+  &:hover {
+    color: var(--color-text);
+  }
 
   &.active {
-    background: var(--color-accent-500);
-    border-color: var(--color-accent-500);
-    color: #fff;
+    color: var(--color-accent-600);
+    border-bottom-color: var(--color-accent-500);
   }
 }
 
@@ -262,10 +280,12 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 4px 6px 4px 10px;
-  border-radius: var(--radius-pill);
-  background: var(--color-neutral-200);
+  background: color-mix(in srgb, var(--color-accent, #3b82f6) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent, #3b82f6) 35%, transparent);
+  border-radius: 12px;
+  padding: 2px 8px 2px 10px;
   font-size: 13px;
+  color: var(--color-text);
 }
 
 .chip-x {
@@ -283,9 +303,13 @@
   padding: 4px 8px;
   border: 1px solid var(--color-neutral-300);
   border-radius: 6px;
-  background: transparent;
+  background: var(--color-bg, transparent);
   color: var(--color-text);
   font-size: 13px;
+
+  &::placeholder {
+    color: var(--color-neutral-500);
+  }
 }
 
 .role-card {
@@ -309,6 +333,16 @@
   }
 }
 
+// Company/period read like an AG Grid row (Applications' .cell-company / .cell-date).
+.role-company-input {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.role-period-input {
+  color: var(--color-neutral-500);
+}
+
 .notes-field {
   margin-bottom: var(--space-3);
 }
@@ -322,6 +356,8 @@
   flex-direction: column;
   gap: var(--space-2);
   margin: var(--space-2) 0 var(--space-3);
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--color-neutral-200);
 }
 
 .bullet-row {
@@ -401,6 +437,7 @@
 
 .leftover-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
@@ -452,4 +489,25 @@
 .save-error {
   color: var(--color-error, #b3261e);
   font-size: 13px;
+}
+
+// ── Responsive ──────────────────────────────────────────────────────────────
+// Same breakpoint as Settings — collapse two-column rows to one so cards don't
+// force horizontal scrolling on narrow viewports.
+@media (max-width: 820px) {
+  .profile-section {
+    padding: var(--space-4);
+  }
+
+  .skills-row {
+    grid-template-columns: 1fr;
+  }
+
+  .extra-row {
+    grid-template-columns: 1fr auto auto;
+  }
+
+  .extra-kind {
+    grid-column: 1 / -1;
+  }
 }
