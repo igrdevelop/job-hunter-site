@@ -109,38 +109,6 @@
   gap: var(--space-3);
 }
 
-// Material-style underline tabs (M3 tab indicator look, in the app's dark theme).
-.tab-strip {
-  display: flex;
-  gap: var(--space-4);
-  border-bottom: 1px solid var(--color-neutral-300);
-}
-
-.tab-btn {
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: transparent;
-  color: var(--color-neutral-600);
-  padding: var(--space-2) 2px;
-  margin-bottom: -1px;
-  font-size: 13px;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition:
-    color 0.15s ease,
-    border-color 0.15s ease;
-
-  &:hover {
-    color: var(--color-text);
-  }
-
-  &.active {
-    color: var(--color-accent-600);
-    border-bottom-color: var(--color-accent-500);
-  }
-}
-
 .variant-banner {
   display: flex;
   align-items: center;
@@ -152,6 +120,83 @@
   border: 1px solid color-mix(in srgb, var(--color-accent, #3b82f6) 30%, transparent);
   border-radius: var(--radius-sm);
   font-size: 13px;
+}
+
+// docs/PROFILE_PAGE_TABS.md S5 — Core-above-variants chip row + overlay.
+.variant-chip-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.variant-chip-row-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+}
+
+.variant-chip-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.variant-chip-delete {
+  font-size: 11px;
+}
+
+.variant-chip-add {
+  font-weight: 700;
+}
+
+.variant-overlay-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: color-mix(in srgb, var(--color-accent, #3b82f6) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent, #3b82f6) 28%, transparent);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.variant-inherited {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+// Read-only "inherited from Core" previews — grayed to signal they're not editable
+// until "Override for this track" is clicked.
+.skills-table-readonly,
+.bullets-readonly {
+  opacity: 0.6;
+}
+
+.category-readonly {
+  font-weight: 600;
+}
+
+.chip-readonly {
+  cursor: default;
+}
+
+.bullet-row-readonly {
+  padding: var(--space-2) 0;
+}
+
+.bullet-readonly-text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-neutral-600);
+  white-space: pre-wrap;
 }
 
 .hint {
@@ -345,10 +390,6 @@
 
 .notes-field {
   margin-bottom: var(--space-3);
-}
-
-.add-track-select {
-  width: auto;
 }
 
 .bullets-editor {

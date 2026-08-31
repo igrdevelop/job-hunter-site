@@ -45,7 +45,16 @@ describe('ProfileTabsComponent', () => {
     initialQueryParams?: Record<string, string>;
   }): Promise<void> {
     queryParams$ = new BehaviorSubject(convertToParamMap(options.initialQueryParams ?? {}));
-    const routeStub = { queryParamMap: queryParams$.asObservable() };
+    // ProfileEditorComponent (mounted as the 'editor' tab's content, sharing this
+    // same ActivatedRoute — it isn't a separately routed child) reads
+    // `route.snapshot.queryParamMap` once on load for its own `?track=` deep link
+    // (docs/PROFILE_PAGE_TABS.md S5), so the stub needs a `snapshot` too.
+    const routeStub = {
+      queryParamMap: queryParams$.asObservable(),
+      get snapshot() {
+        return { queryParamMap: queryParams$.value };
+      },
+    };
 
     await TestBed.configureTestingModule({
       imports: [ProfileTabsComponent],

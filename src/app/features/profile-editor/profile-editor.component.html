@@ -160,6 +160,51 @@
   }
 
   @if (!parsedDraft() && document(); as profile) {
+    @if (showVariantChips()) {
+      <div class="variant-chip-row" role="group" aria-label="Track variants">
+        <span class="variant-chip-row-label">Variants:</span>
+        <div class="filter-pills">
+          @for (track of variantTracks(); track track) {
+            <span class="variant-chip-wrap">
+              <button
+                type="button"
+                class="filter-pill variant-chip"
+                [class.active]="activeTrack() === track"
+                (click)="selectVariantChip(track)"
+              >
+                {{ track }}
+              </button>
+              <button
+                type="button"
+                class="btn-icon-sm variant-chip-delete"
+                (click)="confirmDeleteVariant(track)"
+                [attr.aria-label]="'Delete ' + track + ' variant'"
+              >
+                ✕
+              </button>
+            </span>
+          }
+          <button
+            type="button"
+            class="filter-pill variant-chip-add"
+            (click)="openAddVariantDialog()"
+            aria-label="Add track variant"
+          >
+            +
+          </button>
+        </div>
+      </div>
+    }
+
+    @if (activeTrack(); as track) {
+      <div class="variant-overlay-banner">
+        <span>Viewing variant <b>{{ track }}</b> — showing its differences from Core.</span>
+        <button type="button" class="btn btn-ghost" (click)="selectVariantChip(null)">
+          ← Back to Core
+        </button>
+      </div>
+    }
+
     <section class="card elev-sm profile-section">
       <h2 class="section-title">Identity</h2>
       <div class="field-grid">
@@ -479,99 +524,106 @@
     <section class="card elev-sm profile-section">
       <div class="section-head">
         <h2 class="section-title">Skills</h2>
-        @if (hasMultipleVariants()) {
-          <div class="tab-strip skills-tabs" role="tablist">
-            @for (tab of tabs(); track tab) {
-              <button
-                type="button"
-                class="tab-btn"
-                [class.active]="activeTab() === tab"
-                (click)="selectTab(tab)"
-              >
-                {{ tabLabel(tab) }}
-              </button>
-            }
-          </div>
-        }
       </div>
 
       @if (activeVariantOverridesCore()) {
-        <div class="variant-banner">
+        <div class="variant-banner skills-variant-banner">
           <span>These skills override core for <b>{{ activeTab() }}</b>.</span>
           <button type="button" class="btn btn-ghost" (click)="resetVariantToCore()">
-            Reset to core
+            Revert to Core
           </button>
         </div>
-      } @else if (activeTab() !== 'core') {
-        <p class="hint">
-          This track currently falls back to core skills (filtered by tag). Add a
-          category below to override it just for <b>{{ activeTab() }}</b>.
-        </p>
+      } @else if (activeTrack(); as track) {
+        <div class="variant-inherited">
+          <p class="hint">Inherited from Core for <b>{{ track }}</b>.</p>
+          <button type="button" class="btn btn-secondary skills-override-btn" (click)="overrideSkillsForTrack(track)">
+            Override for this track
+          </button>
+        </div>
       }
 
-      @if (activeSkills().length === 0) {
-        <p class="empty-state">No skills yet.</p>
-      }
+      @if (activeTrack() === null || activeVariantOverridesCore()) {
+        @if (activeSkills().length === 0) {
+          <p class="empty-state">No skills yet.</p>
+        }
 
-      <div class="skills-table">
-        @for (cat of activeSkills(); track $index) {
-          <div class="skills-row">
-            <div class="skills-category">
-              <input
-                class="category-input"
-                type="text"
-                [ngModel]="cat.category"
-                (ngModelChange)="renameCategory($index, $event)"
-                placeholder="Category name"
-              />
-              <span class="tag" [class.tag-accent]="isEdited(cat.origin)" [class.tag-outline]="!isEdited(cat.origin)">
-                {{ originLabel(cat.origin) }}
-              </span>
-              <div class="row-actions">
-                <button type="button" class="btn-icon-sm" (click)="moveCategory($index, -1)" [disabled]="$index === 0" aria-label="Move category up">↑</button>
-                <button type="button" class="btn-icon-sm" (click)="moveCategory($index, 1)" [disabled]="$index === activeSkills().length - 1" aria-label="Move category down">↓</button>
-                <button type="button" class="btn-icon-sm" (click)="removeCategory($index)" aria-label="Remove category">✕</button>
+        <div class="skills-table">
+          @for (cat of activeSkills(); track $index) {
+            <div class="skills-row">
+              <div class="skills-category">
+                <input
+                  class="category-input"
+                  type="text"
+                  [ngModel]="cat.category"
+                  (ngModelChange)="renameCategory($index, $event)"
+                  placeholder="Category name"
+                />
+                <span class="tag" [class.tag-accent]="isEdited(cat.origin)" [class.tag-outline]="!isEdited(cat.origin)">
+                  {{ originLabel(cat.origin) }}
+                </span>
+                <div class="row-actions">
+                  <button type="button" class="btn-icon-sm" (click)="moveCategory($index, -1)" [disabled]="$index === 0" aria-label="Move category up">↑</button>
+                  <button type="button" class="btn-icon-sm" (click)="moveCategory($index, 1)" [disabled]="$index === activeSkills().length - 1" aria-label="Move category down">↓</button>
+                  <button type="button" class="btn-icon-sm" (click)="removeCategory($index)" aria-label="Remove category">✕</button>
+                </div>
+                @if (hasMultipleVariants()) {
+                  <div class="track-toggles">
+                    @for (track of variantTracks(); track track) {
+                      <button
+                        type="button"
+                        class="tag track-toggle"
+                        [class.tag-accent]="hasTrack(cat, track)"
+                        [class.tag-outline]="!hasTrack(cat, track)"
+                        (click)="toggleTrack($index, track)"
+                      >
+                        {{ track }}
+                      </button>
+                    }
+                  </div>
+                }
               </div>
-              @if (hasMultipleVariants()) {
-                <div class="track-toggles">
-                  @for (track of variantTracks(); track track) {
-                    <button
-                      type="button"
-                      class="tag track-toggle"
-                      [class.tag-accent]="hasTrack(cat, track)"
-                      [class.tag-outline]="!hasTrack(cat, track)"
-                      (click)="toggleTrack($index, track)"
-                    >
-                      {{ track }}
-                    </button>
+              <div class="skills-items">
+                <div class="chips">
+                  @for (item of cat.items; track item) {
+                    <span class="chip">
+                      {{ item }}
+                      <button type="button" class="chip-x" (click)="removeSkillItem($index, item)" aria-label="Remove {{ item }}">×</button>
+                    </span>
+                  }
+                  <input
+                    class="chip-input"
+                    type="text"
+                    placeholder="Add skill…"
+                    [ngModel]="chipDrafts()[$index] ?? ''"
+                    (ngModelChange)="setChipDraft($index, $event)"
+                    (keydown)="onChipKeydown($event, $index)"
+                    (blur)="addSkillItem($index)"
+                  />
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+
+        <button type="button" class="btn btn-secondary" (click)="addCategory()">+ Add category</button>
+      } @else {
+        <div class="skills-table skills-table-readonly" aria-disabled="true">
+          @for (cat of profile.core.skills; track $index) {
+            <div class="skills-row skills-row-readonly">
+              <div class="skills-category">
+                <span class="category-readonly">{{ cat.category }}</span>
+              </div>
+              <div class="skills-items">
+                <div class="chips">
+                  @for (item of cat.items; track item) {
+                    <span class="chip chip-readonly">{{ item }}</span>
                   }
                 </div>
-              }
-            </div>
-            <div class="skills-items">
-              <div class="chips">
-                @for (item of cat.items; track item) {
-                  <span class="chip">
-                    {{ item }}
-                    <button type="button" class="chip-x" (click)="removeSkillItem($index, item)" aria-label="Remove {{ item }}">×</button>
-                  </span>
-                }
-                <input
-                  class="chip-input"
-                  type="text"
-                  placeholder="Add skill…"
-                  [ngModel]="chipDrafts()[$index] ?? ''"
-                  (ngModelChange)="setChipDraft($index, $event)"
-                  (keydown)="onChipKeydown($event, $index)"
-                  (blur)="addSkillItem($index)"
-                />
               </div>
             </div>
-          </div>
-        }
-      </div>
-
-      <button type="button" class="btn btn-secondary" (click)="addCategory()">+ Add category</button>
+          }
+        </div>
+      }
     </section>
 
     <section class="card elev-sm profile-section">
@@ -613,36 +665,7 @@
             ></textarea>
           </label>
 
-          @if (hasMultipleVariants()) {
-            <div class="section-head">
-              <div class="tab-strip role-tabs" role="tablist">
-                @for (tab of roleTabs(role); track tab) {
-                  <button
-                    type="button"
-                    class="tab-btn"
-                    [class.active]="roleActiveTab(role) === tab"
-                    (click)="selectRoleTab(role, tab)"
-                  >
-                    {{ tabLabel(tab) }}
-                  </button>
-                }
-              </div>
-              @if (roleAvailableTracksToAdd(role).length > 0) {
-                <select
-                  class="input add-track-select"
-                  [ngModel]="''"
-                  (ngModelChange)="startTrackRewrite(role, $event)"
-                >
-                  <option value="" disabled selected>+ Rewrite for…</option>
-                  @for (track of roleAvailableTracksToAdd(role); track track) {
-                    <option [value]="track">{{ track }}</option>
-                  }
-                </select>
-              }
-            </div>
-          }
-
-          @if (roleActiveTab(role) === 'core') {
+          @if (activeTrack() === null) {
             <div class="bullets-editor">
               @for (bullet of role.bullets; track $index) {
                 <div class="bullet-row">
@@ -664,8 +687,23 @@
               }
               <button type="button" class="btn btn-secondary" (click)="addBullet(role.id)">+ Add bullet</button>
             </div>
+          } @else if (!roleOverrideTracks(role).includes(activeTrack()!)) {
+            @let track = activeTrack()!;
+            <div class="variant-inherited">
+              <p class="hint">Inherited from Core for <b>{{ track }}</b>.</p>
+              <button type="button" class="btn btn-secondary role-override-btn" (click)="startTrackRewrite(role, track)">
+                Override for this track
+              </button>
+            </div>
+            <div class="bullets-editor bullets-readonly" aria-disabled="true">
+              @for (bullet of role.bullets; track $index) {
+                <div class="bullet-row-readonly">
+                  <p class="bullet-readonly-text">{{ bullet.text }}</p>
+                </div>
+              }
+            </div>
           } @else {
-            @let track = roleActiveTab(role);
+            @let track = activeTrack()!;
             <div class="track-override">
               <div class="variant-banner">
                 <span>Rewritten for <b>{{ track }}</b>.</span>

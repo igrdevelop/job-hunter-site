@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, resource, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -18,11 +18,16 @@ import {
   ProfileRole,
   ProfileSkillCategory,
 } from '../../core/api/models';
+import { AuthService } from '../../core/auth/auth.service';
 import { UploadResumeDialogComponent } from './upload-resume-dialog/upload-resume-dialog.component';
 import {
   RevisionsHistoryDialogComponent,
   RevisionsHistoryDialogData,
 } from './revisions-history-dialog/revisions-history-dialog.component';
+import {
+  AddVariantDialogComponent,
+  AddVariantDialogData,
+} from './add-variant-dialog/add-variant-dialog.component';
 import { safeResourceValue } from '../../core/utils/resource-value';
 import { ProfileDraftBridgeService } from './profile-draft-bridge.service';
 
@@ -36,6 +41,14 @@ const ROLE_TRACK_MAP_FIELDS = [
   'stack_line_by_track',
   'bullets_by_track',
 ] as const;
+
+/** v1 known track slugs (docs/PROFILE_PAGE_TABS.md S5) — a track key doubles as a
+ * base_cv_<track>.md filename and a bot filters key, so "+ Add variant" can't take a
+ * free-form name. */
+const KNOWN_TRACK_SLUGS = ['angular', 'react', 'ai', 'fullstack_node', 'fullstack_python'];
+
+/** Same slug shape AddVariantDialogComponent validates — a defensive re-check here too. */
+const TRACK_SLUG_RE = /^[a-z][a-z0-9_]*$/;
 
 function omitKey<T>(obj: Record<string, T>, key: string): Record<string, T> {
   const next = { ...obj };
@@ -134,6 +147,11 @@ export class ProfileEditorComponent {
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
   private readonly draftBridge = inject(ProfileDraftBridgeService);
+  private readonly authService = inject(AuthService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+
+  readonly isOwner = this.authService.isOwner;
 
   private readonly profileResource = resource({
     loader: () => this.api.get(),
@@ -168,7 +186,34 @@ export class ProfileEditorComponent {
   readonly hasMultipleVariants = computed(() => this.variantTracks().length > 1);
 
   readonly activeTab = signal<string>(CORE_TAB);
-  readonly tabs = computed(() => [CORE_TAB, ...this.variantTracks()]);
+
+  /**
+   * docs/PROFILE_PAGE_TABS.md S5: null = Core, the default view with no chip
+   * selected. Deliberately an ALIAS over the existing `activeTab` signal
+   * above (F2's skills-tab state) rather than new parallel state — S5 is a
+   * layout wrapper over F2/F4's variant machinery, not new document
+   * semantics, and `selectTab()`/`activeSkills()`/`resetVariantToCore()` etc.
+   * all keep working unchanged for anything that still calls them directly.
+   */
+  readonly activeTrack = computed(() => (this.activeTab() === CORE_TAB ? null : this.activeTab()));
+
+  /**
+   * The variant chip row is owner-only AND only shown once there is at
+   * least one variant to show (docs/PROFILE_PAGE_TABS.md S5: "visible ONLY
+   * when isOwner AND the profile has ≥ 1 variant"). Independent of
+   * `hasMultipleVariants` (>1) above, which still gates the F2/F4 per-item
+   * track-tag affordances inside the editable rows — an unrelated concern
+   * from this navigation layout. Hidden during the parse-review overlay,
+   * which has its own, unrelated notion of "current draft".
+   */
+  readonly showVariantChips = computed(
+    () => this.isOwner() && this.variantTracks().length >= 1 && !this.parsedDraft(),
+  );
+
+  /** Known track slugs (docs/PROFILE_PAGE_TABS.md S5) not already present in `variants`. */
+  readonly variantTracksAvailableToAdd = computed(() =>
+    KNOWN_TRACK_SLUGS.filter((t) => !this.variantTracks().includes(t)),
+  );
 
   readonly activeSkills = computed<ProfileSkillCategory[]>(() => {
     const doc = this.document();
@@ -207,7 +252,15 @@ export class ProfileEditorComponent {
       this.loadGeneration++;
       this.baseline.set(doc ? structuredClone(doc) : null);
       this.draft.set(doc ? structuredClone(doc) : null);
-      this.activeTab.set(CORE_TAB);
+      // docs/PROFILE_PAGE_TABS.md S5: a direct/reloaded `?track=` link opens
+      // straight into that variant's overlay. Read from the route SNAPSHOT
+      // (not a reactive queryParamMap signal) so a later chip click — which
+      // updates the URL via selectVariantChip() — doesn't re-trigger this
+      // whole load effect and wipe in-progress edits back to the server's
+      // baseline; the URL is applied once, here, on load.
+      const trackParam = this.route.snapshot.queryParamMap.get('track');
+      const validTracks = doc ? Object.keys(doc.variants) : [];
+      this.activeTab.set(trackParam && validTracks.includes(trackParam) ? trackParam : CORE_TAB);
       this.chipDrafts.set({});
       this.questionnaireChipDrafts.set({});
       this.employerChipDrafts.set({ protected: '', projects: '' });
@@ -475,10 +528,6 @@ export class ProfileEditorComponent {
     this.chipDrafts.set({});
   }
 
-  tabLabel(tab: string): string {
-    return tab === CORE_TAB ? 'Core' : tab;
-  }
-
   addCategory(): void {
     this.updateActiveSkills((skills) => [
       ...skills,
@@ -587,6 +636,78 @@ export class ProfileEditorComponent {
       ...doc,
       variants: { ...doc.variants, [track]: { ...variant, skills: [] } },
     });
+  }
+
+  /** "Override for this track" (docs/PROFILE_PAGE_TABS.md S5): seeds the variant's
+   * skills with a COPY of the current core list — the same "start from what renders
+   * today" pattern startTrackRewrite() uses for roles below — so overriding never
+   * regresses the track's CV to an empty skills table. */
+  overrideSkillsForTrack(track: string): void {
+    const doc = this.draft();
+    if (!doc) return;
+    const variant = doc.variants[track] ?? { headline: '', summary: '', skills: [] };
+    this.draft.set({
+      ...doc,
+      variants: { ...doc.variants, [track]: { ...variant, skills: structuredClone(doc.core.skills) } },
+    });
+  }
+
+  // ── S5: variant chips (docs/PROFILE_PAGE_TABS.md) ────────────────────────
+
+  /** Selects a chip (or `null` for "← Back to Core"): reuses selectTab() — the
+   * existing F2 skills-tab mutator — for the local UI update, then pushes `?track=`
+   * so the selection survives a reload/back-forward. */
+  selectVariantChip(track: string | null): void {
+    this.selectTab(track ?? CORE_TAB);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { track },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  openAddVariantDialog(): void {
+    const ref = this.dialog.open<AddVariantDialogComponent, AddVariantDialogData, string | undefined>(
+      AddVariantDialogComponent,
+      { width: '360px', data: { availableTracks: this.variantTracksAvailableToAdd() } },
+    );
+    ref.afterClosed().subscribe((track) => {
+      if (track) this.addVariant(track);
+    });
+  }
+
+  /** Creates an empty variant (inherits everything from core) as a normal dirty
+   * edit — the F2 save bar PUTs it like any other change, no separate endpoint. */
+  addVariant(track: string): void {
+    if (!TRACK_SLUG_RE.test(track) || !this.variantTracksAvailableToAdd().includes(track)) return;
+    const doc = this.draft();
+    if (!doc) return;
+    this.draft.set({
+      ...doc,
+      variants: { ...doc.variants, [track]: { headline: '', summary: '', skills: [] } },
+    });
+    this.selectVariantChip(track);
+  }
+
+  confirmDeleteVariant(track: string): void {
+    const ok = confirm(
+      `Delete the "${track}" variant? The next publish removes its rendered base_cv_${track}.md ` +
+        `file. This is a view/edit context only — it does not change what the bot generates for ` +
+        `individual vacancies.`,
+    );
+    if (!ok) return;
+    this.deleteVariant(track);
+  }
+
+  /** Removes the key as a normal dirty edit — the bot renderer already prunes the
+   * stale base_cv_<track>.md file on the next publish. */
+  deleteVariant(track: string): void {
+    const doc = this.draft();
+    if (!doc) return;
+    this.draft.set({ ...doc, variants: omitKey(doc.variants, track) });
+    if (this.activeTrack() === track) {
+      this.selectVariantChip(null);
+    }
   }
 
   // ── Roles ──────────────────────────────────────────────────────────────
