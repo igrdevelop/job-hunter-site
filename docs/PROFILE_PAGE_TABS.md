@@ -12,6 +12,48 @@
 > historical record of the decision; do not copy the Cyrillic strings into
 > new UI code.
 
+> **UI feedback amendments (2026-08-31, owner review of the deployed S1-S5
+> tabs):** a live-site pass over the four tabs found several things that read
+> wrong in practice even though they matched the letter of the plan below.
+> None of this changes the document semantics or the API contract — layout
+> and copy only.
+> - **Editor tab:** the page-level `<h1>Profile</h1>` heading is gone — the
+>   tab bar already names the context — and the "career bank, not a resume"
+>   paragraph is now a compact one-line hint instead of a hero paragraph. The
+>   legacy quick-link chip row (Candidate files / Templates / Upload another
+>   resume to merge / History) — an F1 relic that predates the tab shell,
+>   since Uploads/Rendered Files/Templates are now their own destinations —
+>   is removed. **History (revisions) stays reachable**, moved to a small
+>   `History` button next to the save-bar area instead of a chip.
+> - **"Personas" replaces the "VARIANTS:" chip row.** The always-visible chip
+>   row with inline `×` deletes read as removable tags rather than a view
+>   switcher. It's now a single closed dropdown labeled **Personas**: **"Full
+>   profile"** first (the no-variant Core view — explicitly not itself a
+>   persona, it's the superset every persona is a delta from) and selected by
+>   default, then one item per variant track, then a divider, then **"+ Add
+>   persona…"** (same add-variant flow as before) and **"Manage personas…"**
+>   (a small dialog listing every persona with a per-item Delete, carrying the
+>   same stale-base-CV warning the old inline `×` used to show). Deletion is
+>   no longer exposed as an inline control on the dropdown itself. Everything
+>   about variant/persona BEHAVIOR is unchanged: the overlay banner with
+>   back-to-Core, inherited-vs-overridden sections, `?track=` URL state
+>   (absent = Full profile), and the owner-only + ≥1-variant visibility gate
+>   on the whole picker.
+> - **Test Resume tab:** intro copy rewritten to state its purpose plainly —
+>   "A dress rehearsal for your CV. Generate the exact PDF the system would
+>   build from your profile today — no job posting involved. Pick a persona,
+>   generate, compare with past previews below." The `core` track chip's
+>   DISPLAYED label is now **"Universal (full profile)"**; the value sent to
+>   `POST /api/profile/preview` is unchanged (`track: "core"`).
+> - **Rendered Files tab:** the list orders by meaning instead of alphabet —
+>   `candidate.yaml` first, then `candidate_profile.md`, then every
+>   `base_cv_<track>.md` (alphabetical within that group), then
+>   `generation_rules.local.md`. **`profile.json` is hidden from the list
+>   entirely** — nothing consumes it yet, it's internal groundwork for a
+>   future direct-structure consumer, not something a user should see in a
+>   "your files" list. This is a display-only filter on the site side; the
+>   API may still serve/list it.
+
 Companion of the bot repo's `docs/PROFILE_PAGE_TABS_WORKORDER.md` (the
 owner-approved decisions, 2026-08-31) and `job-hunter-api/docs/
 PROFILE_PAGE_TABS.md` (the REST additions, phases T1–T3). This is a LAYOUT

@@ -1,9 +1,9 @@
 <section class="card elev-sm profile-section">
   <h2 class="section-title">Test Resume</h2>
   <p class="hint">
-    Generate a no-vacancy preview CV from your profile, per track, and browse past previews.
-    This is exactly what the system would produce from your profile today — production layout,
-    no watermark.
+    A dress rehearsal for your CV. Generate the exact PDF the system would build from your
+    profile today — no job posting involved. Pick a persona, generate, and compare with past
+    previews below.
   </p>
 
   @if (needsPublish()) {
@@ -12,6 +12,7 @@
     </div>
   } @else {
     <div class="track-row">
+      <span class="track-row-label">Persona:</span>
       @for (track of tracks(); track track) {
         <button
           type="button"
@@ -19,7 +20,7 @@
           [class.active]="selectedTrack() === track"
           (click)="selectTrack(track)"
         >
-          {{ track }}
+          {{ trackLabel(track) }}
         </button>
       }
     </div>

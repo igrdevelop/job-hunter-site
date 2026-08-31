@@ -17,6 +17,22 @@ import { User } from '../../core/auth/user.model';
 const OWNER: User = { id: '1', email: 'owner@example.com', role: 'user', emailVerified: true, isOwner: true };
 const NON_OWNER: User = { id: '2', email: 'other@example.com', role: 'user', emailVerified: true, isOwner: false };
 
+/** The Personas dropdown menu content lives in a CDK overlay appended to
+ * `document.body`, not inside `fixture.nativeElement` — click the trigger to
+ * open it (mat-menu renders its panel lazily on open), then read from the
+ * document. */
+function openPersonasMenu(fixture: ComponentFixture<ProfileEditorComponent>): void {
+  const trigger = fixture.nativeElement.querySelector('.persona-trigger') as HTMLElement;
+  trigger.click();
+  fixture.detectChanges();
+}
+
+function personaMenuLabels(): string[] {
+  return Array.from(document.querySelectorAll('.persona-menu-item')).map(
+    (el) => el.querySelector('span')?.textContent?.trim() ?? '',
+  );
+}
+
 describe('ProfileEditorComponent', () => {
   let fixture: ComponentFixture<ProfileEditorComponent>;
   let component: ProfileEditorComponent;
@@ -154,6 +170,21 @@ describe('ProfileEditorComponent', () => {
       const text = fixture.nativeElement.textContent as string;
       expect(text).toContain("Couldn't place this");
       expect(text).toContain('hereby give consent');
+    });
+
+    it('has no page-level heading and no legacy quick-link chip row (docs/PROFILE_PAGE_TABS.md UI feedback amendments 2026-08-31)', () => {
+      expect(fixture.nativeElement.querySelector('h1')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.editor-shortcuts')).toBeNull();
+      const text = fixture.nativeElement.textContent as string;
+      expect(text).not.toContain('Candidate files');
+      expect(text).not.toContain('Upload another resume to merge');
+      expect(fixture.nativeElement.querySelector('.editor-hint')).not.toBeNull();
+    });
+
+    it('History stays reachable via a small button near the save bar', () => {
+      const historyBtn = fixture.nativeElement.querySelector('.history-btn') as HTMLElement | null;
+      expect(historyBtn).not.toBeNull();
+      expect(historyBtn?.textContent).toContain('History');
     });
   });
 
@@ -638,12 +669,15 @@ describe('ProfileEditorComponent', () => {
       await createWith(twoVariantResponse);
     });
 
-    it('shows one chip per variant track (no Core chip — Core is the default view)', () => {
+    it('the Personas dropdown defaults to "Full profile" and lists one item per variant track', () => {
       expect(component.showVariantChips()).toBe(true);
-      const chips = Array.from(fixture.nativeElement.querySelectorAll('.variant-chip')).map(
-        (el) => (el as HTMLElement).textContent?.trim(),
-      );
-      expect(chips).toEqual(['angular', 'react']);
+      expect(
+        (fixture.nativeElement.querySelector('.persona-trigger-value') as HTMLElement).textContent?.trim(),
+      ).toBe('Full profile');
+
+      openPersonasMenu(fixture);
+      const items = personaMenuLabels();
+      expect(items).toEqual(['Full profile', 'angular', 'react']);
     });
 
     it('selectTab() clears chipDrafts — a row index means nothing across tabs', () => {
@@ -840,41 +874,42 @@ describe('ProfileEditorComponent', () => {
       fixture.detectChanges();
     }
 
-    function chipTracks(): string[] {
-      return Array.from(fixture.nativeElement.querySelectorAll('.variant-chip')).map(
-        (el) => (el as HTMLElement).textContent?.trim(),
-      );
+    function personaTrigger(): HTMLElement | null {
+      return fixture.nativeElement.querySelector('.persona-trigger');
     }
 
-    it('hides the chip row for a non-owner even when variants exist', async () => {
+    it('hides the Personas dropdown for a non-owner even when variants exist', async () => {
       await createWithOwner(twoVariantProfile(), { isOwner: false });
       expect(component.showVariantChips()).toBe(false);
-      expect(fixture.nativeElement.querySelector('.variant-chip-row')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.persona-picker')).toBeNull();
     });
 
-    it('hides the chip row for the owner when there are zero variants', async () => {
+    it('hides the Personas dropdown for the owner when there are zero variants', async () => {
       const profile = structuredClone(PROFILE_MOCK.profile);
       profile.variants = {};
       await createWithOwner(profile, { isOwner: true });
       expect(component.showVariantChips()).toBe(false);
-      expect(fixture.nativeElement.querySelector('.variant-chip-row')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.persona-picker')).toBeNull();
     });
 
-    it('shows the chip row for the owner with a single variant (>= 1, not > 1)', async () => {
+    it('shows the Personas dropdown for the owner with a single variant (>= 1, not > 1)', async () => {
       await createWithOwner(structuredClone(PROFILE_MOCK.profile), { isOwner: true });
       expect(component.hasMultipleVariants()).toBe(false); // only 1 variant
       expect(component.showVariantChips()).toBe(true);
-      expect(chipTracks()).toEqual(['angular']);
+      expect(personaTrigger()).not.toBeNull();
+      openPersonasMenu(fixture);
+      expect(personaMenuLabels()).toEqual(['Full profile', 'angular']);
     });
 
-    it('clicking a chip enters the overlay and pushes ?track= via the router', async () => {
+    it('selecting a persona from the dropdown enters the overlay and pushes ?track= via the router', async () => {
       await createWithOwner(twoVariantProfile(), { isOwner: true });
       const router = TestBed.inject(Router);
 
-      const chip = (Array.from(fixture.nativeElement.querySelectorAll('.variant-chip')) as HTMLElement[]).find(
-        (el) => el.textContent?.trim() === 'react',
+      openPersonasMenu(fixture);
+      const item = (Array.from(document.querySelectorAll('.persona-menu-item')) as HTMLElement[]).find(
+        (el) => el.querySelector('span')?.textContent?.trim() === 'react',
       );
-      chip?.click();
+      item?.click();
       fixture.detectChanges();
 
       expect(component.activeTrack()).toBe('react');
@@ -884,6 +919,13 @@ describe('ProfileEditorComponent', () => {
       );
       expect(fixture.nativeElement.textContent).toContain('Viewing variant');
       expect(fixture.nativeElement.textContent).toContain('← Back to Core');
+    });
+
+    it('the trigger label reflects the currently selected persona', async () => {
+      await createWithOwner(twoVariantProfile(), { isOwner: true });
+      component.selectVariantChip('react');
+      fixture.detectChanges();
+      expect(personaTrigger()?.textContent).toContain('react');
     });
 
     it('"← Back to Core" returns to the Core view and clears ?track=', async () => {
@@ -1000,36 +1042,59 @@ describe('ProfileEditorComponent', () => {
       });
     });
 
-    describe('delete variant', () => {
-      it('does nothing when the user cancels the confirmation', async () => {
+    describe('manage personas — delete (docs/PROFILE_PAGE_TABS.md UI feedback amendments 2026-08-31)', () => {
+      it('openManagePersonasDialog() passes the current variant tracks', async () => {
         await createWithOwner(twoVariantProfile(), { isOwner: true });
-        vi.stubGlobal('confirm', () => false);
+        const dialog = TestBed.inject(MatDialog);
+        const openSpy = vi.spyOn(dialog, 'open').mockReturnValue({
+          afterClosed: () => of([]),
+        } as unknown as ReturnType<MatDialog['open']>);
 
-        component.confirmDeleteVariant('react');
+        component.openManagePersonasDialog();
 
-        expect(component.document()?.variants['react']).toBeDefined();
-        vi.unstubAllGlobals();
+        expect(openSpy).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ data: { tracks: ['angular', 'react'] } }),
+        );
       });
 
-      it('removes the variant key as a normal dirty edit on confirmation', async () => {
+      it('does nothing when the dialog closes with no confirmed deletions', async () => {
         await createWithOwner(twoVariantProfile(), { isOwner: true });
-        vi.stubGlobal('confirm', () => true);
+        const dialog = TestBed.inject(MatDialog);
+        vi.spyOn(dialog, 'open').mockReturnValue({
+          afterClosed: () => of([]),
+        } as unknown as ReturnType<MatDialog['open']>);
 
-        component.confirmDeleteVariant('react');
+        component.openManagePersonasDialog();
+
+        expect(component.document()?.variants['react']).toBeDefined();
+        expect(component.isDirty()).toBe(false);
+      });
+
+      it('removes every track the dialog resolves with as a normal dirty edit', async () => {
+        await createWithOwner(twoVariantProfile(), { isOwner: true });
+        const dialog = TestBed.inject(MatDialog);
+        vi.spyOn(dialog, 'open').mockReturnValue({
+          afterClosed: () => of(['react']),
+        } as unknown as ReturnType<MatDialog['open']>);
+
+        component.openManagePersonasDialog();
 
         expect(component.document()?.variants['react']).toBeUndefined();
         expect(component.document()?.variants['angular']).toBeDefined(); // untouched
         expect(component.isDirty()).toBe(true);
-        vi.unstubAllGlobals();
       });
 
-      it('save() PUTs the document with the variant key gone and every other section byte-identical', async () => {
+      it('save() PUTs the document with the deleted variant key gone and every other section byte-identical', async () => {
         const original = twoVariantProfile();
         await createWithOwner(structuredClone(original), { isOwner: true });
-        vi.stubGlobal('confirm', () => true);
+        const dialog = TestBed.inject(MatDialog);
+        vi.spyOn(dialog, 'open').mockReturnValue({
+          afterClosed: () => of(['react']),
+        } as unknown as ReturnType<MatDialog['open']>);
         const putSpy = vi.spyOn(api, 'put').mockResolvedValue({ revision: 2, renderJobId: null });
 
-        component.confirmDeleteVariant('react');
+        component.openManagePersonasDialog();
         await component.save();
 
         expect(putSpy).toHaveBeenCalledTimes(1);
@@ -1039,20 +1104,21 @@ describe('ProfileEditorComponent', () => {
         expect(sent.core).toEqual(original.core);
         expect(sent.leftovers).toEqual(original.leftovers);
         expect(sent.uploads).toEqual(original.uploads);
-        vi.unstubAllGlobals();
       });
 
-      it('returns to Core when the deleted variant was the active one', async () => {
+      it('returns to Core when the deleted persona was the active one', async () => {
         await createWithOwner(twoVariantProfile(), { isOwner: true });
         component.selectVariantChip('react');
         fixture.detectChanges();
-        vi.stubGlobal('confirm', () => true);
+        const dialog = TestBed.inject(MatDialog);
+        vi.spyOn(dialog, 'open').mockReturnValue({
+          afterClosed: () => of(['react']),
+        } as unknown as ReturnType<MatDialog['open']>);
 
-        component.confirmDeleteVariant('react');
+        component.openManagePersonasDialog();
         fixture.detectChanges();
 
         expect(component.activeTrack()).toBeNull();
-        vi.unstubAllGlobals();
       });
     });
   });

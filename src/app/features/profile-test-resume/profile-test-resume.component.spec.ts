@@ -68,6 +68,42 @@ describe('ProfileTestResumeComponent', () => {
       component.selectTrack('react');
       expect(component.selectedTrack()).toBe('react');
     });
+
+    it('renders the "core" chip labeled "Universal (full profile)" while keeping the API value "core"', async () => {
+      await create();
+      vi.spyOn(api, 'get').mockResolvedValue(PROFILE_MOCK);
+      vi.spyOn(api, 'listPreviews').mockResolvedValue([]);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(component.trackLabel('core')).toBe('Universal (full profile)');
+      expect(component.trackLabel('react')).toBe('react');
+      const chips = Array.from(fixture.nativeElement.querySelectorAll('.track-chip')) as HTMLElement[];
+      expect(chips.map((el) => el.textContent?.trim())).toContain('Universal (full profile)');
+      expect(chips.map((el) => el.textContent?.trim())).not.toContain('core');
+    });
+
+    it('selecting the "Universal (full profile)" chip still requests the "core" track', async () => {
+      await create();
+      vi.spyOn(api, 'get').mockResolvedValue(PROFILE_MOCK);
+      vi.spyOn(api, 'listPreviews').mockResolvedValue([]);
+      vi.spyOn(api, 'requestPreview').mockResolvedValue({ jobId: 'job-1' });
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      component.selectTrack('react');
+      const universalChip = Array.from(
+        fixture.nativeElement.querySelectorAll('.track-chip') as NodeListOf<HTMLElement>,
+      ).find((el) => el.textContent?.trim() === 'Universal (full profile)');
+      universalChip?.click();
+      fixture.detectChanges();
+      expect(component.selectedTrack()).toBe('core');
+
+      await component.generatePreview();
+      expect(api.requestPreview).toHaveBeenCalledWith('core');
+    });
   });
 
   describe('generate → poll → done', () => {

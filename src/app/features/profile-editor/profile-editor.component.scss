@@ -4,20 +4,36 @@
   gap: var(--space-4);
 }
 
-.editor-shortcuts {
+// Compact hint replacing the old hero page-subtitle — the tab bar already
+// names the context, so this is just a one-line reminder, not a headline.
+.editor-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-neutral-600);
+}
+
+.editor-toolbar {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
+  justify-content: flex-end;
 }
 
-.editor-shortcuts a {
-  text-decoration: none;
-}
-
-.upload-link {
+.btn-icon-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   border: none;
+  background: none;
   cursor: pointer;
+  color: var(--color-neutral-600);
   font: inherit;
+  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+
+  &:hover {
+    color: var(--color-text);
+    background: var(--color-neutral-100, rgba(255, 255, 255, 0.06));
+  }
 }
 
 // Shared padding for every profile-editor section card — mirrors Filters'
@@ -122,15 +138,29 @@
   font-size: 13px;
 }
 
-// docs/PROFILE_PAGE_TABS.md S5 — Core-above-variants chip row + overlay.
-.variant-chip-row {
+// docs/PROFILE_PAGE_TABS.md S5 + UI feedback amendments (2026-08-31) —
+// Core-above-variants "Personas" dropdown + overlay. Replaces the old
+// always-visible chip row, which read as removable tags rather than a view
+// switcher.
+.persona-picker {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-3);
 }
 
-.variant-chip-row-label {
+.persona-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+
+.persona-trigger-label {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -138,18 +168,15 @@
   color: var(--color-neutral-600);
 }
 
-.variant-chip-wrap {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
+.persona-trigger-value {
+  font-weight: 600;
 }
 
-.variant-chip-delete {
-  font-size: 11px;
-}
-
-.variant-chip-add {
-  font-weight: 700;
+.persona-trigger-icon {
+  font-size: 18px;
+  height: 18px;
+  width: 18px;
+  color: var(--color-neutral-600);
 }
 
 .variant-overlay-banner {

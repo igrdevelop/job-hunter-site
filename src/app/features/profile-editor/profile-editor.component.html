@@ -1,25 +1,8 @@
 <div class="page">
-  <div class="page-header">
-    <h1>Profile</h1>
-  </div>
-  <p class="page-subtitle">
-    This is your career bank, not a resume — every generated CV is cut from it, so a
-    fuller profile means better tailoring. Add every role, every skill, every side
-    project. There's no "keep it to one page" here.
+  <p class="editor-hint">
+    Your career bank, not a resume — every generated CV is cut from it, so a fuller
+    profile means better tailoring. There's no "keep it to one page" here.
   </p>
-
-  <div class="editor-shortcuts">
-    <a class="tag tag-outline" routerLink="/profile/files">Candidate files</a>
-    <a class="tag tag-outline" routerLink="/profile/templates">Templates</a>
-    @if (document() && !parsedDraft() && !saving()) {
-      <button type="button" class="tag tag-outline upload-link" (click)="openUploadDialog()">
-        Upload another resume to merge
-      </button>
-      <button type="button" class="tag tag-outline upload-link" (click)="openHistoryDialog()">
-        History
-      </button>
-    }
-  </div>
 
   @if (loading()) {
     <mat-spinner diameter="24"></mat-spinner>
@@ -161,38 +144,46 @@
 
   @if (!parsedDraft() && document(); as profile) {
     @if (showVariantChips()) {
-      <div class="variant-chip-row" role="group" aria-label="Track variants">
-        <span class="variant-chip-row-label">Variants:</span>
-        <div class="filter-pills">
-          @for (track of variantTracks(); track track) {
-            <span class="variant-chip-wrap">
-              <button
-                type="button"
-                class="filter-pill variant-chip"
-                [class.active]="activeTrack() === track"
-                (click)="selectVariantChip(track)"
-              >
-                {{ track }}
-              </button>
-              <button
-                type="button"
-                class="btn-icon-sm variant-chip-delete"
-                (click)="confirmDeleteVariant(track)"
-                [attr.aria-label]="'Delete ' + track + ' variant'"
-              >
-                ✕
-              </button>
-            </span>
-          }
+      <div class="persona-picker">
+        <button
+          type="button"
+          class="persona-trigger"
+          [matMenuTriggerFor]="personasMenu"
+          aria-label="Choose persona"
+        >
+          <span class="persona-trigger-label">Personas:</span>
+          <span class="persona-trigger-value">{{ activeTrack() ?? 'Full profile' }}</span>
+          <mat-icon class="persona-trigger-icon" aria-hidden="true">expand_more</mat-icon>
+        </button>
+        <mat-menu #personasMenu="matMenu">
           <button
+            mat-menu-item
             type="button"
-            class="filter-pill variant-chip-add"
-            (click)="openAddVariantDialog()"
-            aria-label="Add track variant"
+            class="persona-menu-item"
+            role="menuitemradio"
+            [attr.aria-checked]="activeTrack() === null"
+            (click)="selectVariantChip(null)"
           >
-            +
+            <mat-icon>{{ activeTrack() === null ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
+            <span>Full profile</span>
           </button>
-        </div>
+          @for (track of variantTracks(); track track) {
+            <button
+              mat-menu-item
+              type="button"
+              class="persona-menu-item"
+              role="menuitemradio"
+              [attr.aria-checked]="activeTrack() === track"
+              (click)="selectVariantChip(track)"
+            >
+              <mat-icon>{{ activeTrack() === track ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
+              <span>{{ track }}</span>
+            </button>
+          }
+          <mat-divider></mat-divider>
+          <button mat-menu-item type="button" (click)="openAddVariantDialog()">+ Add persona…</button>
+          <button mat-menu-item type="button" (click)="openManagePersonasDialog()">Manage personas…</button>
+        </mat-menu>
       </div>
     }
 
@@ -865,6 +856,19 @@
           <li>{{ msg }}</li>
         }
       </ul>
+    }
+
+    @if (!saving()) {
+      <div class="editor-toolbar">
+        <button
+          type="button"
+          class="btn-icon-text history-btn"
+          (click)="openHistoryDialog()"
+          aria-label="Revision history"
+        >
+          <span aria-hidden="true">🕘</span> History
+        </button>
+      </div>
     }
 
     @if (isDirty() || saveError()) {
