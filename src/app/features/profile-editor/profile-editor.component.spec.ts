@@ -81,6 +81,29 @@ describe('ProfileEditorComponent', () => {
       expect(fieldChips('Disqualifying languages')).toEqual(['de', 'fr']);
     });
 
+    it('renders the employers card with protected chips, flexible employer fields, and project chips', () => {
+      expect(fieldChips('Protected employers')).toEqual(['Acme Corp']);
+      expect(fieldInputValue('Flexible employer name')).toBe('Beta Solutions');
+      expect(fieldInputValue('Flexible employer period')).toBe('Mar 2020 - Dec 2023');
+      expect(fieldChips('Flexible employer projects')).toEqual([
+        'E-commerce Platform',
+        'Marketing Website Revamp',
+      ]);
+    });
+
+    it('renders one row per education entry with an origin badge, plus school keyword and expected role count', () => {
+      const rows = Array.from(
+        fixture.nativeElement.querySelectorAll('.education-row'),
+      ) as HTMLElement[];
+      expect(rows.length).toBe(PROFILE_MOCK.profile.core.education.entries.length);
+      const texts = rows.map((el) => (el.querySelector('input') as HTMLInputElement).value);
+      expect(texts).toContain('Example University — Bachelor, Computer Science');
+      const badges = Array.from(rows[0].querySelectorAll('.tag')).map((el) => el.textContent?.trim());
+      expect(badges).toContain('Parsed');
+      expect(fieldInputValue('School keyword')).toBe('example university');
+      expect(fieldInputValue('Expected role count')).toBe('2');
+    });
+
     it('renders one row per skill category with its chip-listed items', () => {
       const rows = fixture.nativeElement.querySelectorAll('.skills-row');
       expect(rows.length).toBe(PROFILE_MOCK.profile.core.skills.length);
@@ -425,6 +448,99 @@ describe('ProfileEditorComponent', () => {
       expect(sent.core.roles[0].title).toBe('Lead Frontend Engineer');
       expect(sent.core.generation_notes).toBe('Story bank entry.');
       expect(sent.core.skills).toEqual(PROFILE_MOCK.profile.core.skills);
+      expect(sent.core.identity).toEqual(PROFILE_MOCK.profile.core.identity);
+    });
+  });
+
+  describe('employers + education editing', () => {
+    beforeEach(async () => {
+      await createWith(() => Promise.resolve(structuredClone(PROFILE_MOCK)));
+    });
+
+    it('updateFlexibleEmployer() edits a field and marks the draft dirty', () => {
+      expect(component.isDirty()).toBe(false);
+      component.updateFlexibleEmployer('name', 'Gamma Ventures');
+      expect(component.document()?.core.employers.flexible.name).toBe('Gamma Ventures');
+      expect(component.isDirty()).toBe(true);
+    });
+
+    it('addEmployerChip()/removeEmployerChip() edit the protected employers list, ignoring case-insensitive duplicates', () => {
+      component.setEmployerChipDraft('protected', 'acme corp'); // dup of existing 'Acme Corp'
+      component.addEmployerChip('protected');
+      expect(component.document()?.core.employers.protected).toEqual(['Acme Corp']);
+
+      component.setEmployerChipDraft('protected', 'New Employer Inc');
+      component.addEmployerChip('protected');
+      expect(component.document()?.core.employers.protected).toEqual(['Acme Corp', 'New Employer Inc']);
+
+      component.removeEmployerChip('protected', 'Acme Corp');
+      expect(component.document()?.core.employers.protected).toEqual(['New Employer Inc']);
+    });
+
+    it('addEmployerChip()/removeEmployerChip() edit the flexible employer projects list', () => {
+      const before = component.document()?.core.employers.flexible.projects.length ?? 0;
+      component.setEmployerChipDraft('projects', 'Internal Tools Rebuild');
+      component.addEmployerChip('projects');
+      expect(component.document()?.core.employers.flexible.projects.length).toBe(before + 1);
+      expect(component.document()?.core.employers.flexible.projects).toContain('Internal Tools Rebuild');
+
+      component.removeEmployerChip('projects', 'Internal Tools Rebuild');
+      expect(component.document()?.core.employers.flexible.projects.length).toBe(before);
+    });
+
+    it('discard() clears an uncommitted employer chip draft, not just the document', () => {
+      component.setEmployerChipDraft('protected', 'Draft Co');
+      expect(component.employerChipDrafts()['protected']).toBe('Draft Co');
+      component.updateFlexibleEmployer('name', 'Gamma Ventures'); // make something dirty so discard() has an effect
+      component.discard();
+      expect(component.employerChipDrafts()['protected']).toBe('');
+    });
+
+    it('addEducationEntry()/updateEducationEntry()/removeEducationEntry() edit the education entries list', () => {
+      const before = component.document()?.core.education.entries.length ?? 0;
+      component.addEducationEntry();
+      expect(component.document()?.core.education.entries.length).toBe(before + 1);
+      expect(component.document()?.core.education.entries.at(-1)?.origin).toBe('edited');
+
+      component.updateEducationEntry(before, 'MSc Computer Science, Somewhere University');
+      const added = component.document()?.core.education.entries[before];
+      expect(added?.text).toBe('MSc Computer Science, Somewhere University');
+      expect(added?.origin).toBe('edited');
+
+      component.removeEducationEntry(before);
+      expect(component.document()?.core.education.entries.length).toBe(before);
+    });
+
+    it('updateEducationEntry() flips a parsed entry to edited without touching the others', () => {
+      expect(component.document()?.core.education.entries[0].origin).toBe('parsed');
+      component.updateEducationEntry(0, 'Rewrote this entry.');
+      expect(component.document()?.core.education.entries[0].text).toBe('Rewrote this entry.');
+      expect(component.document()?.core.education.entries[0].origin).toBe('edited');
+      expect(component.document()?.core.education.entries[1].origin).toBe('parsed');
+    });
+
+    it('updateEducation() edits school_keyword and expected_role_count', () => {
+      component.updateEducation('school_keyword', 'somewhere university');
+      component.updateEducation('expected_role_count', 3);
+      const education = component.document()?.core.education;
+      expect(education?.school_keyword).toBe('somewhere university');
+      expect(education?.expected_role_count).toBe(3);
+    });
+
+    it('save() carries edited employers/education while skills, roles, and identity stay untouched', async () => {
+      const putSpy = vi.spyOn(api, 'put').mockResolvedValue({ revision: 2, renderJobId: null });
+      component.updateFlexibleEmployer('period', 'Mar 2020 - Present');
+      component.updateEducationEntry(0, 'MSc Computer Science, Somewhere University');
+      component.updateEducation('school_keyword', 'somewhere university');
+
+      await component.save();
+
+      const sent = putSpy.mock.calls[0][0];
+      expect(sent.core.employers.flexible.period).toBe('Mar 2020 - Present');
+      expect(sent.core.education.entries[0].text).toBe('MSc Computer Science, Somewhere University');
+      expect(sent.core.education.school_keyword).toBe('somewhere university');
+      expect(sent.core.skills).toEqual(PROFILE_MOCK.profile.core.skills);
+      expect(sent.core.roles).toEqual(PROFILE_MOCK.profile.core.roles);
       expect(sent.core.identity).toEqual(PROFILE_MOCK.profile.core.identity);
     });
   });

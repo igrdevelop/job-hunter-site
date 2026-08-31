@@ -379,6 +379,17 @@
   width: auto;
 }
 
+.education-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.education-fields {
+  margin-top: var(--space-4);
+}
+
 .leftovers-list {
   margin: 0;
   padding-left: 18px;

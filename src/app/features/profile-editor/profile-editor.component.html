@@ -357,6 +357,126 @@
     </section>
 
     <section class="card elev-sm">
+      <h2 class="section-title">Employers</h2>
+      <p class="hint">
+        Protected employers are redacted or generalized on generated CVs; the flexible
+        employer is the one that can be named freely.
+      </p>
+      <div class="field-grid">
+        <div class="field">
+          <span>Protected employers</span>
+          <div class="chips">
+            @for (item of profile.core.employers.protected; track item) {
+              <span class="chip">
+                {{ item }}
+                <button type="button" class="chip-x" (click)="removeEmployerChip('protected', item)" aria-label="Remove {{ item }}">×</button>
+              </span>
+            }
+            <input
+              class="chip-input"
+              type="text"
+              placeholder="Add employer…"
+              [ngModel]="employerChipDrafts()['protected'] ?? ''"
+              (ngModelChange)="setEmployerChipDraft('protected', $event)"
+              (keydown)="onEmployerChipKeydown($event, 'protected')"
+              (blur)="addEmployerChip('protected')"
+            />
+          </div>
+        </div>
+
+        <label class="field">
+          <span>Flexible employer name</span>
+          <input
+            class="input"
+            type="text"
+            [ngModel]="profile.core.employers.flexible.name"
+            (ngModelChange)="updateFlexibleEmployer('name', $event)"
+          />
+        </label>
+
+        <label class="field">
+          <span>Flexible employer period</span>
+          <input
+            class="input"
+            type="text"
+            [ngModel]="profile.core.employers.flexible.period"
+            (ngModelChange)="updateFlexibleEmployer('period', $event)"
+          />
+        </label>
+
+        <div class="field">
+          <span>Flexible employer projects</span>
+          <div class="chips">
+            @for (item of profile.core.employers.flexible.projects; track item) {
+              <span class="chip">
+                {{ item }}
+                <button type="button" class="chip-x" (click)="removeEmployerChip('projects', item)" aria-label="Remove {{ item }}">×</button>
+              </span>
+            }
+            <input
+              class="chip-input"
+              type="text"
+              placeholder="Add project…"
+              [ngModel]="employerChipDrafts()['projects'] ?? ''"
+              (ngModelChange)="setEmployerChipDraft('projects', $event)"
+              (keydown)="onEmployerChipKeydown($event, 'projects')"
+              (blur)="addEmployerChip('projects')"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card elev-sm">
+      <h2 class="section-title">Education</h2>
+      <p class="hint">
+        Degrees, courses, certifications — anything worth listing. School keyword and
+        expected role count feed the generation pipeline's own checks.
+      </p>
+      @if (profile.core.education.entries.length === 0) {
+        <p class="empty-state">No education entries yet.</p>
+      }
+      <div class="extras-list">
+        @for (entry of profile.core.education.entries; track $index) {
+          <div class="education-row">
+            <input
+              class="input"
+              type="text"
+              [ngModel]="entry.text"
+              (ngModelChange)="updateEducationEntry($index, $event)"
+            />
+            <span class="tag" [class.tag-accent]="isEdited(entry.origin)" [class.tag-outline]="!isEdited(entry.origin)">
+              {{ originLabel(entry.origin) }}
+            </span>
+            <button type="button" class="btn-icon-sm" (click)="removeEducationEntry($index)" aria-label="Remove education entry">✕</button>
+          </div>
+        }
+      </div>
+      <button type="button" class="btn btn-secondary" (click)="addEducationEntry()">+ Add entry</button>
+
+      <div class="field-grid education-fields">
+        <label class="field">
+          <span>School keyword</span>
+          <input
+            class="input"
+            type="text"
+            [ngModel]="profile.core.education.school_keyword"
+            (ngModelChange)="updateEducation('school_keyword', $event)"
+          />
+        </label>
+        <label class="field">
+          <span>Expected role count</span>
+          <input
+            class="input"
+            type="number"
+            [ngModel]="profile.core.education.expected_role_count || null"
+            (ngModelChange)="updateEducation('expected_role_count', $event ?? 0)"
+          />
+        </label>
+      </div>
+    </section>
+
+    <section class="card elev-sm">
       <div class="section-head">
         <h2 class="section-title">Skills</h2>
         @if (hasMultipleVariants()) {
