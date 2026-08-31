@@ -13,6 +13,17 @@ const FILES: ProfileRenderedFile[] = [
   { name: 'base_cv_angular.md', size: 2048, modifiedAt: '2026-08-30T12:00:00Z' },
 ];
 
+/** Deliberately out of semantic order + includes profile.json, to prove
+ * ordering/filtering happens client-side regardless of what the API returns. */
+const UNORDERED_FILES: ProfileRenderedFile[] = [
+  { name: 'generation_rules.local.md', size: 128, modifiedAt: '2026-08-30T12:00:00Z' },
+  { name: 'base_cv_react.md', size: 1024, modifiedAt: '2026-08-30T12:00:00Z' },
+  { name: 'profile.json', size: 4096, modifiedAt: '2026-08-30T12:00:00Z' },
+  { name: 'base_cv_angular.md', size: 2048, modifiedAt: '2026-08-30T12:00:00Z' },
+  { name: 'candidate_profile.md', size: 768, modifiedAt: '2026-08-30T12:00:00Z' },
+  { name: 'candidate.yaml', size: 512, modifiedAt: '2026-08-30T12:00:00Z' },
+];
+
 describe('ProfileRenderedFilesComponent', () => {
   let fixture: ComponentFixture<ProfileRenderedFilesComponent>;
   let component: ProfileRenderedFilesComponent;
@@ -79,6 +90,32 @@ describe('ProfileRenderedFilesComponent', () => {
       await component.viewFile(FILES[1]);
       expect(component.viewerError()).toContain('base_cv_angular.md');
       expect(component.selectedContent()).toBeNull();
+    });
+  });
+
+  describe('semantic ordering + hidden profile.json (docs/PROFILE_PAGE_TABS.md UI feedback amendments 2026-08-31)', () => {
+    beforeEach(async () => {
+      await create();
+      vi.spyOn(api, 'listRenderedFiles').mockResolvedValue(UNORDERED_FILES);
+      vi.spyOn(api, 'get').mockResolvedValue(PROFILE_MOCK);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    });
+
+    it('orders candidate.yaml, then candidate_profile.md, then base_cv_* alphabetically, then generation_rules.local.md', () => {
+      expect(component.files().map((f) => f.name)).toEqual([
+        'candidate.yaml',
+        'candidate_profile.md',
+        'base_cv_angular.md',
+        'base_cv_react.md',
+        'generation_rules.local.md',
+      ]);
+    });
+
+    it('hides profile.json from the list entirely', () => {
+      expect(component.files().some((f) => f.name === 'profile.json')).toBe(false);
+      expect(fixture.nativeElement.textContent).not.toContain('profile.json');
     });
   });
 

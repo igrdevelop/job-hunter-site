@@ -10,6 +10,21 @@ import { ProfileRenderedFile } from '../../core/api/models';
 import { safeResourceValue } from '../../core/utils/resource-value';
 
 /**
+ * Semantic ordering for the rendered-files list (docs/PROFILE_PAGE_TABS.md
+ * UI feedback amendments 2026-08-31): candidate.yaml (the structured facts)
+ * reads first, then the free-text career narrative, then every per-track
+ * base CV as one group, then the optional local generation-notes tail.
+ * Anything unrecognized sorts after all of those, alphabetically.
+ */
+function renderedFileRank(name: string): number {
+  if (name === 'candidate.yaml') return 0;
+  if (name === 'candidate_profile.md') return 1;
+  if (name.startsWith('base_cv_')) return 2;
+  if (name === 'generation_rules.local.md') return 3;
+  return 4;
+}
+
+/**
  * docs/PROFILE_PAGE_TABS.md tab 3 (Rendered files) — a purpose-built,
  * READ-ONLY view of the whitelisted files the profile renders into
  * (candidate.yaml, base_cv_<track>.md, …). STRICTLY read-only: this
@@ -36,7 +51,25 @@ export class ProfileRenderedFilesComponent {
   });
 
   readonly loading = computed(() => this.filesResource.isLoading() || this.profileResource.isLoading());
-  readonly files = computed<ProfileRenderedFile[]>(() => safeResourceValue(this.filesResource) ?? []);
+
+  /**
+   * Order the list by meaning, not alphabet — candidate.yaml (identity/facts)
+   * first, then the career narrative, then every per-track base CV
+   * (alphabetical within that group), then the optional local generation
+   * notes tail. `profile.json` is filtered out entirely (docs/
+   * PROFILE_PAGE_TABS.md UI feedback amendments 2026-08-31): nothing
+   * consumes it yet — it's internal groundwork for a future direct-structure
+   * consumer, not something a user should see in a "your files" list. The
+   * API may still serve it; this is a display-only filter/sort, not a
+   * whitelist change.
+   */
+  readonly files = computed<ProfileRenderedFile[]>(() => {
+    const all = safeResourceValue(this.filesResource) ?? [];
+    return all
+      .filter((f) => f.name !== 'profile.json')
+      .slice()
+      .sort((a, b) => renderedFileRank(a.name) - renderedFileRank(b.name) || a.name.localeCompare(b.name));
+  });
 
   /** `GET /api/profile/files` is api T2 — not deployed yet. A 404 is "not live", not a real error. */
   readonly unavailable = computed(() => {

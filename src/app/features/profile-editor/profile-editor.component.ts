@@ -1,8 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, resource, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatIconModule } from '@angular/material/icon';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ProfileApi } from '../../core/api/profile.api';
@@ -28,6 +31,10 @@ import {
   AddVariantDialogComponent,
   AddVariantDialogData,
 } from './add-variant-dialog/add-variant-dialog.component';
+import {
+  ManagePersonasDialogComponent,
+  ManagePersonasDialogData,
+} from './manage-personas-dialog/manage-personas-dialog.component';
 import { safeResourceValue } from '../../core/utils/resource-value';
 import { ProfileDraftBridgeService } from './profile-draft-bridge.service';
 
@@ -137,7 +144,7 @@ type QuestionnaireListKey =
 
 @Component({
   selector: 'app-profile-editor',
-  imports: [FormsModule, RouterLink, MatProgressSpinnerModule],
+  imports: [FormsModule, MatProgressSpinnerModule, MatDividerModule, MatIconModule, MatMenuModule],
   templateUrl: './profile-editor.component.html',
   styleUrl: './profile-editor.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -689,14 +696,20 @@ export class ProfileEditorComponent {
     this.selectVariantChip(track);
   }
 
-  confirmDeleteVariant(track: string): void {
-    const ok = confirm(
-      `Delete the "${track}" variant? The next publish removes its rendered base_cv_${track}.md ` +
-        `file. This is a view/edit context only — it does not change what the bot generates for ` +
-        `individual vacancies.`,
+  /** docs/PROFILE_PAGE_TABS.md UI feedback amendments (2026-08-31): deletion moved
+   * from an inline chip × into this "Manage personas…" dialog — the dialog itself
+   * confirms each delete (same stale-base-CV warning as before) and resolves with
+   * the list of tracks the user actually confirmed; this just applies them. */
+  openManagePersonasDialog(): void {
+    const ref = this.dialog.open<ManagePersonasDialogComponent, ManagePersonasDialogData, string[]>(
+      ManagePersonasDialogComponent,
+      { width: '420px', data: { tracks: this.variantTracks() } },
     );
-    if (!ok) return;
-    this.deleteVariant(track);
+    ref.afterClosed().subscribe((deleted) => {
+      for (const track of deleted ?? []) {
+        this.deleteVariant(track);
+      }
+    });
   }
 
   /** Removes the key as a normal dirty edit — the bot renderer already prunes the

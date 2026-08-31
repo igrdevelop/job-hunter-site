@@ -70,6 +70,13 @@ export class ProfileTestResumeComponent {
     this.selectedTrack.set(track);
   }
 
+  /** Display label for a track chip — the API value stays 'core', only the
+   * shown text changes (docs/PROFILE_PAGE_TABS.md UI feedback amendments
+   * 2026-08-31: "core" read as a jargon-y leftover to the owner). */
+  trackLabel(track: string): string {
+    return track === 'core' ? 'Universal (full profile)' : track;
+  }
+
   readonly state = signal<PreviewState>('idle');
   readonly errorMessage = signal<string | null>(null);
   /** 409 — no stored profile yet: the empty state replaces the generate control entirely. */
