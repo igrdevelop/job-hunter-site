@@ -148,6 +148,21 @@ History panel (`GET revisions`) + restore with confirm; after restore the
 editor reloads the document. Undo-after-bad-merge is the reason this exists —
 keep it boring.
 
+## Post-F6 gap fix: employers + education cards
+
+None of F1–F6 ever explicitly scoped UI for `core.employers` (protected list +
+the one flexible employer) or `core.education` (entries with per-entry origin,
+`school_keyword`, `expected_role_count`) — F1's read-only skeleton only listed
+identity/questionnaire/skills/roles/leftovers, even though both fields are
+part of the contract (see "Key shapes" above) and both already had working
+`applyParsedMerge()` logic from F5. Two new cards were added between
+Questionnaire and Skills to close the gap, following the established patterns:
+protected employers and flexible-employer projects are chip lists (F3/F4 chip
+UX, no origin — the schema doesn't track one at that level); education entries
+are edited via an Extras-style row (text input + origin badge + remove, F4's
+`addExtra`/`updateExtra`/`removeExtra` pattern) since each entry carries its
+own `origin` in the schema, unlike a skill item.
+
 ## Risks / notes
 
 - **F1–F2 do not block on the API**: mock-first, flag-gated, same as Filters.

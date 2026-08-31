@@ -8,8 +8,10 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { ProfileApi } from '../../core/api/profile.api';
 import {
   ProfileDocument,
+  ProfileEducation,
   ProfileErrors,
   ProfileExperience,
+  ProfileFlexibleEmployer,
   ProfileIdentity,
   ProfileLocation,
   ProfileOrigin,
@@ -206,6 +208,7 @@ export class ProfileEditorComponent {
       this.activeTab.set(CORE_TAB);
       this.chipDrafts.set({});
       this.questionnaireChipDrafts.set({});
+      this.employerChipDrafts.set({ protected: '', projects: '' });
       this.roleActiveTabs.set({});
       this.saveError.set(null);
       this.fieldErrors.set([]);
@@ -319,6 +322,130 @@ export class ProfileEditorComponent {
     this.draft.set({
       ...doc,
       core: { ...doc.core, location: { ...doc.core.location, [listKey]: list } },
+    });
+  }
+
+  // ── Employers (protected list + the one flexible employer) ───────────────
+
+  readonly employerChipDrafts = signal<Record<'protected' | 'projects', string>>({
+    protected: '',
+    projects: '',
+  });
+
+  updateFlexibleEmployer<K extends keyof ProfileFlexibleEmployer>(
+    field: K,
+    value: ProfileFlexibleEmployer[K],
+  ): void {
+    const doc = this.draft();
+    if (!doc) return;
+    this.draft.set({
+      ...doc,
+      core: {
+        ...doc.core,
+        employers: { ...doc.core.employers, flexible: { ...doc.core.employers.flexible, [field]: value } },
+      },
+    });
+  }
+
+  private employerChipList(key: 'protected' | 'projects'): string[] {
+    const doc = this.document();
+    if (!doc) return [];
+    return key === 'protected' ? doc.core.employers.protected : doc.core.employers.flexible.projects;
+  }
+
+  private setEmployerChipList(key: 'protected' | 'projects', list: string[]): void {
+    const doc = this.draft();
+    if (!doc) return;
+    if (key === 'protected') {
+      this.draft.set({ ...doc, core: { ...doc.core, employers: { ...doc.core.employers, protected: list } } });
+      return;
+    }
+    this.draft.set({
+      ...doc,
+      core: {
+        ...doc.core,
+        employers: { ...doc.core.employers, flexible: { ...doc.core.employers.flexible, projects: list } },
+      },
+    });
+  }
+
+  setEmployerChipDraft(key: 'protected' | 'projects', value: string): void {
+    this.employerChipDrafts.update((m) => ({ ...m, [key]: value }));
+  }
+
+  onEmployerChipKeydown(event: KeyboardEvent, key: 'protected' | 'projects'): void {
+    if (event.key === 'Enter' || event.key === ',') {
+      event.preventDefault();
+      this.addEmployerChip(key);
+    }
+  }
+
+  addEmployerChip(key: 'protected' | 'projects'): void {
+    const raw = (this.employerChipDrafts()[key] ?? '').trim();
+    if (!raw) return;
+    const list = this.employerChipList(key);
+    if (!list.some((x) => x.toLowerCase() === raw.toLowerCase())) {
+      this.setEmployerChipList(key, [...list, raw]);
+    }
+    this.setEmployerChipDraft(key, '');
+  }
+
+  removeEmployerChip(key: 'protected' | 'projects', item: string): void {
+    this.setEmployerChipList(
+      key,
+      this.employerChipList(key).filter((x) => x !== item),
+    );
+  }
+
+  // ── Education (per-entry origin, like extras) ─────────────────────────────
+
+  updateEducation<K extends keyof ProfileEducation>(field: K, value: ProfileEducation[K]): void {
+    const doc = this.draft();
+    if (!doc) return;
+    this.draft.set({ ...doc, core: { ...doc.core, education: { ...doc.core.education, [field]: value } } });
+  }
+
+  addEducationEntry(): void {
+    const doc = this.draft();
+    if (!doc) return;
+    this.draft.set({
+      ...doc,
+      core: {
+        ...doc.core,
+        education: {
+          ...doc.core.education,
+          entries: [...doc.core.education.entries, { text: '', origin: 'edited' }],
+        },
+      },
+    });
+  }
+
+  updateEducationEntry(index: number, text: string): void {
+    const doc = this.draft();
+    if (!doc) return;
+    this.draft.set({
+      ...doc,
+      core: {
+        ...doc.core,
+        education: {
+          ...doc.core.education,
+          entries: doc.core.education.entries.map((e, i) =>
+            i === index ? { ...e, text, origin: 'edited' } : e,
+          ),
+        },
+      },
+    });
+  }
+
+  removeEducationEntry(index: number): void {
+    const doc = this.draft();
+    if (!doc) return;
+    this.draft.set({
+      ...doc,
+      core: {
+        ...doc.core,
+        education: { ...doc.core.education, entries: doc.core.education.entries.filter((_, i) => i !== index) },
+      },
     });
   }
 
@@ -938,6 +1065,7 @@ export class ProfileEditorComponent {
     this.activeTab.set(CORE_TAB);
     this.chipDrafts.set({});
     this.questionnaireChipDrafts.set({});
+    this.employerChipDrafts.set({ protected: '', projects: '' });
     this.roleActiveTabs.set({});
     this.saveError.set(null);
     this.fieldErrors.set([]);
