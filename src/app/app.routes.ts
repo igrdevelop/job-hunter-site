@@ -64,10 +64,13 @@ export const routes: Routes = [
             ],
           },
           {
+            // Tab shell (docs/PROFILE_PAGE_TABS.md S1): Uploads / Editor / Rendered
+            // files / Test resume, tab state via ?tab=. Mounts ProfileEditorComponent
+            // (F1-F6) as the default "editor" tab's content.
             path: '',
             loadComponent: () =>
-              import('./features/profile-editor/profile-editor.component').then(
-                (m) => m.ProfileEditorComponent,
+              import('./features/profile-tabs/profile-tabs.component').then(
+                (m) => m.ProfileTabsComponent,
               ),
           },
           {

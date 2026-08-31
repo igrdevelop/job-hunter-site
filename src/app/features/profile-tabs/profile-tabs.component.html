@@ -1,0 +1,50 @@
+<div class="page">
+  <nav class="filter-pills profile-tab-strip" role="tablist" aria-label="Profile sections">
+    @for (tab of visibleTabs(); track tab.key) {
+      <button
+        type="button"
+        class="filter-pill"
+        role="tab"
+        [class.active]="activeTab() === tab.key"
+        [attr.aria-selected]="activeTab() === tab.key"
+        (click)="selectTab(tab.key)"
+      >
+        {{ tab.label }}
+      </button>
+    }
+  </nav>
+
+  <div class="tab-content">
+    @switch (activeTab()) {
+      @case ('uploads') {
+        <section class="card elev-sm profile-section">
+          <h2 class="section-title">Загрузки</h2>
+          <p class="hint">
+            Upload a resume to parse into your profile, and see past uploads with their parse status
+            here.
+          </p>
+        </section>
+      }
+      @case ('editor') {
+        <app-profile-editor />
+      }
+      @case ('files') {
+        <section class="card elev-sm profile-section">
+          <h2 class="section-title">Итоговые файлы</h2>
+          <p class="hint">
+            A read-only view of the files your profile renders into — candidate.yaml, the per-track
+            base CVs, the career narrative.
+          </p>
+        </section>
+      }
+      @case ('preview') {
+        <section class="card elev-sm profile-section">
+          <h2 class="section-title">Тестовое резюме</h2>
+          <p class="hint">
+            Generate a no-vacancy preview CV from your profile per track, and browse past previews.
+          </p>
+        </section>
+      }
+    }
+  </div>
+</div>

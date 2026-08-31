@@ -12,7 +12,7 @@ import { FilesApi } from './core/api/files.api';
 import { ProfileApi } from './core/api/profile.api';
 import { TemplatesComponent } from './features/templates/templates.component';
 import { ProfileComponent } from './features/profile/profile.component';
-import { ProfileEditorComponent } from './features/profile-editor/profile-editor.component';
+import { ProfileTabsComponent } from './features/profile-tabs/profile-tabs.component';
 
 describe('app routes — Templates under Profile', () => {
   let router: Router;
@@ -49,10 +49,12 @@ describe('app routes — Templates under Profile', () => {
     expect(router.url).toBe('/profile/templates');
   });
 
-  it('renders ProfileEditorComponent at /profile', async () => {
+  it('renders ProfileTabsComponent at /profile, with the editor tab mounted by default', async () => {
     const harness = await RouterTestingHarness.create();
-    const component = await harness.navigateByUrl('/profile', ProfileEditorComponent);
-    expect(component).toBeInstanceOf(ProfileEditorComponent);
+    const component = await harness.navigateByUrl('/profile', ProfileTabsComponent);
+    expect(component).toBeInstanceOf(ProfileTabsComponent);
+    expect(component.activeTab()).toBe('editor');
+    expect(harness.routeNativeElement?.querySelector('app-profile-editor')).toBeTruthy();
   });
 
   it('renders ProfileComponent (file browser) at /profile/files', async () => {

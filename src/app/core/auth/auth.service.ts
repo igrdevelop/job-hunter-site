@@ -7,6 +7,18 @@ import { DownloadTokenResponse, LoginResponse, User } from './user.model';
 
 const TOKEN_KEY = 'job-hunter-token';
 
+/**
+ * Temporary bridge until job-hunter-api ships `isOwner` on the auth payload
+ * (api work order T3). Same fallback shape as `PROFILE_MOCK_FALLBACK_ENABLED`
+ * / `FILTERS_MOCK_FALLBACK_ENABLED`: used only when the server hasn't sent
+ * the real field. Defaults `true` so today's single-real-user deployment
+ * keeps showing owner-only profile UI (the Test Resume tab, the variant
+ * chip row) — a real `isOwner: false` on a future account, once T3 ships,
+ * always wins over this fallback.
+ * TODO(profile-tabs): delete this fallback once /auth/me returns isOwner.
+ */
+export const OWNER_FLAG_FALLBACK_ENABLED = true;
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
@@ -18,6 +30,15 @@ export class AuthService {
 
   readonly isLoggedIn = computed(() => this.token() !== null);
   readonly currentUser = this.user.asReadonly();
+
+  /**
+   * See `OWNER_FLAG_FALLBACK_ENABLED` above for the fallback semantics.
+   * Reads through `currentUser` (not the private `user` signal directly) so
+   * specs can drive it the same way every other consumer of `currentUser`
+   * already does (`vi.spyOn(authService, 'currentUser').mockReturnValue(...)`,
+   * see settings.component.spec.ts's `isAdmin` coverage).
+   */
+  readonly isOwner = computed(() => this.currentUser()?.isOwner ?? OWNER_FLAG_FALLBACK_ENABLED);
 
   private readStoredToken(): string | null {
     if (typeof localStorage === 'undefined') {
