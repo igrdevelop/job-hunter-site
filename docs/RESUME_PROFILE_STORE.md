@@ -69,6 +69,12 @@ profile document and editable.
 
 ## Routing decision
 
+> **Amended by `docs/PROFILE_PAGE_TABS.md` (2026-08-31):** `/profile` becomes
+> a four-tab page (Uploads / Editor / Rendered files / Test resume) with the
+> editor below as the default tab; see that doc for the tab shell, flags and
+> the Core-above-variants editor layout. The `/profile/files` move below
+> stands for the transition only — it later redirects to `/profile?tab=files`.
+
 `/profile` today is the candidate-FILES browser. The editor becomes the
 product surface: `/profile` → the new editor; the file browser moves to
 `/profile/files` (redirect old deep links `/profile/<path>` →
