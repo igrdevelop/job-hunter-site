@@ -797,15 +797,24 @@
         <h2 class="section-title">Couldn't place this</h2>
         <p class="hint">
           Fragments the parser found but couldn't confidently place anywhere — nothing
-          here is silently dropped.
+          here is silently dropped. Add each one as an extra, or dismiss it once you've
+          decided it isn't worth keeping.
         </p>
         <ul class="leftovers-list">
           @for (item of leftovers(); track $index) {
-            <li>
-              {{ item.text }}
-              @if (leftoverSourceFilename(item); as filename) {
-                <span class="text-muted">— from {{ filename }}</span>
-              }
+            <li class="leftover-row">
+              <div class="leftover-body">
+                {{ item.text }}
+                @if (leftoverSourceFilename(item); as filename) {
+                  <span class="text-muted">— from {{ filename }}</span>
+                }
+              </div>
+              <div class="leftover-actions">
+                <button type="button" class="btn btn-ghost" (click)="addLeftoverAsExtra($index)">
+                  Add as extra
+                </button>
+                <button type="button" class="btn-icon-sm" (click)="dismissLeftover($index)" aria-label="Dismiss">✕</button>
+              </div>
             </li>
           }
         </ul>
