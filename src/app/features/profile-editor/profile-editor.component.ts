@@ -24,6 +24,7 @@ import {
   RevisionsHistoryDialogData,
 } from './revisions-history-dialog/revisions-history-dialog.component';
 import { safeResourceValue } from '../../core/utils/resource-value';
+import { ProfileDraftBridgeService } from './profile-draft-bridge.service';
 
 /** The skills table edits either core.skills ('core') or variants[track].skills. */
 const CORE_TAB = 'core';
@@ -132,6 +133,7 @@ export class ProfileEditorComponent {
   private readonly api = inject(ProfileApi);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
+  private readonly draftBridge = inject(ProfileDraftBridgeService);
 
   private readonly profileResource = resource({
     loader: () => this.api.get(),
@@ -212,6 +214,22 @@ export class ProfileEditorComponent {
       this.roleActiveTabs.set({});
       this.saveError.set(null);
       this.fieldErrors.set([]);
+    });
+
+    // docs/PROFILE_PAGE_TABS.md S2: a parse completed on the Uploads tab (a
+    // different mounted component) and handed its draft here via the bridge.
+    // Wait for the profile load above to seed `document()` first — the merge
+    // proposals below compare the parsed draft against the CURRENT profile,
+    // and applying it before that load resolves would wrongly treat a
+    // profile that's simply still loading as "nothing to merge with yet".
+    effect(() => {
+      if (!this.profileResource.hasValue()) return;
+      const bridged = this.draftBridge.pending();
+      if (!bridged) return;
+      this.draftBridge.consume();
+      this.parsedDraft.set(bridged);
+      this.skillAcceptance.set({});
+      this.roleChoices.set({});
     });
   }
 

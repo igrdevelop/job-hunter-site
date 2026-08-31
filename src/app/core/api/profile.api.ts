@@ -6,8 +6,12 @@ import {
   ProfileDocument,
   ProfileGetResponse,
   ProfileJob,
+  ProfilePreviewCreated,
+  ProfilePreviewListItem,
   ProfilePutResponse,
+  ProfileRenderedFile,
   ProfileRevision,
+  ProfileUploadListEntry,
   ProfileUploadResponse,
 } from './models';
 import { cloneProfileMock } from '../../features/profile-editor/mock/profile.mock';
@@ -95,6 +99,63 @@ export class ProfileApi {
     return firstValueFrom(
       this.http.post<ProfilePutResponse>(`${this.baseUrl}/profile/revisions/${rev}/restore`, {}),
     );
+  }
+
+  // ── Tab 1 (Uploads) — docs/PROFILE_PAGE_TABS.md T2, not deployed yet ─────
+
+  /**
+   * GET /api/profile/uploads — no mock fallback (this is a listing endpoint,
+   * not a document GET; faking rows would misrepresent real upload history).
+   * The caller is responsible for treating a 404 as "not deployed yet" —
+   * same discipline as tab 3's file listing below.
+   */
+  listUploads(): Promise<ProfileUploadListEntry[]> {
+    return firstValueFrom(
+      this.http.get<ProfileUploadListEntry[]>(`${this.baseUrl}/profile/uploads`),
+    );
+  }
+
+  // ── Tab 3 (Rendered files) — docs/PROFILE_PAGE_TABS.md T2, not deployed yet ─
+
+  /** GET /api/profile/files — the rendered files list (whitelist-enforced server-side). */
+  listRenderedFiles(): Promise<ProfileRenderedFile[]> {
+    return firstValueFrom(
+      this.http.get<ProfileRenderedFile[]>(`${this.baseUrl}/profile/files`),
+    );
+  }
+
+  /** GET /api/profile/files/:name — read-only content viewer. Never a mutation. */
+  getRenderedFileContent(name: string): Promise<string> {
+    return firstValueFrom(
+      this.http.get(`${this.baseUrl}/profile/files/${encodeURIComponent(name)}`, {
+        responseType: 'text',
+      }),
+    );
+  }
+
+  // ── Tab 4 (Test resume) — docs/PROFILE_PAGE_TABS.md T1, deployed ─────────
+
+  /**
+   * POST /api/profile/preview → 201 { jobId }. Poll via the existing getJob().
+   * 409 = no stored profile yet (caller shows the "publish first" empty state);
+   * 429 = throttled (10/hour/user).
+   */
+  requestPreview(track: string): Promise<ProfilePreviewCreated> {
+    return firstValueFrom(
+      this.http.post<ProfilePreviewCreated>(`${this.baseUrl}/profile/preview`, { track }),
+    );
+  }
+
+  /** GET /api/profile/previews — newest-first history, per the API contract. */
+  listPreviews(): Promise<ProfilePreviewListItem[]> {
+    return firstValueFrom(
+      this.http.get<ProfilePreviewListItem[]>(`${this.baseUrl}/profile/previews`),
+    );
+  }
+
+  /** GET /api/profile/previews/:track/:ts/:file — direct URL for the auth-token download pattern. */
+  getPreviewFileUrl(track: string, timestamp: string, file: string): string {
+    return `${this.baseUrl}/profile/previews/${encodeURIComponent(track)}/${encodeURIComponent(timestamp)}/${encodeURIComponent(file)}`;
   }
 }
 

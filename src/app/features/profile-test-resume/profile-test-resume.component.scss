@@ -1,0 +1,126 @@
+.profile-section {
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.section-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.review-subtitle {
+  margin: var(--space-2) 0 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-neutral-600);
+}
+
+.hint.warn {
+  color: var(--color-accent-600);
+}
+
+.unavailable {
+  font-style: italic;
+}
+
+.error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-error);
+}
+
+.empty-state {
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--color-neutral-300);
+  color: var(--color-neutral-600);
+  font-size: 14px;
+  width: 100%;
+}
+
+.track-row {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.track-chip {
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-neutral-400);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  cursor: pointer;
+  text-transform: lowercase;
+
+  &.active {
+    border-color: var(--color-accent-500);
+    background: var(--color-accent-100);
+    color: var(--color-accent-700, var(--color-accent-600));
+    font-weight: 600;
+  }
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.progress p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-neutral-600);
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: var(--space-2);
+}
+
+.history-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-neutral-200);
+  flex-wrap: wrap;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.date {
+  font-size: 12px;
+  color: var(--color-neutral-500);
+}
+
+.files {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.file-link {
+  border: none;
+  background: none;
+  color: var(--color-accent-600);
+  cursor: pointer;
+  font-size: 13px;
+  text-decoration: underline;
+  padding: 0;
+}

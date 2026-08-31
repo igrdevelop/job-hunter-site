@@ -10,6 +10,7 @@ import { ProfileEditorComponent } from './profile-editor.component';
 import { ProfileApi } from '../../core/api/profile.api';
 import { ProfileDocument } from '../../core/api/models';
 import { PROFILE_MOCK } from './mock/profile.mock';
+import { ProfileDraftBridgeService } from './profile-draft-bridge.service';
 
 describe('ProfileEditorComponent', () => {
   let fixture: ComponentFixture<ProfileEditorComponent>;
@@ -1374,6 +1375,44 @@ describe('ProfileEditorComponent', () => {
     it('shows an error message instead of the empty state', () => {
       expect(component.errorMessage()).toBeTruthy();
       expect(component.showEmptyState()).toBe(false);
+    });
+  });
+
+  // docs/PROFILE_PAGE_TABS.md S2: a parse completed on the (sibling) Uploads
+  // tab hands its draft to this component via ProfileDraftBridgeService,
+  // since the two are mounted one at a time under the tab shell's @switch.
+  describe('draft bridge (docs/PROFILE_PAGE_TABS.md S2)', () => {
+    it('adopts a draft submitted to the bridge before mount, once the profile load resolves', async () => {
+      await TestBed.configureTestingModule({
+        imports: [ProfileEditorComponent],
+        providers: [
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          provideRouter([]),
+          provideAnimationsAsync(),
+        ],
+      }).compileComponents();
+
+      api = TestBed.inject(ProfileApi);
+      vi.spyOn(api, 'get').mockResolvedValue(null);
+
+      const bridge = TestBed.inject(ProfileDraftBridgeService);
+      const parsed = structuredClone(PROFILE_MOCK.profile);
+      bridge.submit(parsed);
+
+      fixture = TestBed.createComponent(ProfileEditorComponent);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(component.parsedDraft()).toEqual(parsed);
+      expect(bridge.pending()).toBeNull(); // consumed exactly once
+    });
+
+    it('does nothing when no draft is pending', async () => {
+      await createWith(() => Promise.resolve(PROFILE_MOCK));
+      expect(component.parsedDraft()).toBeNull();
     });
   });
 });

@@ -1,5 +1,17 @@
 # Profile Page Tabs — site repo work order
 
+> **Amendment (2026-08-31, S2-S4 content phase):** the shipped UI copy for
+> the four tab labels and every placeholder/empty-state string is **English**
+> — matching the rest of the site (see the 2026-08-09 Filters-page copy fix
+> in CLAUDE.md's work log). The Cyrillic labels below (Загрузки / Редактор /
+> Итоговые файлы / Тестовое резюме) and the Russian UX copy throughout this
+> doc were the owner's own conversational shorthand while deciding the
+> layout, never an instruction to ship Russian strings — S1 (PR #31) copying
+> them verbatim into the tab bar was a work-order misreading, caught in
+> review of the live site and fixed in the S2-S4 PR. Left as-is below for
+> historical record of the decision; do not copy the Cyrillic strings into
+> new UI code.
+
 Companion of the bot repo's `docs/PROFILE_PAGE_TABS_WORKORDER.md` (the
 owner-approved decisions, 2026-08-31) and `job-hunter-api/docs/
 PROFILE_PAGE_TABS.md` (the REST additions, phases T1–T3). This is a LAYOUT

@@ -1,0 +1,42 @@
+<section class="card elev-sm profile-section">
+  <h2 class="section-title">Uploads</h2>
+  <p class="hint">
+    Upload a resume to parse into your profile. A completed parse opens the confirmation
+    screen on the Editor tab, where you choose what to bring in.
+  </p>
+
+  <button mat-flat-button color="primary" type="button" (click)="openUploadDialog()">
+    Upload resume
+  </button>
+
+  @if (loading()) {
+    <mat-spinner diameter="24" class="spinner"></mat-spinner>
+  }
+
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  }
+
+  @if (unavailable()) {
+    <p class="hint unavailable">Upload history isn't available yet — check back soon.</p>
+  } @else if (!loading() && uploads().length === 0) {
+    <p class="hint">No uploads yet.</p>
+  } @else if (uploads().length > 0) {
+    <div class="upload-list">
+      @for (entry of uploads(); track entry.id) {
+        <div class="upload-row">
+          <span class="filename">{{ entry.filename }}</span>
+          <span class="date">{{ entry.uploadedAt | date: 'medium' }}</span>
+          <span
+            class="tag"
+            [class.tag-accent]="entry.jobStatus === 'done'"
+            [class.tag-neutral]="isTerminalError(entry.jobStatus)"
+            [class.tag-outline]="entry.jobStatus === 'pending' || entry.jobStatus === 'running'"
+          >
+            {{ statusLabel(entry.jobStatus) }}
+          </span>
+        </div>
+      }
+    </div>
+  }
+</section>

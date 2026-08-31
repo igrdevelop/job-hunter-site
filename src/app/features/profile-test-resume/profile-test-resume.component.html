@@ -1,0 +1,98 @@
+<section class="card elev-sm profile-section">
+  <h2 class="section-title">Test Resume</h2>
+  <p class="hint">
+    Generate a no-vacancy preview CV from your profile, per track, and browse past previews.
+    This is exactly what the system would produce from your profile today — production layout,
+    no watermark.
+  </p>
+
+  @if (needsPublish()) {
+    <div class="empty-state">
+      <p>Publish your profile first — there's nothing to generate a preview from yet.</p>
+    </div>
+  } @else {
+    <div class="track-row">
+      @for (track of tracks(); track track) {
+        <button
+          type="button"
+          class="track-chip"
+          [class.active]="selectedTrack() === track"
+          (click)="selectTrack(track)"
+        >
+          {{ track }}
+        </button>
+      }
+    </div>
+
+    <button
+      mat-flat-button
+      color="primary"
+      type="button"
+      [disabled]="state() === 'generating' || state() === 'polling'"
+      (click)="generatePreview()"
+    >
+      Generate preview
+    </button>
+
+    @if (throttled()) {
+      <p class="hint warn">You're generating previews too quickly — try again in a bit.</p>
+    }
+
+    @if (state() === 'generating') {
+      <div class="progress">
+        <mat-spinner diameter="20"></mat-spinner>
+        <p>Starting…</p>
+      </div>
+    }
+
+    @if (state() === 'polling') {
+      <div class="progress">
+        <mat-spinner diameter="20"></mat-spinner>
+        <p>
+          Queued…
+          @if (isSlow()) {
+            this can take a while.
+          }
+        </p>
+      </div>
+    }
+
+    @if (state() === 'error' && errorMessage()) {
+      <p class="error">{{ errorMessage() }}</p>
+    }
+
+    @if (state() === 'idle' && errorMessage()) {
+      <p class="error">{{ errorMessage() }}</p>
+    }
+  }
+
+  <h3 class="review-subtitle">History</h3>
+  @if (historyLoading()) {
+    <mat-spinner diameter="20"></mat-spinner>
+  }
+  @if (historyUnavailable()) {
+    <p class="hint unavailable">Preview history isn't available yet — check back soon.</p>
+  } @else if (!historyLoading() && history().length === 0) {
+    <p class="hint">No previews yet — generate one above.</p>
+  } @else {
+    <div class="history-list">
+      @for (item of history(); track item.track + item.timestamp) {
+        <div class="history-row">
+          <span class="tag tag-outline">{{ item.track }}</span>
+          <span class="date">{{ item.timestamp }}</span>
+          <div class="files">
+            @for (file of item.files; track file) {
+              <button
+                type="button"
+                class="file-link"
+                (click)="downloadPreviewFile(item.track, item.timestamp, file)"
+              >
+                {{ file }}
+              </button>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+</section>

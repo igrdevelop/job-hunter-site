@@ -9,6 +9,9 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { ProfileEditorComponent } from '../profile-editor/profile-editor.component';
+import { ProfileUploadsComponent } from '../profile-uploads/profile-uploads.component';
+import { ProfileRenderedFilesComponent } from '../profile-rendered-files/profile-rendered-files.component';
+import { ProfileTestResumeComponent } from '../profile-test-resume/profile-test-resume.component';
 
 /**
  * Site-side feature flag for tab 3 (Rendered files) — default ON per the
@@ -36,19 +39,30 @@ interface ProfileTabDef {
   label: string;
 }
 
-/** Labels are the exact Russian copy from the owner-approved work order (docs/PROFILE_PAGE_TABS.md). */
+/**
+ * English UI copy, matching the rest of the site (see the 2026-08-09 filters
+ * copy fix). The work order (docs/PROFILE_PAGE_TABS.md) used Russian labels
+ * in its own conversational text — that was never meant as the shipped UI
+ * string, and S1 (PR #31) copying it verbatim was a work-order mistake,
+ * caught in review of the live site. See that doc's amendment note.
+ */
 const ALL_TABS: ProfileTabDef[] = [
-  { key: 'uploads', label: 'Загрузки' },
-  { key: 'editor', label: 'Редактор' },
-  { key: 'files', label: 'Итоговые файлы' },
-  { key: 'preview', label: 'Тестовое резюме' },
+  { key: 'uploads', label: 'Uploads' },
+  { key: 'editor', label: 'Editor' },
+  { key: 'files', label: 'Rendered Files' },
+  { key: 'preview', label: 'Test Resume' },
 ];
 
 const DEFAULT_TAB: ProfileTabKey = 'editor';
 
 @Component({
   selector: 'app-profile-tabs',
-  imports: [ProfileEditorComponent],
+  imports: [
+    ProfileEditorComponent,
+    ProfileUploadsComponent,
+    ProfileRenderedFilesComponent,
+    ProfileTestResumeComponent,
+  ],
   templateUrl: './profile-tabs.component.html',
   styleUrl: './profile-tabs.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

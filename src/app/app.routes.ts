@@ -57,6 +57,18 @@ export const routes: Routes = [
             // /profile — a real candidate folder literally named "files" would be
             // shadowed at this exact URL, same accepted tradeoff as "templates".
             // It's still reachable one level deeper, e.g. /profile/files/files.
+            //
+            // docs/PROFILE_PAGE_TABS.md said this route redirects to
+            // /profile?tab=files and retires "once tab 3 ships" — deliberately
+            // NOT done here (S3): tab 3 (`ProfileRenderedFilesComponent`) is a
+            // purpose-built READ-ONLY view of a server-side WHITELIST
+            // (candidate.yaml, base_cv_<track>.md, …, api T2), while this route
+            // is a general, arbitrarily-deep folder browser over the whole
+            // candidate/ tree (examples/, notes-adjacent attachments, …). Tab 3
+            // cannot serve that today and isn't meant to later either — it is a
+            // different, narrower surface, not a superset. Kept as its own
+            // route indefinitely; revisit only if the API ever exposes general
+            // browsing through the tab-3 endpoints.
             path: 'files',
             children: [
               { path: '', loadComponent: loadProfileFiles },
