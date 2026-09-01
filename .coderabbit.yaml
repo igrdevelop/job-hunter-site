@@ -1,0 +1,42 @@
+# CodeRabbit configuration — https://docs.coderabbit.ai/reference/configuration
+# First line of automated PR review. CLAUDE.md is the source of truth for the
+# conventions summarized below — update this digest when they change.
+
+language: "en-US"
+
+tone_instructions: >-
+  Be direct and concise. Prioritize real bugs, broken auth/routing flows and
+  convention violations over formatting nits. Merging to master deploys to
+  production — treat every PR as a release.
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    - "!dist/**"
+    - "!package-lock.json"
+    - "!Design/**"
+  path_instructions:
+    - path: "src/**"
+      instructions: >-
+        Angular 22 SPA (standalone components, signals, lazy-loaded routes,
+        Angular Material, Vitest). Conventions (full text in CLAUDE.md):
+        (1) Standalone components and lazy-loaded routes only — no NgModules.
+        (2) Prefer signals over BehaviorSubject/manual subscriptions; flag
+        subscriptions without cleanup where a signal or async pipe fits.
+        (3) No SSR — auth is a client-only JWT guard; flag code that assumes
+        server rendering or reads localStorage outside browser-safe paths.
+        (4) API/auth calls go through the typed ApiService against same-origin
+        /api/* and /auth/* — flag hardcoded hosts, secrets or tokens in code.
+        (5) File/folder paths rendered from the API (generated CVs, candidate
+        files) are user data — flag unencoded interpolation into URLs or DOM.
+        (6) Watch template/type drift against the API's real response shapes;
+        response contracts live in the job-hunter-api repo.
+
+chat:
+  auto_reply: true
