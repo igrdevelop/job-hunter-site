@@ -69,6 +69,12 @@ describe('ProfileEditorComponent', () => {
     api = TestBed.inject(ProfileApi);
     vi.spyOn(api, 'get').mockImplementation(getResult);
 
+    // isOwner is fail-closed since the 2026-09-01 gating swap — an auth
+    // payload without the field means non-owner, so the owner-scoped editor
+    // suites must mock a real owner explicitly.
+    const authService = TestBed.inject(AuthService);
+    vi.spyOn(authService, 'currentUser').mockReturnValue(OWNER);
+
     fixture = TestBed.createComponent(ProfileEditorComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();

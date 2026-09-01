@@ -164,6 +164,21 @@ describe('ProfileTabsComponent', () => {
     });
   });
 
+  describe('with a payload that omits isOwner entirely (fail-closed)', () => {
+    beforeEach(async () => {
+      // Regression for the CodeRabbit finding on PR #38 (CWE-862): the old
+      // OWNER_FLAG_FALLBACK_ENABLED bridge made an ABSENT field grant owner
+      // UI. An auth payload without the field must behave like a non-owner.
+      const { isOwner: _isOwner, ...legacyUser } = OWNER;
+      await createWith({ user: legacyUser as never });
+    });
+
+    it('never renders the owner-only files tab', () => {
+      expect(tabLabels()).toEqual(['Uploads', 'Editor', 'Test Resume']);
+      expect(fixture.nativeElement.textContent).not.toContain('Rendered Files');
+    });
+  });
+
   describe('with the files tab flag off', () => {
     beforeEach(async () => {
       await createWith({ user: OWNER, filesTabEnabled: false });

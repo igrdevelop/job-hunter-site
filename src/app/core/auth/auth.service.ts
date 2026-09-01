@@ -7,17 +7,12 @@ import { DownloadTokenResponse, LoginResponse, User } from './user.model';
 
 const TOKEN_KEY = 'job-hunter-token';
 
-/**
- * Temporary bridge until job-hunter-api ships `isOwner` on the auth payload
- * (api work order T3). Same fallback shape as `PROFILE_MOCK_FALLBACK_ENABLED`
- * / `FILTERS_MOCK_FALLBACK_ENABLED`: used only when the server hasn't sent
- * the real field. Defaults `true` so today's single-real-user deployment
- * keeps showing owner-only profile UI (the Test Resume tab, the variant
- * chip row) — a real `isOwner: false` on a future account, once T3 ships,
- * always wins over this fallback.
- * TODO(profile-tabs): delete this fallback once /auth/me returns isOwner.
- */
-export const OWNER_FLAG_FALLBACK_ENABLED = true;
+// The S1-era `OWNER_FLAG_FALLBACK_ENABLED = true` bridge (owner UI shown
+// while the api didn't send `isOwner` yet) is GONE: api T3 is deployed, the
+// field is always present, and after the 2026-09-01 gating swap the
+// owner-only tab exposes internal files — an absent field must fail CLOSED
+// (CodeRabbit finding on PR #38, CWE-862: the old fallback made a missing
+// field grant owner UI to everyone).
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -32,13 +27,14 @@ export class AuthService {
   readonly currentUser = this.user.asReadonly();
 
   /**
-   * See `OWNER_FLAG_FALLBACK_ENABLED` above for the fallback semantics.
-   * Reads through `currentUser` (not the private `user` signal directly) so
-   * specs can drive it the same way every other consumer of `currentUser`
-   * already does (`vi.spyOn(authService, 'currentUser').mockReturnValue(...)`,
+   * Fail-closed: an absent/undefined `isOwner` field means NOT the owner
+   * (see the note above). Reads through `currentUser` (not the private
+   * `user` signal directly) so specs can drive it the same way every other
+   * consumer of `currentUser` already does
+   * (`vi.spyOn(authService, 'currentUser').mockReturnValue(...)`,
    * see settings.component.spec.ts's `isAdmin` coverage).
    */
-  readonly isOwner = computed(() => this.currentUser()?.isOwner ?? OWNER_FLAG_FALLBACK_ENABLED);
+  readonly isOwner = computed(() => this.currentUser()?.isOwner === true);
 
   private readStoredToken(): string | null {
     if (typeof localStorage === 'undefined') {
