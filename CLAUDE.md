@@ -128,6 +128,10 @@ failure. Domain managed in the `igrflex@gmail.com` Cloudflare account (Account I
 - PRs get an automatic CodeRabbit review (`.coderabbit.yaml` in the repo root
   carries a digest of these conventions — update it when they change; this
   file stays the source of truth). Same setup in the bot and api repos.
+- Git hooks: enable once per clone with `git config core.hooksPath .githooks`
+  — pre-commit refuses protected files (.env, secret/, dist/, tokens);
+  commit-msg strips editor attribution trailers. NOTE: repo-local hooksPath
+  overrides any global hooks dir.
 - Open PRs via the `/pr` command (`.claude/commands/pr.md`): branch-from-
   current-origin/master hygiene, production build + Vitest gates, and a
   mandatory code-review pass on the diff BEFORE the PR opens (CodeRabbit

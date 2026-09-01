@@ -1,0 +1,23 @@
+#!/bin/sh
+# Pre-commit gate (enable once per clone: git config core.hooksPath .githooks)
+# Refuses never-commit files. Build/tests run in /pr and CI — a pre-commit
+# must stay fast, so nothing heavier lives here.
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$staged" ] && exit 0
+
+blocked=""
+for f in $staged; do
+  case "$f" in
+    .env|.env.local|secret/*|dist/*|*token*.json|*credentials*.json)
+      blocked="$blocked  $f
+";;
+  esac
+done
+if [ -n "$blocked" ]; then
+  printf "pre-commit: refusing to commit protected files:\n%s" "$blocked" >&2
+  printf "Bypass (only if you are sure): git commit --no-verify\n" >&2
+  exit 1
+fi
+
+exit 0
