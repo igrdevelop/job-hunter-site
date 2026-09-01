@@ -107,7 +107,7 @@ describe('ProfileTabsComponent', () => {
       expect(fixture.nativeElement.querySelector('app-profile-editor')).toBeTruthy();
     });
 
-    it('renders all four tabs, including the owner-only preview tab', () => {
+    it('renders all four tabs, including the owner-only files tab', () => {
       expect(tabLabels()).toEqual(['Uploads', 'Editor', 'Rendered Files', 'Test Resume']);
     });
 
@@ -136,22 +136,31 @@ describe('ProfileTabsComponent', () => {
     });
   });
 
-  describe('as a non-owner', () => {
+  describe('as a non-owner (gating swap, owner decision 2026-09-01)', () => {
     beforeEach(async () => {
       await createWith({ user: NON_OWNER });
     });
 
-    it('never renders the preview tab button or its content', () => {
-      expect(tabLabels()).toEqual(['Uploads', 'Editor', 'Rendered Files']);
-      expect(tabLabels()).not.toContain('Test Resume');
+    it('renders the preview tab — Test Resume is customer-facing now', () => {
+      expect(tabLabels()).toEqual(['Uploads', 'Editor', 'Test Resume']);
     });
 
-    it('falls back to editor when ?tab=preview is requested directly', async () => {
-      queryParams$.next(convertToParamMap({ tab: 'preview' }));
+    it('never renders the files tab button or its content', () => {
+      expect(tabLabels()).not.toContain('Rendered Files');
+    });
+
+    it('falls back to editor when ?tab=files is requested directly', async () => {
+      queryParams$.next(convertToParamMap({ tab: 'files' }));
       fixture.detectChanges();
       expect(component.activeTab()).toBe('editor');
-      // The preview section must never reach the DOM for a non-owner, not just be hidden.
-      expect(fixture.nativeElement.textContent).not.toContain('Test Resume');
+      // The files section must never reach the DOM for a non-owner, not just be hidden.
+      expect(fixture.nativeElement.textContent).not.toContain('Rendered Files');
+    });
+
+    it('can open the preview tab directly via ?tab=preview', async () => {
+      queryParams$.next(convertToParamMap({ tab: 'preview' }));
+      fixture.detectChanges();
+      expect(component.activeTab()).toBe('preview');
     });
   });
 
