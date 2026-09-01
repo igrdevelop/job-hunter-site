@@ -219,3 +219,17 @@ losslessly.
 - **Pending-forever previews** (bot drain not deployed) must look calm, not
   broken — copy + a "this can take a while" state after N minutes.
 - Update `CLAUDE.md` (Pages table, work log) in the same PR as each phase.
+
+## Gating swap (owner decision, 2026-09-01, live-site review)
+
+The original assignment ("tab 4 owner-only, tab 3 visible to all") is
+REVERSED: **Test Resume is customer-facing** — every user benefits from
+seeing the CV the system would build from their profile — while **Rendered
+Files exposes internal pipeline formats** (candidate.yaml, base CVs) and is
+now the owner-only tab. `isOwner` therefore gates Rendered Files (together
+with its site-side flag — both must pass) and the variant chip row; Test
+Resume is ungated. Triggered by the same-day incident where the deploy
+workflow wiped the hand-configured `OWNER_USER_ID` on the VPS and the owner
+himself lost the Test Resume tab — the api now derives `isOwner` from
+`role='admin'` (env var demoted to a narrowing override), see the api repo's
+work order.
