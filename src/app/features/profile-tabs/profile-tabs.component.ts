@@ -14,18 +14,13 @@ import { ProfileRenderedFilesComponent } from '../profile-rendered-files/profile
 import { ProfileTestResumeComponent } from '../profile-test-resume/profile-test-resume.component';
 
 /**
- * Site-side feature flag for tab 3 (Rendered files) — default ON per the
- * work order (docs/PROFILE_PAGE_TABS.md: "ships visible to ALL users,
- * behind its own site-side flag (default ON) so it can be hidden later
- * without rework"). Independent of `AuthService.isOwner`, which gates tab 4
- * — see PROFILE_PAGE_TABS.md's "Flag discipline" note: don't collapse the
- * two into one flag.
- * An InjectionToken rather than a bare `export const` (unlike
- * `PROFILE_MOCK_FALLBACK_ENABLED`/`FILTERS_MOCK_FALLBACK_ENABLED`, which are
- * fixed for a whole build): this flag needs to flip per-render for tests
- * ("tab-3 flag OFF removes the tab") and is the one the doc says may need
- * pulling back independently later, so it's provided/overridable like any
- * other Angular config value.
+ * Site-side feature flag for tab 3 (Rendered files). Owner decision
+ * 2026-09-01 (live-site review) SWAPPED the tab gating: Test Resume is
+ * useful to every user ("what CV would the system build for me") and is now
+ * ungated, while Rendered Files exposes internal pipeline formats
+ * (candidate.yaml, base CVs) and is now the owner-only tab — so this flag
+ * now works IN ADDITION to `isOwner` (both must pass). Kept as an
+ * InjectionToken so tests can flip it per-render, as before.
  */
 export const PROFILE_FILES_TAB_ENABLED = new InjectionToken<boolean>('PROFILE_FILES_TAB_ENABLED', {
   providedIn: 'root',
@@ -76,15 +71,16 @@ export class ProfileTabsComponent {
   private readonly queryParams = toSignal(this.route.queryParamMap, { requireSync: true });
 
   /**
-   * Tabs whose gate currently passes. `uploads`/`editor` are always visible;
-   * `files` follows the site-side flag above, `preview` follows `isOwner` —
-   * a non-owner must never have tab 4 (or its content) reach the DOM, not
+   * Tabs whose gate currently passes. `uploads`/`editor`/`preview` are
+   * visible to every user (gating swap, owner decision 2026-09-01: Test
+   * Resume is a customer-facing feature, Rendered Files is the internal
+   * one); `files` requires BOTH `isOwner` and the site-side flag above —
+   * a non-owner must never have it (or its content) reach the DOM, not
    * just have it hidden by CSS.
    */
   readonly visibleTabs = computed<ProfileTabDef[]>(() =>
     ALL_TABS.filter((tab) => {
-      if (tab.key === 'files') return this.filesTabEnabled;
-      if (tab.key === 'preview') return this.authService.isOwner();
+      if (tab.key === 'files') return this.authService.isOwner() && this.filesTabEnabled;
       return true;
     }),
   );
