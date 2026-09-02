@@ -37,6 +37,21 @@ reviews:
         files) are user data — flag unencoded interpolation into URLs or DOM.
         (6) Watch template/type drift against the API's real response shapes;
         response contracts live in the job-hunter-api repo.
+    - path: "smoke/**"
+      instructions: >-
+        Playwright suite against the LIVE production site with a dedicated
+        smoke test account (docs/LIVE_SMOKE_E2E.md). This is not a mock/unit
+        test — flag anything that could leak the smoke-user password or JWT
+        into a committed file or an uploaded CI artifact; flag any mutating
+        step that skips smoke/helpers/interlock.ts's assertSmokeIdentity
+        safety-interlock check immediately beforehand; flag a spec that
+        submits the real login form outside the trace/screenshot/video-off
+        `setup` project in smoke/playwright.config.ts; flag a hardcoded
+        literal from the smoke user's real profile data (this repo is
+        public — assert shape/non-emptiness, never a real value); flag a
+        mutating phase whose Playwright project doesn't set its own
+        `retries: 0` (retrying after a request-succeeded-but-poll-failed
+        would double-submit a preview/save/upload).
 
 chat:
   auto_reply: true

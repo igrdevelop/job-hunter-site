@@ -4,6 +4,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { AuthService } from './auth.service';
+import { TOKEN_STORAGE_KEY as TOKEN_KEY } from './token-storage-key';
 
 @Component({ template: '', standalone: true })
 class StubComponent {}
@@ -13,7 +14,6 @@ const PROVIDERS = [
   provideHttpClientTesting(),
   provideRouter([{ path: 'login', component: StubComponent }]),
 ];
-const TOKEN_KEY = 'job-hunter-token';
 
 describe('AuthService', () => {
   describe('without stored token', () => {

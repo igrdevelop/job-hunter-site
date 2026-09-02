@@ -4,8 +4,7 @@ import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { DownloadTokenResponse, LoginResponse, User } from './user.model';
-
-const TOKEN_KEY = 'job-hunter-token';
+import { TOKEN_STORAGE_KEY } from './token-storage-key';
 
 // The S1-era `OWNER_FLAG_FALLBACK_ENABLED = true` bridge (owner UI shown
 // while the api didn't send `isOwner` yet) is GONE: api T3 is deployed, the
@@ -40,7 +39,7 @@ export class AuthService {
     if (typeof localStorage === 'undefined') {
       return null;
     }
-    return localStorage.getItem(TOKEN_KEY);
+    return localStorage.getItem(TOKEN_STORAGE_KEY);
   }
 
   getToken(): string | null {
@@ -51,7 +50,7 @@ export class AuthService {
     const response = await firstValueFrom(
       this.http.post<LoginResponse>(`${environment.authBaseUrl}/login`, { email, password }),
     );
-    localStorage.setItem(TOKEN_KEY, response.accessToken);
+    localStorage.setItem(TOKEN_STORAGE_KEY, response.accessToken);
     this.token.set(response.accessToken);
     await this.fetchCurrentUser();
   }
@@ -94,7 +93,7 @@ export class AuthService {
     this.token.set(null);
     this.user.set(null);
     this.needsEmailVerification.set(false);
-    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
     this.router.navigate(['/login']);
   }
 

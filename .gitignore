@@ -45,3 +45,11 @@ Thumbs.db
 
 # Secrets
 secret/
+
+# Playwright smoke suite (docs/LIVE_SMOKE_E2E.md) — generated at run time,
+# never committed. smoke/playwright.config.ts pins both output paths under
+# smoke/. smoke/.auth holds the saved login session (a bearer token, not
+# the password) and must never be uploaded as a CI artifact.
+smoke/playwright-report/
+smoke/test-results/
+smoke/.auth/
