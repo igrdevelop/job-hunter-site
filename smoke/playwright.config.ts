@@ -46,8 +46,15 @@ export default defineConfig({
   ],
   use: {
     baseURL,
-    trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
+    // NO trace/screenshot/video anywhere in this suite (CWE-532 review
+    // finding on PR #42, widened): every post-setup project runs
+    // AUTHENTICATED, a trace records full request headers (the bearer JWT)
+    // and a screenshot can show the smoke profile's real personal data —
+    // and this is a PUBLIC repo, whose failure-run artifacts anyone can
+    // download. Diagnostics rely on the specs' deliberate failure messages
+    // instead.
+    trace: 'off',
+    screenshot: 'off',
     video: 'off',
   },
   projects: [

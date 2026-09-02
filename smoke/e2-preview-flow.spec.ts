@@ -1,6 +1,7 @@
 import type { Page, Response } from '@playwright/test';
 import { mutatingTest as test, expect } from './helpers/mutating-test';
 import type { ProfilePreviewListItem } from '../src/app/core/api/models';
+import { assertApprovedOrigin } from './config/allowlist';
 
 /**
  * E2 — Preview flow (the 2026-09-01 bug class), docs/LIVE_SMOKE_E2E.md.
@@ -186,7 +187,14 @@ test.describe('E2 — preview flow', () => {
     ).toBe(200);
     const contentType = downloadResponse.headers()['content-type'] ?? '';
     expect(contentType.toLowerCase()).toContain('application/pdf');
-    const body = await downloadResponse.body();
-    expect(body.length).toBeGreaterThan(MIN_PDF_BYTES);
+    // The browser turned the PDF response into a navigation/download, so its
+    // body is not readable via CDP afterwards ("navigated away from"). Re-GET
+    // the exact observed URL (its ?dt= token is still valid for ~5 min)
+    // through the context's API request — same origin (assert it), no
+    // navigation, reliable body.
+    assertApprovedOrigin(new URL(downloadResponse.url()).origin);
+    const apiResponse = await context.request.get(downloadResponse.url());
+    expect(apiResponse.status()).toBe(200);
+    expect((await apiResponse.body()).length).toBeGreaterThan(MIN_PDF_BYTES);
   });
 });
