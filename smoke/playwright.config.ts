@@ -46,8 +46,15 @@ export default defineConfig({
   ],
   use: {
     baseURL,
-    trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
+    // NO trace/screenshot/video anywhere in this suite (CWE-532 review
+    // finding on PR #42, widened): every post-setup project runs
+    // AUTHENTICATED, a trace records full request headers (the bearer JWT)
+    // and a screenshot can show the smoke profile's real personal data —
+    // and this is a PUBLIC repo, whose failure-run artifacts anyone can
+    // download. Diagnostics rely on the specs' deliberate failure messages
+    // instead.
+    trace: 'off',
+    screenshot: 'off',
     video: 'off',
   },
   projects: [
@@ -73,6 +80,22 @@ export default defineConfig({
       // after live-site flakiness is safe here. Do NOT copy this onto a
       // mutating phase's project — see the top-level `retries` comment.
       retries: process.env.CI ? 1 : 0,
+      use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE_PATH },
+    },
+    {
+      name: 'e2-preview',
+      testMatch: /e2-.*\.spec\.ts/,
+      dependencies: ['setup'],
+      // Mutating phase (docs/LIVE_SMOKE_E2E.md): generating a preview is a
+      // real side effect (history + bot render work), so a whole-spec retry
+      // after the POST succeeded but the poll/assert failed would
+      // double-submit a preview. The top-level `retries: 0` already covers
+      // this; declared explicitly here too — same house style as `e1`'s own
+      // explicit (opposite) opt-in — so a reader never has to check the
+      // top-level default to know this project is retry-safe by contract,
+      // not by omission. The spec's own internal poll (up to 4 minutes) is
+      // the sanctioned patience mechanism instead.
+      retries: 0,
       use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE_PATH },
     },
   ],

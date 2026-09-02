@@ -40,7 +40,12 @@ jobs:
     runs-on: ubuntu-latest
     # A stuck run holds the single-flight concurrency group above, blocking
     # every later dispatch/deploy — keep this tight rather than generous.
-    timeout-minutes: 10
+    # Raised 10→15 when E2 (docs/LIVE_SMOKE_E2E.md) landed: its render-job
+    # poll alone has a generous, legitimate budget of up to 4 minutes (the
+    # bot drain ticks every ~20s and LibreOffice is slow on a busy VPS) on
+    # top of install/browser-cache steps and E1 — 10 minutes left no slack
+    # for a normal, non-stuck run to finish inside the window.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
