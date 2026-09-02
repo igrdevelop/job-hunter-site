@@ -7,7 +7,7 @@ import { AuthService } from './auth.service';
 // `/auth/download-token` was missing from this list since the download-token
 // flow shipped (2026-08-04): the bearer was never attached, the endpoint
 // returned 401, and every `?dt=` file download on the site silently failed —
-// found by the E2 live smoke run on its first execution (2026-09-03).
+// found by the E2 live smoke run on its first execution (2026-09-02).
 const PROTECTED_PREFIXES = [
   environment.apiBaseUrl,
   `${environment.authBaseUrl}/me`,
