@@ -63,6 +63,13 @@ describe('authInterceptor', () => {
       req.flush({});
     });
 
+    it('adds Authorization header to /auth/download-token (regression: missing since 2026-08-04, every ?dt= download 401ed — found by the E2 live smoke)', () => {
+      http.get('/auth/download-token').subscribe();
+      const req = httpMock.expectOne('/auth/download-token');
+      expect(req.request.headers.get('Authorization')).toBe('Bearer my-token');
+      req.flush({});
+    });
+
     it('does NOT add Authorization to /auth/register (public route)', () => {
       http.post('/auth/register', {}).subscribe();
       const req = httpMock.expectOne('/auth/register');
