@@ -79,6 +79,7 @@ still calls `/api/*` and `/auth/*` on the same origin as always.
 | `npm start` | Dev server at http://localhost:4200 |
 | `npm run build` | Production build → `dist/job-hunter-site/browser/` |
 | `npm test` | Vitest unit tests |
+| `npm run smoke` | Playwright live smoke suite against `SMOKE_BASE_URL` (default prod) — see "Live Smoke E2E" below |
 
 For local dev with the backend:
 ```bash
@@ -108,6 +109,85 @@ Cloudflare Pages default starter page pending cutover to the Cloudflare Tunnel C
 real backend) — both routes are live in production, not the Pages starter page or a DNS/timeout
 failure. Domain managed in the `igrflex@gmail.com` Cloudflare account (Account ID
 `69db525dd53f363bb99b1e429fe52ca2`).
+
+---
+
+## Live Smoke E2E (`smoke/`)
+
+Post-deploy Playwright suite against the LIVE production site, using a
+dedicated non-owner test account (`role='user'`) whose profile is a copy of
+the owner's. Full design/rationale: `docs/LIVE_SMOKE_E2E.md`.
+
+- **Phase E1 (infra + login + role gating, read-only) — implemented.**
+  `npm run smoke` (default `SMOKE_BASE_URL` = prod origin). Own Playwright
+  config at `smoke/playwright.config.ts` — separate `smoke/` directory,
+  `testDir`/output paths pinned there, never touched by `ng test`/Vitest
+  (`tsconfig.spec.json` only includes `src/**/*.spec.ts`).
+- **Target allowlist** (`smoke/config/allowlist.ts`): a hardcoded list of
+  approved HTTPS origins (today just the prod origin above), enforced at
+  THREE layers: (1) config-load time — aborts the whole run before any
+  browser opens; (2) `smoke/helpers/guarded-fixtures.ts` — a
+  `context.route` interceptor that ABORTS any browser request (navigation
+  or XHR/fetch) to a non-approved origin, for every test, structurally
+  (not just a point-in-time check — this is what actually closes the
+  TOCTOU gap a manual check alone would have); (3) `smoke/helpers/auth.ts`
+  and `interlock.ts` each still assert it once at their own point of use,
+  for a fast/readable error and because the standalone `request` fixture
+  (used for the direct `/auth/me` call) is NOT covered by the
+  `context.route` guard — only browser-driven traffic is.
+- **Auth setup project** (`smoke/auth.setup.ts`): the ONLY place that submits
+  the real login form — its Playwright project has trace/screenshot/video
+  fully OFF (a screenshot masks a password field, but Playwright's trace
+  still records the raw POST /auth/login body). It runs the safety
+  interlock (below) BEFORE saving the session — the one choke point that
+  catches credentials misconfigured to the owner's own real account before
+  any downstream test ever trusts what gets saved — then writes an
+  authenticated storageState (`smoke/.auth/smoke-user.json`, gitignored — a
+  bearer JWT, not the password) that every other spec project depends on
+  and reuses. The plaintext credential touches the network at most once per
+  run and never inside a traced test.
+- **Safety interlock** (`smoke/helpers/interlock.ts::assertSmokeIdentity`):
+  takes an explicit `baseURL` (not derived from `page.url()` — the bearer
+  token is a live credential and gets the same origin-allowlist protection
+  the password does), reads the token out of localStorage, calls `/auth/me`
+  directly, and throws unless `isOwner === false` AND
+  `email === SMOKE_USER_EMAIL` — a MISSING `isOwner` field aborts exactly
+  like `true` does (fail-safe: an api regression must never be
+  reinterpreted as "not the owner"), with a distinct error message so that
+  case is easy to tell apart from "logged in as the wrong user". E1 runs it
+  once (read-only) plus once more inside auth.setup.ts before persisting
+  the session. **`smoke/helpers/mutating-test.ts::mutatingTest` is the
+  ONLY sanctioned way to write a mutating (E2-E4) spec** — its
+  `smokeIdentity` fixture runs the interlock automatically before the test
+  body, so "a mutating spec forgot to check the interlock" cannot happen by
+  construction. Not used by E1 (nothing to mutate).
+- **Retries:** top-level `retries: 0` (safe default). The read-only `e1`
+  project explicitly opts INTO `retries: 1` in CI — see the comment in
+  `smoke/playwright.config.ts`. A future E2/E3/E4 project inherits the safe
+  `0` automatically; its author has to deliberately add retries, rather
+  than remembering to override a permissive top-level default (a retry
+  after a request-succeeded-but-poll-failed would double-submit a
+  preview/save/upload).
+- **Workflow** `.github/workflows/smoke.yml`: `workflow_dispatch` +
+  `workflow_run` reacting only to a `push`-triggered, successful run of
+  "Build and Deploy" (`deploy.yml`) on `master` (its `test` job also runs on
+  `pull_request`, which must NOT trigger a live prod smoke run). One run at a
+  time (`concurrency` group) — future mutating phases would otherwise fight
+  over the rotating marker sentinel; a local `npm run smoke` run is NOT
+  covered by that group and could race a concurrent CI run over the same
+  sentinel once E3 lands — avoid local runs of mutating phases, CI is the
+  sanctioned runner for those. Playwright browser binaries cached
+  (`actions/cache`, keyed on the pinned `@playwright/test` version); OS deps
+  still installed every run. HTML report uploaded only on failure, from
+  `smoke/playwright-report/` (never `smoke/.auth/`, which isn't part of
+  that folder and is gitignored regardless).
+- **Secrets:** `SMOKE_USER_EMAIL` / `SMOKE_USER_PASSWORD` in GitHub Actions
+  secrets only — never in the repo, never logged.
+- **Not yet built:** E2 (preview/download round-trip), E3 (profile-edit
+  marker round-trip), E4 (resume-upload round-trip) — see the plan doc for
+  the marker scheme and per-phase scope. Each MUST be written with
+  `mutatingTest` from `smoke/helpers/mutating-test.ts`, not `test` from
+  `@playwright/test` or `guarded-fixtures.ts` directly.
 
 ---
 
@@ -190,3 +270,4 @@ Frontend-specific plan: `docs/IMPLEMENTATION_PLAN.md` in this repo.
 | 2026-09-01 | fable | Added `.coderabbit.yaml` — CodeRabbit auto-review on every PR (free open-source tier). Digest of the repo conventions: standalone components / signals / lazy routes, no SSR (client-only JWT guard), typed ApiService against same-origin /api + /auth, no secrets in code, master = production. Same setup added to the bot and api repos in the same change. Activation: owner installs the CodeRabbit GitHub App on the repo. |
 | 2026-09-01 | fable | Added `.claude/commands/pr.md` — local `/pr` pre-flight: branch hygiene (cut from current origin/master, never rebase), `npm run build` + `npm test` gates, then a mandatory `code-review` skill pass on the diff (CONFIRMED correctness findings are a hard stop) before `gh pr create`. Mirrors the bot repo's `/pr`; CodeRabbit remains the post-publication reviewer. |
 | 2026-09-01 | fable | Tab-gating swap (owner decision, live-site review): Test Resume is now visible to EVERY user (it is the customer-facing "what CV would the system build" feature), while Rendered Files (internal pipeline formats) became the owner-only tab — `visibleTabs` gates `files` on `isOwner() && PROFILE_FILES_TAB_ENABLED` and no longer gates `preview` at all. Specs reworked accordingly (non-owner: preview present, files absent from the DOM, `?tab=files` falls back to editor, `?tab=preview` opens directly). Pairs with the api-side change deriving `isOwner` from `role='admin'` after the deploy workflow wiped the hand-set `OWNER_USER_ID` from the VPS `.env` and the owner lost his own tabs. See docs/PROFILE_PAGE_TABS.md "Gating swap" note. |
+| 2026-09-03 | sonnet | **Phase E1 of docs/LIVE_SMOKE_E2E.md: Playwright infra + login + role gating (read-only).** `@playwright/test` (pinned exact version) as a devDependency, own config at `smoke/playwright.config.ts` (separate from Vitest — `tsconfig.spec.json` only globs `src/**/*.spec.ts`, so `ng test` never sees `smoke/`), `npm run smoke` script. Two Playwright projects: `setup` (`smoke/auth.setup.ts`, trace/screenshot/video fully OFF) submits the real login form exactly once per run and saves an authenticated storageState (`smoke/.auth/`, gitignored, holds a bearer JWT — never the password); `e1` depends on it and reuses the session, so no other test ever touches the credential in a traced context — closes the "artifact hygiene" review finding without needing per-step trace toggling. Target allowlist (`smoke/config/allowlist.ts`, one entry today: the prod origin) is checked at config-load time (aborts before any browser opens) and again in the login helper right before each field is filled. `smoke/helpers/interlock.ts::assertSmokeIdentity` is the safety-interlock primitive — reads the token out of localStorage, calls `/auth/me` directly, throws unless `isOwner===false` and the email matches `SMOKE_USER_EMAIL` — exported for E2-E4 to call before every future mutating step; E1 exercises it once as a read-only test. Three more E1 tests: session validity on a protected route, exact 3-tab set with `Rendered Files` asserted absent from the DOM (not just hidden), and the Editor tab's `Full name` field asserted non-empty (never a hardcoded literal — the repo is public). `.github/workflows/smoke.yml`: `workflow_dispatch` + `workflow_run` gated to a `push`-triggered success of "Build and Deploy" on `master` only (its `test` job also runs on `pull_request`, which must not trigger a live prod run), single-flight `concurrency` group, HTML report uploaded only on failure. Ran the real suite against production with the live smoke-account credentials (`SMOKE_BASE_URL` = prod origin) — all 5 tests (1 setup + 4 E1) passed for real, ~4-9s total; `npm test` (401 tests) and `npm run build` stayed green throughout. E2 (preview/download), E3 (profile-edit marker round-trip) and E4 (upload round-trip) are explicitly out of scope for this PR — see the plan doc. **Hardened after an initial code-review pass** (multiple angles, same PR): `TOKEN_STORAGE_KEY` moved out of `auth.service.ts` into its own tiny shared module (`src/app/core/auth/token-storage-key.ts`) so the smoke suite imports the real constant instead of duplicating the string; `smoke/helpers/guarded-fixtures.ts` adds a `context.route`-based structural origin guard (aborts any browser request — navigation or XHR/fetch — to a non-allowlisted origin, for the whole test, closing a TOCTOU gap a point-in-time check alone would have) that every project/spec now imports `test`/`expect` through; `assertSmokeIdentity` takes an explicit `baseURL` and asserts the allowlist itself (the standalone `request` fixture isn't covered by `context.route`), distinguishes "isOwner missing" from "wrong user" in its error while keeping strict fail-safe `!== false` semantics, and now also runs inside `auth.setup.ts` BEFORE the session is persisted (catches a credential misconfigured to the owner's real account at the one point that matters); `smoke/helpers/mutating-test.ts::mutatingTest` is a new fixture wrapper E2-E4 must use, so a future mutating spec cannot forget the interlock; login's post-redirect check is a `waitForURL` pathname predicate (`url.pathname === '/applications'`), not a glob/regex against the full URL string, closing a `?returnTo=/applications` decoy false-pass; `retries` default inverted to `0` top-level with the read-only `e1` project opting in, so a future project inherits the safe default; the E1 spec deduped its `page.goto('/profile')` into `beforeEach`, dropped a redundant post-login URL re-check (the login helper's own wait already proves it), reduced the tab-absence assertion to one, and added an explicit "no profile yet" empty-state check before the identity-field assertion for a clearer failure signal; `AuthMePayload` narrowed to `Pick<User, 'email' \| 'isOwner'>`; CI workflow caches the Playwright browser binary (keyed on the pinned version) and its timeout dropped 20→10 min so a stuck run doesn't hold the single-flight concurrency slot long. |
