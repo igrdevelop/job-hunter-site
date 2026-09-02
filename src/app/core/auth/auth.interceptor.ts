@@ -4,7 +4,15 @@ import { catchError, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 
-const PROTECTED_PREFIXES = [environment.apiBaseUrl, `${environment.authBaseUrl}/me`];
+// `/auth/download-token` was missing from this list since the download-token
+// flow shipped (2026-08-04): the bearer was never attached, the endpoint
+// returned 401, and every `?dt=` file download on the site silently failed —
+// found by the E2 live smoke run on its first execution (2026-09-02).
+const PROTECTED_PREFIXES = [
+  environment.apiBaseUrl,
+  `${environment.authBaseUrl}/me`,
+  `${environment.authBaseUrl}/download-token`,
+];
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
