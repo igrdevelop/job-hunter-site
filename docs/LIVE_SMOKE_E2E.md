@@ -33,18 +33,29 @@ representative in shape, and doubling as a check of the customer-facing view.
 
 - The smoke user's email/password live in GitHub Actions secrets
   (`SMOKE_USER_EMAIL` / `SMOKE_USER_PASSWORD`) — never in the repo.
+- **Target allowlist:** `SMOKE_BASE_URL` must be an approved HTTPS
+  production origin (a hardcoded allowlist in the suite); the login step
+  must not follow a redirect to any other origin before submitting the
+  password — a misconfigured or hostile target must never receive the
+  credential (review finding).
 - **Safety interlock (hard requirement):** before ANY mutating step, the suite
   asserts the logged-in identity is the expected smoke user — `/auth/me`
   returns `isOwner: false` AND the email equals `SMOKE_USER_EMAIL`. Any
   mismatch aborts the whole run before a single write. Misconfigured secrets
-  must never let the suite edit the owner's real profile.
+  must never let the suite edit the owner's real profile. The interlock runs
+  immediately before EVERY side-effecting phase — E2 (preview creates
+  history + render work), E3 and E4 — not just the profile-mutating ones
+  (review finding).
 
 ## The marker scheme
 
-- One run-scoped marker string: `smoke-<YYYYMMDD>-<HH>-<weekday>` (UTC),
-  e.g. `smoke-20260902-14-wed`. Deterministic within a run, different across
-  runs (the rotation the owner asked for — weekday/hour variants of one
-  scheme, not several ad-hoc schemes).
+- One run-scoped marker string: `smoke-<YYYYMMDD>-<HH>-<weekday>-<runId>`
+  (UTC), e.g. `smoke-20260902-14-wed-9127433.1`. The date/hour/weekday part
+  is the owner's rotation scheme; the trailing `<runId>` is
+  `GITHUB_RUN_ID.GITHUB_RUN_ATTEMPT` in CI (a random nonce locally) so two
+  runs in the same UTC hour — including a re-run of the same workflow —
+  can never share a marker and pass against each other's stale data
+  (review finding on this PR).
 - **Where it is written (one sentinel location, not scattered):** a dedicated
   entry the suite owns outright and overwrites every run — recommended: one
   `extras` entry (kind `other`) whose text is exactly the marker, or a
@@ -76,9 +87,12 @@ representative in shape, and doubling as a check of the customer-facing view.
 
 ### E2 — Preview flow (the 2026-09-01 bug class)
 
-- Test Resume tab → Generate preview → poll until the run appears in History
-  (generous timeout, ≥ 3 min: the bot drain ticks every ~20 s and LibreOffice
-  is slow on a busy VPS; a calm "queued" state is not a failure).
+- Test Resume tab → Generate preview → poll THE JOB THIS RUN CREATED (bind
+  to the returned job id / capture the pre-request history and require a NEW
+  entry — an assertion that merely finds "some entry in History" can pass on
+  a previous run's retained preview while this run's job failed; review
+  finding). Generous timeout, ≥ 3 min: the bot drain ticks every ~20 s and
+  LibreOffice is slow on a busy VPS; a calm "queued" state is not a failure.
 - Download the PDF link (the `?dt=` flow — exactly yesterday's 401) and
   assert an HTTP 200 with `application/pdf` and a non-trivial byte size.
 - Preview history grows by design (dated folders, no pruning per the parent
@@ -101,9 +115,11 @@ representative in shape, and doubling as a check of the customer-facing view.
 
 - Upload a tiny fixture resume (txt/md, committed in the repo) whose body
   contains this run's marker; poll the parse job to `done`; assert the parse
-  result / confirmation screen surfaces the marker (the parser round-trip,
-  LLM included — its leftover fallback still carries the raw text, so the
-  assertion holds even when the model call degrades).
+  result / confirmation screen surfaces the marker. Scope honestly stated:
+  this proves upload → queue → parse-job → result propagation; it does NOT
+  prove successful LLM extraction, because the parser's leftover fallback
+  carries the raw text too — LLM degradation is an ACCEPTED pass here
+  (review finding), the parser's own quality is covered by bot-repo tests.
 - **Discard** the draft — never merge it into the profile (E3 owns profile
   mutation; merging every run would grow the profile with junk roles).
 - Uploaded files accumulate under the test user's `uploads/`; small and
@@ -118,8 +134,11 @@ representative in shape, and doubling as a check of the customer-facing view.
   of scope here).
 - One run at a time (`concurrency` group) — two concurrent runs would fight
   over the sentinel and produce false negatives.
-- E2E against prod means occasional flakiness; the workflow retries a failed
-  spec once before declaring failure.
+- E2E against prod means occasional flakiness. Whole-spec auto-retry is
+  allowed ONLY for the non-mutating phase (E1): retrying E2–E4 after a
+  request succeeded but its poll failed would double-submit a preview /
+  save / upload (review finding). Mutating phases rely on their own internal
+  polling patience instead, and a failure there fails the run.
 
 ## Non-goals
 
@@ -140,7 +159,11 @@ representative in shape, and doubling as a check of the customer-facing view.
 - **Flakiness**: generous polls, one retry, calm-pending semantics copied
   from the site's own UI rules.
 - **Secret hygiene**: creds only in Actions secrets; the suite refuses to
-  run mutations when the interlock fails; logs must never print the password.
+  run mutations when the interlock fails; logs must never print the
+  password. Playwright artifacts count as logs: trace/video/screenshot
+  capture is disabled during the login step (or the login artifact is
+  dropped before upload) so a failed-run artifact can never contain the
+  password or a JWT (review finding).
 - **The bot drain is a dependency**: E2/E3's render/preview waits fail if the
   bot container is down — that is a real finding (the pipeline is dead), not
   a false positive, but the failure message must say "render job never
