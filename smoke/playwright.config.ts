@@ -75,5 +75,21 @@ export default defineConfig({
       retries: process.env.CI ? 1 : 0,
       use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE_PATH },
     },
+    {
+      name: 'e2-preview',
+      testMatch: /e2-.*\.spec\.ts/,
+      dependencies: ['setup'],
+      // Mutating phase (docs/LIVE_SMOKE_E2E.md): generating a preview is a
+      // real side effect (history + bot render work), so a whole-spec retry
+      // after the POST succeeded but the poll/assert failed would
+      // double-submit a preview. The top-level `retries: 0` already covers
+      // this; declared explicitly here too — same house style as `e1`'s own
+      // explicit (opposite) opt-in — so a reader never has to check the
+      // top-level default to know this project is retry-safe by contract,
+      // not by omission. The spec's own internal poll (up to 4 minutes) is
+      // the sanctioned patience mechanism instead.
+      retries: 0,
+      use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE_PATH },
+    },
   ],
 });
