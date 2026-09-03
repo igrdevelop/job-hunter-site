@@ -43,9 +43,12 @@ jobs:
     # Raised 10→15 when E2 (docs/LIVE_SMOKE_E2E.md) landed: its render-job
     # poll alone has a generous, legitimate budget of up to 4 minutes (the
     # bot drain ticks every ~20s and LibreOffice is slow on a busy VPS) on
-    # top of install/browser-cache steps and E1 — 10 minutes left no slack
-    # for a normal, non-stuck run to finish inside the window.
-    timeout-minutes: 15
+    # top of install/browser-cache steps and E1. Raised 15→20 when E3 landed:
+    # it adds a SECOND up-to-4-minute poll (its own profile-render job,
+    # polled directly since the editor UI doesn't ride any job-status traffic
+    # of its own) on top of E1+E2 — worst case (both phases' polls maxed out)
+    # is close to 15 minutes before install/cache overhead, leaving no slack.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
