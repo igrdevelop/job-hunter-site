@@ -1,7 +1,7 @@
 import { APIRequestContext, Page } from '@playwright/test';
 import { requireEnv } from './env';
 import { assertApprovedOrigin } from '../config/allowlist';
-import { TOKEN_STORAGE_KEY } from '../../src/app/core/auth/token-storage-key';
+import { getStoredAuthToken } from './token';
 import type { User } from '../../src/app/core/auth/user.model';
 
 /**
@@ -47,12 +47,13 @@ export async function assertSmokeIdentity(
   const origin = new URL(baseURL).origin;
   assertApprovedOrigin(origin);
 
-  const token = await page.evaluate(
-    (key) => localStorage.getItem(key),
-    TOKEN_STORAGE_KEY,
-  );
-  if (!token) {
-    throw new Error('Safety interlock: no auth token found in localStorage — cannot verify identity.');
+  let token: string;
+  try {
+    token = await getStoredAuthToken(page);
+  } catch (err) {
+    throw new Error(
+      `Safety interlock: ${err instanceof Error ? err.message : String(err)} — cannot verify identity.`,
+    );
   }
 
   const res = await request.get(`${origin}/auth/me`, {

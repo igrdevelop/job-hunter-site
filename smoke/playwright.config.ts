@@ -98,5 +98,21 @@ export default defineConfig({
       retries: 0,
       use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE_PATH },
     },
+    {
+      name: 'e3-profile-edit',
+      testMatch: /e3-.*\.spec\.ts/,
+      dependencies: ['setup'],
+      // Mutating phase, same reasoning as `e2-preview` above: a whole-spec
+      // retry after the PUT succeeded but the render-job poll/read-back
+      // failed would silently double-save (a second Save click while the
+      // fixture is stateful is harmless here since the sentinel is
+      // idempotently overwritten, but a retried save is still a real,
+      // unnecessary second write against prod) and would re-run the safety
+      // interlock's own state on top of an already-mutated session for no
+      // benefit. `mutatingTest`'s own internal render-job poll (up to 4
+      // minutes) is the sanctioned patience mechanism instead.
+      retries: 0,
+      use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE_PATH },
+    },
   ],
 });
