@@ -114,5 +114,19 @@ export default defineConfig({
       retries: 0,
       use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE_PATH },
     },
+    {
+      name: 'e4-upload',
+      testMatch: /e4-.*\.spec\.ts/,
+      dependencies: ['setup'],
+      // Mutating phase, same reasoning as `e2-preview`/`e3-profile-edit`
+      // above: a whole-spec retry after the upload/parse succeeded but a
+      // later assertion (marker check, discard, uploads-list re-check)
+      // failed would re-submit a real file upload against prod. The
+      // spec's own internal parse-job poll (up to 4 minutes, with its own
+      // Retry-button-driving loop for the upload dialog's shorter internal
+      // timeout) is the sanctioned patience mechanism instead.
+      retries: 0,
+      use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE_PATH },
+    },
   ],
 });

@@ -118,9 +118,9 @@ Post-deploy Playwright suite against the LIVE production site, using a
 dedicated non-owner test account (`role='user'`) whose profile is a copy of
 the owner's. Full design/rationale: `docs/LIVE_SMOKE_E2E.md`.
 
-- **Phases E1 (infra + login + role gating, read-only), E2 (preview flow)
-  and E3 (profile-edit marker round-trip) — implemented.** E4 (upload
-  round-trip) is not yet built. `npm run smoke` (default `SMOKE_BASE_URL` =
+- **All four phases implemented: E1 (infra + login + role gating,
+  read-only), E2 (preview flow), E3 (profile-edit marker round-trip), E4
+  (resume-upload round-trip).** `npm run smoke` (default `SMOKE_BASE_URL` =
   prod origin). Own Playwright
   config at `smoke/playwright.config.ts` — separate `smoke/` directory,
   `testDir`/output paths pinned there, never touched by `ng test`/Vitest
@@ -165,35 +165,67 @@ the owner's. Full design/rationale: `docs/LIVE_SMOKE_E2E.md`.
   construction. Not used by E1 (nothing to mutate).
 - **Retries:** top-level `retries: 0` (safe default). The read-only `e1`
   project explicitly opts INTO `retries: 1` in CI — see the comment in
-  `smoke/playwright.config.ts`. A future E2/E3/E4 project inherits the safe
-  `0` automatically; its author has to deliberately add retries, rather
-  than remembering to override a permissive top-level default (a retry
-  after a request-succeeded-but-poll-failed would double-submit a
-  preview/save/upload).
+  `smoke/playwright.config.ts`. Every mutating project (`e2-preview`,
+  `e3-profile-edit`, `e4-upload`) inherits the safe `0` automatically and
+  also declares it explicitly, matching `e1`'s own opposite opt-in, so a
+  reader never has to check the top-level default to know a given project
+  is retry-safe by contract (a retry after a request-succeeded-but-poll-
+  failed would double-submit a preview/save/upload).
 - **Workflow** `.github/workflows/smoke.yml`: `workflow_dispatch` +
   `workflow_run` reacting only to a `push`-triggered, successful run of
   "Build and Deploy" (`deploy.yml`) on `master` (its `test` job also runs on
   `pull_request`, which must NOT trigger a live prod smoke run). One run at a
-  time (`concurrency` group) — future mutating phases would otherwise fight
-  over the rotating marker sentinel; a local `npm run smoke` run is NOT
-  covered by that group and could race a concurrent CI run over the same
-  sentinel once E3 lands — avoid local runs of mutating phases, CI is the
-  sanctioned runner for those. Playwright browser binaries cached
+  time (`concurrency` group) — two runs would otherwise fight over the
+  rotating marker sentinel (E3) or double-upload a fixture (E4); a local
+  `npm run smoke` run is NOT covered by that group and could race a
+  concurrent CI run over the same state — avoid local runs of mutating
+  phases, CI is the sanctioned runner for those. Playwright browser binaries cached
   (`actions/cache`, keyed on the pinned `@playwright/test` version); OS deps
   still installed every run. HTML report uploaded only on failure, from
   `smoke/playwright-report/` (never `smoke/.auth/`, which isn't part of
   that folder and is gitignored regardless).
 - **Secrets:** `SMOKE_USER_EMAIL` / `SMOKE_USER_PASSWORD` in GitHub Actions
   secrets only — never in the repo, never logged.
-- **Not yet built:** E4 (resume-upload round-trip) — see the plan doc for
-  the marker scheme and per-phase scope. Each mutating phase MUST be written
-  with `mutatingTest` from `smoke/helpers/mutating-test.ts`, not `test` from
-  `@playwright/test` or `guarded-fixtures.ts` directly. E3's sentinel
-  (`smoke/helpers/marker.ts`) is a `core.extras` entry with `kind: 'other'`,
-  found/replaced by `MARKER_RE` shape rather than a bare prefix; it renders
-  ONLY into `candidate_profile.md` (verified against `hunter/
-  profile_render.py` in the bot repo) — a future E4 should not assume the
-  same file without checking its own content's rendering path the same way.
+- Each mutating phase MUST be written with `mutatingTest` from
+  `smoke/helpers/mutating-test.ts`, not `test` from `@playwright/test` or
+  `guarded-fixtures.ts` directly. E3's sentinel (`smoke/helpers/marker.ts`)
+  is a `core.extras` entry with `kind: 'other'`, found/replaced by
+  `MARKER_RE` shape rather than a bare prefix; it renders ONLY into
+  `candidate_profile.md` (verified against `hunter/profile_render.py` in
+  the bot repo).
+- **E4 (`smoke/e4-upload.spec.ts`, upload round-trip):** `smoke/fixtures/
+  smoke-resume.txt` ships only a `{{MARKER}}` placeholder (a committed
+  fixture never carries a real marker); the spec writes a temp copy with
+  this run's `buildRunMarker()` substituted into it, under
+  `smoke/test-results/` (gitignored), and removes it in a `finally`
+  regardless of outcome. Uploads it through the real `input[type="file"]`
+  behind the Uploads tab's dropzone, captures `jobId` from
+  `POST /api/profile/uploads`, then polls `GET /api/profile/jobs/:id` by
+  riding the upload dialog's OWN poll traffic — but the dialog gives up
+  after `PROFILE_UPLOAD_POLL_TIMEOUT_MS` (60s) with a Retry button that
+  only resumes polling on click, so the spec drives that button itself in
+  a loop until ITS OWN more generous 4-minute budget is spent. **Marker
+  assertion target:** the parse job's `result` (`JSON.stringify(...)
+  .toContain(marker)`), NOT the confirmation screen's DOM — the "Review
+  parsed resume" card (`profile-editor.component.html`) only ever renders
+  `parsedSkillProposals()`/`parsedRoleProposals()`, never
+  `parsedDraft().leftovers`, so it cannot show the marker at all when the
+  parse degrades to the leftover fallback (accepted per the work order —
+  this phase proves upload -> queue -> parse-job -> result propagation,
+  not LLM extraction quality). The confirmation screen IS still asserted
+  separately (its heading becoming visible), as the UI-reached check. Then
+  **discards** the draft (`discardParsedDraft()` — E3 owns profile
+  mutation) and re-fetches `GET /api/profile` to prove nothing was saved
+  (revision + identity unchanged). Finally re-fetches
+  `GET /api/profile/uploads` and matches the row by `jobId` (not filename/
+  date), asserting the content-derived `sha256` matches the uploaded bytes
+  and `jobStatus === 'done'`. Deliberately NO non-null assertion on
+  `filename`: a completed row can legitimately report `filename: null`
+  (verified live and against job-hunter-api's own e2e, which pins that
+  behavior) — do not "fix" E4 by asserting it, the suite would fail on
+  valid uploads.
+  Uploads accumulate server-side across runs (small, ~one tiny file per
+  run) — accepted per the work order, same as E2's preview-history growth.
 
 ---
 
@@ -280,3 +312,4 @@ Frontend-specific plan: `docs/IMPLEMENTATION_PLAN.md` in this repo.
 | 2026-09-03 | sonnet | **Phase E2 of docs/LIVE_SMOKE_E2E.md: preview flow (the 2026-09-01 bug class).** New `smoke/e2-preview-flow.spec.ts` in its own `e2-preview` Playwright project (depends on `setup`, `retries: 0` declared explicitly — same house style as `e1`'s own opposite opt-in), using `smoke/helpers/mutating-test.ts::mutatingTest` (the sanctioned way to write a mutating spec — runs the safety interlock before the test body). Flow: navigate to `/profile?tab=preview`, capture the pre-run History via the page's own initial `GET /api/profile/previews` (listener attached before `page.goto`, not after, so a fast response can't be missed); click "Generate preview" and capture `jobId` from the `POST /api/profile/preview` response — every later assertion binds to that jobId, never to "some" history entry (review-hardened work-order requirement, since a previous run's retained preview could otherwise produce a false pass); poll by riding the UI's own `GET /api/profile/jobs/:id` traffic (`page.waitForResponse` against the exact jobId, up to 4 minutes — "via the app's authenticated context" per the doc, not a hand-rolled request) until status is `done`/`error`; on timeout, rethrows with the exact required message ("render job never completed — check the bot container on the VPS") instead of Playwright's generic text. Confirms a NEW History row appears (set-difference against the pre-run snapshot, not a bare count) and downloads its PDF exactly the way the UI does — `downloadPreviewFile()`'s real `GET /auth/download-token` → `?dt=` → `window.open()` chain — asserted via `context.waitForEvent('response', ...)` (works regardless of whether Chromium treats the result as a navigation or a native download, avoiding any 'popup'/'download' event ambiguity) for HTTP 200, `content-type: application/pdf`, and body > 10 KB. `.github/workflows/smoke.yml` job timeout raised 10→15 min to give the new 4-minute poll budget real headroom on top of E1 + install/cache steps; no other workflow change needed (`npm run smoke` already runs every project). `npm test` (401, unchanged) and `npm run build` stay green.<br>**Live run finding (real bug, not a spec bug):** ran the full suite against production with the real smoke-account credentials. E1 (5/5) and E2's own logic — navigate, generate, bind-to-jobId poll, done in ~15-20s, new History row detected — all passed live and fast. The FINAL download-PDF assertion currently fails in production: `GET /auth/download-token` returns a genuine `401` with **no `Authorization` header sent at all** (confirmed via the Playwright trace's captured request headers). Root cause, read from source: `src/app/core/auth/auth.interceptor.ts`'s `PROTECTED_PREFIXES = [environment.apiBaseUrl, \`${environment.authBaseUrl}/me\`]` never included `${environment.authBaseUrl}/download-token`, so the interceptor never attaches the bearer token to that one call — it has been this way since the download-token flow was introduced (`883e644`, 2026-08-04) and currently breaks the `?dt=` download button on **every** page that uses it (Profile files, Generated files, Templates, and now this Preview PDF flow), not just this new tab. Per the work order's own explicit instruction for this exact scenario ("distinguish 'my spec is wrong' from 'a real live bug' — fix the former, REPORT the latter"), this was NOT fixed here — it's a pre-existing, unrelated site defect the new E2 check correctly caught, exactly the class of failure this phase exists to catch. The E2 spec itself is code-complete and validated up through the download click; it will pass as-is the moment that one-line interceptor fix ships (add the missing prefix). Flagged separately for a fast follow-up rather than folded into this PR.
 | 2026-09-02 | fable | Live bug found by the E2 smoke's FIRST production run, fixed: `authInterceptor`'s `PROTECTED_PREFIXES` never included `/auth/download-token`, so the bearer was never attached, `GET /auth/download-token` always 401ed, and every `?dt=` file download on the site (Profile files, Generated, Templates, and the new Test Resume previews) silently failed since the flow shipped 2026-08-04 — the UI surfaced it only as a generic "Could not open the file" toast. One-line prefix addition + a regression spec mirroring the existing `/auth/me` case. This is the second half of the 2026-09-01 download incident: the api-side fix (job-hunter-api #29) made the endpoint ACCEPT ?dt= tokens, but the site could never OBTAIN one. |
 | 2026-09-03 | sonnet | **Phase E3 of docs/LIVE_SMOKE_E2E.md: profile edit round-trip with the rotating marker (mutating).** New `smoke/e3-profile-edit-marker.spec.ts` in its own `e3-profile-edit` Playwright project (depends on `setup`, `retries: 0` declared explicitly — same house style as `e2-preview`), using `mutatingTest`. New `smoke/helpers/marker.ts` builds the work order's exact scheme — `smoke-<YYYYMMDD>-<HH>-<weekday>-<runId>` UTC, `runId` = `GITHUB_RUN_ID.GITHUB_RUN_ATTEMPT` in CI or a random local nonce — and exports `MARKER_RE`, a shape check (not a bare `smoke-` prefix) so a coincidental hand-written extra can never be mistaken for the suite's own sentinel. Sentinel choice: a dedicated `core.extras` entry (`kind: 'other'`) — verified empirically against `hunter/profile_render.py` in the bot repo (not assumed, per the work order) that `render_profile_md()` renders every non-empty `extras[].text` verbatim into `candidate_profile.md` under an "**Additional**:" heading, and ONLY that file (`render_base_cv()`/`render_candidate_yaml()` never touch `core.extras`) — so `candidate_profile.md` is the one rendered file to check. Flow: `/profile?tab=editor` → find the sentinel row by `MARKER_RE` among the Extras card's text inputs (create one via "+ Add extra" on a first-ever run, which already defaults to `kind: 'other'`) → `.fill()` it with this run's marker (the only field touched — the PUT sends the full document, but nothing else in it changes) → click Save, capture `{ revision, renderJobId }` from the `PUT /api/profile` response, assert the success snackbar → verify level 1 (read-back): `GET /api/profile` via the `request` fixture with the smoke user's own bearer (extracted by a new shared `smoke/helpers/token.ts::getStoredAuthToken`, factored out of `interlock.ts` which now uses it too instead of duplicating the localStorage read) shows the new marker AND the previous run's marker is gone (replaced, not appended) → verify level 2 (render): poll `GET /api/profile/jobs/:renderJobId` directly (unlike E2, nothing in the editor UI polls a render job on its own — Save just PUTs and shows a snackbar — so this rides no existing UI traffic; same 4-minute budget and "render job never completed — check the bot container" timeout message as E2) until `done`/`error`, then `GET /api/profile/files/candidate_profile.md` with the same bearer (plain-JWT endpoint, unlike the owner-gated UI tab — the non-owner smoke user calls it directly) and assert the marker is present and the previous marker is gone from the re-rendered file too. `.github/workflows/smoke.yml` job timeout raised 15→20 min (E3 adds a second up-to-4-minute poll on top of E1+E2's existing budget). `npm test` (402, unchanged) and `npm run build` stay green. **Ran the real suite against production twice in a row** with the real smoke-account credentials: run 1 (no sentinel existed yet) created it and passed in ~16.7s; run 2 found the sentinel, replaced it, and passed in ~21.7s, including a clean assertion that run 1's marker was gone from both the read-back and the re-rendered file — the rotation-proves-freshness property this phase exists to check worked end-to-end on real infrastructure, both times well under the 4-minute poll budget. All 7 specs (1 setup + 4 E1 + E2 + E3) green on both runs. No live bugs found in this phase. |
+| 2026-09-03 | sonnet | **Phase E4 of docs/LIVE_SMOKE_E2E.md: upload round-trip (mutating) — the final phase, all four now implemented.** New `smoke/e4-upload.spec.ts` in its own `e4-upload` Playwright project (depends on `setup`, `retries: 0` declared explicitly), using `mutatingTest`. New `smoke/fixtures/smoke-resume.txt`, a committed fake-person resume with a `{{MARKER}}` placeholder; the spec writes a temp copy with `buildRunMarker()` substituted under `smoke/test-results/` (gitignored, removed in a `finally`) and uploads it via `input[type="file"].setInputFiles()` behind the Uploads tab's dropzone. Captures `jobId` from `POST /api/profile/uploads`, then polls `GET /api/profile/jobs/:id` riding the upload dialog's own poll traffic (same house pattern as E2/E3) — but the dialog's own budget is only `PROFILE_UPLOAD_POLL_TIMEOUT_MS` (60s) before it shows a "taking longer than expected" error with a Retry button that only resumes polling on click, so `waitForParseJobTerminal()` drives that button itself in a loop until its own more generous 4-minute budget is spent. Marker assertion target: the parse job's `result` (`JSON.stringify(...).toContain(marker)`), not the confirmation screen's DOM — documented at length in the spec's module docstring why (`parsedSkillProposals()`/`parsedRoleProposals()` never render leftovers, and see the live finding below). Then **discards** the draft (never merges — E3 owns profile mutation) and re-fetches `GET /api/profile` to prove nothing was saved (revision + identity unchanged), then re-fetches `GET /api/profile/uploads` and matches the row by `jobId` (not filename/date — deterministic). `.github/workflows/smoke.yml` timeout raised 20→25 min for the third up-to-4-minute poll budget. `npm test` (402, unchanged) and `npm run build` stay green.<br>**Two live findings, both investigated against primary sources before writing any assertion — neither is a regression I introduced, both are pre-existing production behavior surfaced by writing this phase's checks for real:**<br>(1) **The task brief's premise that a "PR #27 durable-metadata fix" already made `filename` survive past a `done` parse job was wrong** — verified against job-hunter-api `origin/master`'s `ProfileService.listUploads()` (`src/profile/profile.service.ts`), which documents this as a KNOWN, currently-accepted cross-repo gap in its own 2026-08-30/2026-08-31 work log entries and its e2e suite explicitly asserts `filename: null` once a job's `result` column is overwritten by the bot's real parse output — there is no separate durable metadata store yet. Confirmed live: this run's own uploads-list row came back `filename: null, jobStatus: "done"`, matching that documented contract, not a regression. The spec was corrected to assert what's actually true and independently strong — the API's `sha256` (recomputed off the file still on disk, so it survives past `done`) is asserted to equal a locally-computed hash of the exact fixture bytes uploaded, and the DOM row is located by its confirmed array index (`ourIndex`) rather than by filename text, which can legitimately render blank. Also flagged (not changed, per docs/RESUME_PROFILE_STORE.md's "flag mismatches, don't change unilaterally"): this site's own `ProfileUploadListEntry.filename`/`.sha256` model types are non-nullable `string`, which doesn't match the api's actual `string \| null` contract.<br>(2) **A real, more serious site bug, found in passing and NOT fixed here (out of this phase's scope) — flagged as a follow-up task (`task_f1f7113b`):** `GET /api/profile/jobs/:id`'s `result` is a JSON-ENCODED STRING on the wire (job-hunter-api's `ProfileJobResponse.result?: string`), confirmed by calling the live endpoint directly, but neither `ProfileApi.getJob()` nor `upload-resume-dialog.component.ts` ever `JSON.parse()`s it before treating it as a `ProfileDocument` (the site's own `ProfileJob.result` model is mistyped as the parsed object). Manually reproduced live against production (logged in as the smoke account, injected a file via `input.files` + a `change` event, watched the confirmation screen): the "Review parsed resume" screen's Skills and Roles sections render completely empty for a real upload — not even the "No skills/roles found" empty-state text shows, because `parsedSkillProposals()`/`parsedRoleProposals()` throw (`TypeError: Cannot read properties of undefined (reading 'skills')`) before that branch is reached, confirmed via the browser console. This means the F5 upload-confirmation feature is currently non-functional in production for every real user, with no visible error. E4's own marker assertion is unaffected by this bug (`JSON.stringify` of a string still contains the marker text), which is why the spec only asserts the confirmation screen's heading becomes visible — never its Skills/Roles content, a choice made deliberately and documented before this was even confirmed. **Ran the full live suite against production twice**: run 1 (before correcting the filename assertion) failed exactly on the false premise in finding (1) above, confirming the corrected assertion was necessary, not a workaround; run 2, with the corrected spec, passed all 8 specs (1 setup + 4 E1 + E2 + E3 + E4) in ~1.5 min total, E4 itself in 43.6s. |

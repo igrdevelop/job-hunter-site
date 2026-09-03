@@ -1,6 +1,8 @@
 # Live Smoke E2E — post-deploy checks with the test user
 
-**Status:** work order, owner-approved direction 2026-09-02 — not started.
+**Status:** implemented — E1-E4 all shipped (see CLAUDE.md's "Live Smoke
+E2E" section for the current file map, and the Agent Work Log for the
+per-phase implementation notes).
 **Repo:** this one (job-hunter-site) owns the Playwright suite and the workflow;
 no api/bot code changes are expected.
 
