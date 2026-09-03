@@ -80,11 +80,36 @@ export class ProfileApi {
     );
   }
 
-  /** GET /api/profile/jobs/:id — poll a render/parse job's status. */
-  getJob(jobId: string): Promise<ProfileJob> {
-    return firstValueFrom(
-      this.http.get<ProfileJob>(`${this.baseUrl}/profile/jobs/${jobId}`),
+  /**
+   * GET /api/profile/jobs/:id — poll a render/parse job's status.
+   *
+   * The API's `result` field is a JSON-ENCODED STRING on the wire (the raw
+   * `profile_jobs.result` column), not an object — the typed model hid that,
+   * and the upload confirmation screen silently rendered empty Skills/Roles
+   * for EVERY real upload (TypeError in the console; found live by the E4
+   * smoke run, 2026-09-03). Parse it here, once, defensively: a result that
+   * isn't valid JSON (or isn't a parse job's document) comes back as
+   * undefined rather than poisoning the caller.
+   */
+  async getJob(jobId: string): Promise<ProfileJob> {
+    const raw = await firstValueFrom(
+      this.http.get<Omit<ProfileJob, 'result'> & { result?: string }>(
+        `${this.baseUrl}/profile/jobs/${jobId}`,
+      ),
     );
+    let result: ProfileJob['result'];
+    if (typeof raw.result === 'string' && raw.result.length > 0) {
+      try {
+        const parsed: unknown = JSON.parse(raw.result);
+        if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          result = parsed as ProfileJob['result'];
+        }
+      } catch {
+        // Non-JSON result (e.g. a render job's written-file list shape
+        // changing) — leave undefined, the dialog's error path handles it.
+      }
+    }
+    return { ...raw, result };
   }
 
   /** GET /api/profile/revisions — newest first, per the API contract. */

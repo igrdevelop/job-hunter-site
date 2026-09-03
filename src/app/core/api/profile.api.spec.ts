@@ -82,13 +82,33 @@ describe('ProfileApi', () => {
     expect(await p).toEqual(response);
   });
 
-  it('getJob() GETs /api/profile/jobs/:id', async () => {
-    const job: ProfileJob = { kind: 'parse', status: 'done', result: PROFILE_MOCK.profile };
+  it('getJob() GETs /api/profile/jobs/:id and JSON.parses the wire-string result', async () => {
+    // The API sends `result` as a JSON-ENCODED STRING (the raw DB column).
+    // The old spec flushed an object here — a lying mock that let the
+    // confirmation screen ship broken for every real upload (live bug found
+    // by the E4 smoke run). The mock now matches the real wire shape.
     const p = api.getJob('job-1');
     const req = http.expectOne('/api/profile/jobs/job-1');
     expect(req.request.method).toBe('GET');
-    req.flush(job);
-    expect(await p).toEqual(job);
+    req.flush({ kind: 'parse', status: 'done', result: JSON.stringify(PROFILE_MOCK.profile) });
+    const job = await p;
+    expect(job.status).toBe('done');
+    expect(job.result).toEqual(PROFILE_MOCK.profile);
+  });
+
+  it('getJob() returns result: undefined for a non-JSON or non-object result', async () => {
+    const p1 = api.getJob('job-2');
+    http.expectOne('/api/profile/jobs/job-2').flush({ kind: 'parse', status: 'error', result: 'not json {' });
+    expect((await p1).result).toBeUndefined();
+
+    const p2 = api.getJob('job-3');
+    // A render job's result is a JSON ARRAY (written-file list) — not a document.
+    http.expectOne('/api/profile/jobs/job-3').flush({ kind: 'render', status: 'done', result: '["a.md"]' });
+    expect((await p2).result).toBeUndefined();
+
+    const p3 = api.getJob('job-4');
+    http.expectOne('/api/profile/jobs/job-4').flush({ kind: 'parse', status: 'pending' });
+    expect((await p3).result).toBeUndefined();
   });
 
   it('getRevisions() GETs /api/profile/revisions', async () => {
