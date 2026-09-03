@@ -218,8 +218,12 @@ the owner's. Full design/rationale: `docs/LIVE_SMOKE_E2E.md`.
   mutation) and re-fetches `GET /api/profile` to prove nothing was saved
   (revision + identity unchanged). Finally re-fetches
   `GET /api/profile/uploads` and matches the row by `jobId` (not filename/
-  date), asserting `filename` is non-null (the PR #27 durable-metadata fix)
-  and `jobStatus === 'done'`, both via the API and in the rendered list.
+  date), asserting the content-derived `sha256` matches the uploaded bytes
+  and `jobStatus === 'done'`. Deliberately NO non-null assertion on
+  `filename`: a completed row can legitimately report `filename: null`
+  (verified live and against job-hunter-api's own e2e, which pins that
+  behavior) — do not "fix" E4 by asserting it, the suite would fail on
+  valid uploads.
   Uploads accumulate server-side across runs (small, ~one tiny file per
   run) — accepted per the work order, same as E2's preview-history growth.
 

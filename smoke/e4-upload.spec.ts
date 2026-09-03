@@ -130,7 +130,14 @@ type TerminalJob = Pick<ProfileJob, 'status' | 'result' | 'error'>;
  * requires for this failure class instead of a bare timeout: the bot drain
  * being dead is a real, actionable finding, not test flakiness.
  */
-async function waitForParseJobTerminal(page: Page, jobId: string, overallTimeoutMs: number): Promise<TerminalJob> {
+async function waitForParseJobTerminal(
+  page: Page,
+  request: APIRequestContext,
+  origin: string,
+  token: string,
+  jobId: string,
+  overallTimeoutMs: number,
+): Promise<TerminalJob> {
   const deadline = Date.now() + overallTimeoutMs;
   for (;;) {
     const remaining = deadline - Date.now();
@@ -159,6 +166,20 @@ async function waitForParseJobTerminal(page: Page, jobId: string, overallTimeout
       // expected" error with a Retry button (which only resumes polling
       // after that click). Clicking Retry when present is a no-op cost when
       // the dialog is in fact still quietly polling.
+      // Review finding (PR #45): a terminal response can land in the gap
+      // between this window expiring and the next one being armed (or while
+      // the Retry click is mid-flight) — ridden traffic alone can miss it
+      // and falsely report "never completed". A direct authenticated read
+      // closes the gap authoritatively before the next window.
+      const direct = await request
+        .get(`${origin}/api/profile/jobs/${jobId}`, { headers: { Authorization: `Bearer ${token}` } })
+        .catch(() => null);
+      if (direct?.ok()) {
+        const body = (await direct.json().catch(() => null)) as TerminalJob | null;
+        if (body?.status === 'done' || body?.status === 'error') {
+          return body;
+        }
+      }
       const retryButton = page.getByRole('button', { name: 'Retry', exact: true });
       if (await retryButton.isVisible().catch(() => false)) {
         await retryButton.click();
@@ -252,7 +273,7 @@ test.describe('E4 — upload round-trip', () => {
       const { jobId } = (await uploadResponse.json()) as ProfileUploadResponse;
       expect(jobId, 'POST /api/profile/uploads must return a jobId to poll').toBeTruthy();
 
-      const terminal = await waitForParseJobTerminal(page, jobId, JOB_POLL_TIMEOUT_MS);
+      const terminal = await waitForParseJobTerminal(page, request, origin, token, jobId, JOB_POLL_TIMEOUT_MS);
       if (terminal.status === 'error') {
         throw new Error(`Resume parse job ${jobId} finished with status "error": ${terminal.error ?? '(no error message)'}`);
       }
