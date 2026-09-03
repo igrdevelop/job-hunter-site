@@ -48,7 +48,11 @@ jobs:
     # polled directly since the editor UI doesn't ride any job-status traffic
     # of its own) on top of E1+E2 — worst case (both phases' polls maxed out)
     # is close to 15 minutes before install/cache overhead, leaving no slack.
-    timeout-minutes: 20
+    # Raised 20->25 when E4 landed: a THIRD up-to-4-minute poll (the resume
+    # parse job) on top of E1+E2+E3 - worst case across all three mutating
+    # phases' polls maxed out is close to 20 minutes before install/cache
+    # overhead, leaving no slack at the old 20-minute cap.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:

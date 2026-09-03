@@ -1,0 +1,25 @@
+Jane Smoketest
+Frontend Developer (fixture profile — not a real person)
+
+Contact: jane.smoketest@example.invalid
+
+SUMMARY
+Frontend developer with experience building Angular and TypeScript
+applications. Comfortable with component libraries, unit testing, and
+working from a design system.
+
+EXPERIENCE
+Fixture Widgets Co. — Frontend Developer (2021 - Present)
+- Built and maintained reusable Angular components for an internal design
+  system.
+- Wrote unit and integration tests to keep the UI regression-free.
+
+SKILLS
+Angular, TypeScript, RxJS, HTML, CSS
+
+EDUCATION
+Fixture State University — B.Sc. Computer Science (2016 - 2020)
+
+ADDITIONAL NOTES
+This file is a smoke-test fixture (docs/LIVE_SMOKE_E2E.md phase E4) — safe
+to discard, never merge into a real profile. Run marker: {{MARKER}}
