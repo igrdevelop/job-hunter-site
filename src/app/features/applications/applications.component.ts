@@ -19,8 +19,10 @@ import { MatDialog } from '@angular/material/dialog';
 import { AgGridAngular } from 'ag-grid-angular';
 import {
   AllCommunityModule,
+  CellKeyDownEvent,
   CellValueChangedEvent,
   ColDef,
+  FullWidthCellKeyDownEvent,
   GridApi,
   GetRowIdParams,
   GridReadyEvent,
@@ -190,6 +192,11 @@ export class ApplicationsComponent {
           this.openDeclineDialog(p.node, status);
         }
       },
+      // Space's grid-default is row selection; suppressing it here (and
+      // handling Enter/Space ourselves via the grid's (cellKeyDown) output,
+      // see onReasonCellKeyDown) is what lets a keyboard user activate this
+      // non-editable cell the same way a mouse click does.
+      suppressKeyboardEvent: (p) => p.event.key === ' ' || p.event.key === 'Enter',
     },
     { field: 'toLearn', headerName: 'To Learn', minWidth: 120, flex: 0.6, editable: true },
     {
@@ -406,6 +413,22 @@ export class ApplicationsComponent {
     }
   }
 
+  /** Keyboard counterpart to the Reason column's onCellClicked — Enter/Space
+   * on a focused cell opens the same decline dialog a mouse click would.
+   * Only fires for real key events (a `FullWidthCellKeyDownEvent` has no
+   * `column`/`data`, so it's filtered out here). The colDef's
+   * suppressKeyboardEvent stops the grid's own Space-selects-row default
+   * from firing first. */
+  onCellKeyDown(event: CellKeyDownEvent<Application> | FullWidthCellKeyDownEvent<Application>): void {
+    if (!('column' in event) || event.column.getColId() !== 'reason') return;
+    const keyboardEvent = event.event as KeyboardEvent | null;
+    if (!keyboardEvent || (keyboardEvent.key !== 'Enter' && keyboardEvent.key !== ' ')) return;
+    const status = event.data?.appStatus;
+    if (event.data && status && isDeclineStatus(status)) {
+      this.openDeclineDialog(event.node, status);
+    }
+  }
+
   private async patchFromGrid(event: CellValueChangedEvent<Application>): Promise<void> {
     const field = event.colDef.field!;
     try {
@@ -471,10 +494,42 @@ export class ApplicationsComponent {
       });
   }
 
+  /** Per-application chain of in-flight saveRow() calls — see saveRow(). */
+  private readonly pendingSaves = new Map<string, Promise<void>>();
+
   /** Shared save path for the My Status menu and the decline dialog — no
    * optimistic change is made first (unlike patchFromGrid's inline-edit
-   * revert dance), so a failure just informs, nothing to undo. */
+   * revert dance), so a failure just informs, nothing to undo.
+   *
+   * Two quick picks on the same row (e.g. Interview then Sent, clicked
+   * before the first PATCH returns) each start their own request; nothing
+   * else here orders the two responses, so whichever happens to resolve
+   * last would win via node.setData(), possibly restoring the earlier
+   * status. Serialized per application id instead: this call's PATCH
+   * doesn't start until every previously-queued saveRow() for the same id
+   * has fully settled, so responses are applied in request order and the
+   * latest selection is always the final persisted write. */
   async saveRow(node: IRowNode<Application>, patch: ApplicationPatch): Promise<void> {
+    const id = node.data?.id;
+    if (!id) return;
+    const previous = this.pendingSaves.get(id) ?? Promise.resolve();
+    // Both branches run saveRowNow — saveRowNow never itself rejects (all
+    // errors are caught below), so the reject branch is just a defensive
+    // guard against a future change breaking that invariant and wedging the
+    // chain for this id forever.
+    const run = () => this.saveRowNow(node, patch);
+    const chained = previous.then(run, run);
+    this.pendingSaves.set(id, chained);
+    try {
+      await chained;
+    } finally {
+      if (this.pendingSaves.get(id) === chained) {
+        this.pendingSaves.delete(id);
+      }
+    }
+  }
+
+  private async saveRowNow(node: IRowNode<Application>, patch: ApplicationPatch): Promise<void> {
     const id = node.data?.id;
     if (!id) return;
     try {

@@ -280,5 +280,41 @@ Six findings from a code-review pass on the v2 PR, all fixed with specs, same da
    undoes Skipped/Filter miss and returns the row to Unsent."
 
 `npm test`: 450 → 463 (13 new specs across the three touched files); `npm run build` stays clean.
+This is the final total for the v2 PR (identity/dialog/menu work plus this review-follow-ups
+pass); the "415 → 444" total once printed here was the pre-follow-ups checkpoint from the same
+work and is superseded by the line above, not a separate scope — removed to stop the two numbers
+from reading as contradictory.
 
-Tests: 415 → 444. `npm run build` and `npm test` both clean.
+### CodeRabbit review follow-ups (2026-09-14, PR #49)
+
+Three findings from CodeRabbit's automated review, all verified against the actual code before
+fixing:
+
+1. **Stale test totals (this file, was line 284).** Confirmed against `git show` that "Tests: 415
+   → 444" was the pre-follow-ups checkpoint from the commit just before the "Review follow-ups"
+   section above was added, left dangling at the end of the file once that section's own "450 →
+   463" total was inserted above it. Replaced with a note explaining the superseded number instead
+   of a second, contradicting total.
+2. **Reason column had no keyboard activation.** Confirmed: the `colId: 'reason'` colDef only
+   defined `onCellClicked`, so a keyboard user tabbed to the cell had no way to open the decline
+   dialog — Enter did nothing and Space triggered AG Grid's default row selection instead (checked
+   against `node_modules/ag-grid-community`: `suppressKeyboardEvent` on the colDef is what gates
+   the grid's own default per-key handling, verified in the bundled source). Fixed by adding
+   `suppressKeyboardEvent` to the colDef (claims Enter/Space so the grid's own Space-selects-row
+   default never runs) plus a new `(cellKeyDown)` grid output wired to `onCellKeyDown()`, which
+   applies the same Skipped/Filter-miss guard as `onCellClicked` before calling
+   `openDeclineDialog()`. Mouse behavior is unchanged.
+3. **Same-row status saves were not serialized.** Confirmed: `onAppStatusSelected` and the decline
+   dialog both call `void saveRow(...)`, and `saveRow` had no ordering guarantee — two quick status
+   picks on one row started two independent PATCHes, and whichever response resolved last won via
+   `node.setData(updated)`, regardless of which pick was more recent. Fixed with a
+   `Map<string, Promise<void>>` (`pendingSaves`, keyed by application id): `saveRow` now chains its
+   work behind whatever's already pending for that id, so a later pick's PATCH isn't even sent
+   until the earlier one has fully resolved (or failed) and applied its own response — the last
+   pick made is always the last one applied. Saves for different rows are unaffected (separate map
+   entries, run concurrently as before).
+
+`npm test`: 463 → 472 (9 new specs: keyboard activation + suppressKeyboardEvent on the Reason
+column, same-row save serialization with a deferred-promise spec proving the second PATCH isn't
+sent until the first resolves, and a same-id-only-across-different-rows spec); `npm run build`
+stays clean.

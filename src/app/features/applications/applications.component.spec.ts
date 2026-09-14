@@ -475,6 +475,82 @@ describe('ApplicationsComponent — URL-driven filter and search', () => {
       expect(node.setData).not.toHaveBeenCalled();
       expect(open).toHaveBeenCalledWith('Failed to save change.', 'Dismiss', { duration: 4000 });
     });
+
+    it('serializes two quick saves on the same row: the second PATCH is not sent until the first resolves, and the second response wins', async () => {
+      await setup({});
+      const api = TestBed.inject(ApplicationsApi);
+      const node = gridNode();
+
+      let resolveFirst!: (value: Application) => void;
+      const firstPatch = new Promise<Application>((resolve) => {
+        resolveFirst = resolve;
+      });
+      let resolveSecond!: (value: Application) => void;
+      const secondPatch = new Promise<Application>((resolve) => {
+        resolveSecond = resolve;
+      });
+      const patch = vi
+        .spyOn(api, 'patch')
+        .mockReturnValueOnce(firstPatch)
+        .mockReturnValueOnce(secondPatch);
+
+      const firstSave = component.saveRow(node as never, { appStatus: 'Interview' });
+      const secondSave = component.saveRow(node as never, { appStatus: 'Sent' });
+
+      // The second saveRow() call is queued behind the first — its PATCH
+      // must not fire yet, even though both were invoked back to back.
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(patch).toHaveBeenCalledTimes(1);
+      expect(patch).toHaveBeenCalledWith('42', { appStatus: 'Interview' });
+
+      // The first PATCH resolves after the second save is already queued —
+      // its (now-stale) response must not clobber the pending later pick.
+      const firstResult = baseApplication({ appStatus: 'Interview' });
+      resolveFirst(firstResult);
+      await firstSave;
+
+      expect(node.setData).toHaveBeenCalledWith(firstResult);
+      expect(patch).toHaveBeenCalledTimes(2);
+      expect(patch).toHaveBeenCalledWith('42', { appStatus: 'Sent' });
+
+      const secondResult = baseApplication({ appStatus: 'Sent' });
+      resolveSecond(secondResult);
+      await secondSave;
+
+      expect(node.setData).toHaveBeenLastCalledWith(secondResult);
+    });
+
+    it('does not serialize saves for different rows', async () => {
+      await setup({});
+      const api = TestBed.inject(ApplicationsApi);
+      const nodeA = gridNode({ id: 'A' });
+      const nodeB = gridNode({ id: 'B' });
+
+      let resolveA!: (value: Application) => void;
+      const patchA = new Promise<Application>((resolve) => {
+        resolveA = resolve;
+      });
+      const patch = vi
+        .spyOn(api, 'patch')
+        .mockReturnValueOnce(patchA)
+        .mockResolvedValueOnce(baseApplication({ id: 'B', appStatus: 'Sent' }));
+
+      const saveA = component.saveRow(nodeA as never, { appStatus: 'Interview' });
+      const saveB = component.saveRow(nodeB as never, { appStatus: 'Sent' });
+
+      // Row B's save has no pending save of its own to wait behind, so its
+      // PATCH should already be in flight even while A's is still pending.
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(patch).toHaveBeenCalledWith('B', { appStatus: 'Sent' });
+      await saveB;
+      expect(nodeB.setData).toHaveBeenCalled();
+
+      resolveA(baseApplication({ id: 'A', appStatus: 'Interview' }));
+      await saveA;
+      expect(nodeA.setData).toHaveBeenCalled();
+    });
   });
 
   describe('onAppStatusSelected (My Status menu callback)', () => {
@@ -701,6 +777,83 @@ describe('ApplicationsComponent — URL-driven filter and search', () => {
       const openSpy = vi.spyOn(component, 'openDeclineDialog').mockImplementation(() => {});
       const node = { data: { appStatus: '' } } as never;
       reasonColDef().onCellClicked!({ data: { appStatus: '' }, node } as never);
+      expect(openSpy).not.toHaveBeenCalled();
+    });
+
+    it('suppressKeyboardEvent claims Enter and Space, so the grid skips its own default handling', async () => {
+      await setup({});
+      const suppress = reasonColDef().suppressKeyboardEvent!;
+      expect(suppress({ event: { key: 'Enter' } } as never)).toBe(true);
+      expect(suppress({ event: { key: ' ' } } as never)).toBe(true);
+      expect(suppress({ event: { key: 'Tab' } } as never)).toBe(false);
+    });
+
+    it('onCellKeyDown(Enter) opens the decline dialog for a Skipped row, same as a click', async () => {
+      await setup({});
+      const openSpy = vi.spyOn(component, 'openDeclineDialog').mockImplementation(() => {});
+      const node = { data: { appStatus: 'Skipped' } } as never;
+      component.onCellKeyDown({
+        column: { getColId: () => 'reason' },
+        data: { appStatus: 'Skipped' },
+        node,
+        event: { key: 'Enter' },
+      } as never);
+      expect(openSpy).toHaveBeenCalledWith(node, 'Skipped');
+    });
+
+    it('onCellKeyDown(Space) opens the decline dialog for a Filter miss row', async () => {
+      await setup({});
+      const openSpy = vi.spyOn(component, 'openDeclineDialog').mockImplementation(() => {});
+      const node = { data: { appStatus: 'Filter miss' } } as never;
+      component.onCellKeyDown({
+        column: { getColId: () => 'reason' },
+        data: { appStatus: 'Filter miss' },
+        node,
+        event: { key: ' ' },
+      } as never);
+      expect(openSpy).toHaveBeenCalledWith(node, 'Filter miss');
+    });
+
+    it('onCellKeyDown ignores keys other than Enter/Space', async () => {
+      await setup({});
+      const openSpy = vi.spyOn(component, 'openDeclineDialog').mockImplementation(() => {});
+      component.onCellKeyDown({
+        column: { getColId: () => 'reason' },
+        data: { appStatus: 'Skipped' },
+        node: {} as never,
+        event: { key: 'Tab' },
+      } as never);
+      expect(openSpy).not.toHaveBeenCalled();
+    });
+
+    it('onCellKeyDown ignores a non-decline or unset status', async () => {
+      await setup({});
+      const openSpy = vi.spyOn(component, 'openDeclineDialog').mockImplementation(() => {});
+      component.onCellKeyDown({
+        column: { getColId: () => 'reason' },
+        data: { appStatus: 'Sent' },
+        node: {} as never,
+        event: { key: 'Enter' },
+      } as never);
+      expect(openSpy).not.toHaveBeenCalled();
+    });
+
+    it('onCellKeyDown ignores a key event on a different column', async () => {
+      await setup({});
+      const openSpy = vi.spyOn(component, 'openDeclineDialog').mockImplementation(() => {});
+      component.onCellKeyDown({
+        column: { getColId: () => 'toLearn' },
+        data: { appStatus: 'Skipped' },
+        node: {} as never,
+        event: { key: 'Enter' },
+      } as never);
+      expect(openSpy).not.toHaveBeenCalled();
+    });
+
+    it('onCellKeyDown ignores a full-width row event (no column/data)', async () => {
+      await setup({});
+      const openSpy = vi.spyOn(component, 'openDeclineDialog').mockImplementation(() => {});
+      component.onCellKeyDown({ event: { key: 'Enter' } } as never);
       expect(openSpy).not.toHaveBeenCalled();
     });
   });
