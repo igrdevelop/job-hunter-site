@@ -74,6 +74,22 @@ describe('DeclineReasonDialogComponent', () => {
     expect(component.note).toBe('3 days in Kraków');
   });
 
+  it('does not pre-fill a reason that is not valid for the new status, and keeps Save disabled', async () => {
+    // Switching a row from Skipped (reason 'salary') to Filter miss via the
+    // My Status menu passes the old ownerReason through unchanged — 'salary'
+    // is Skipped-only, so the dialog must not treat it as a valid pre-fill.
+    await createWith({ status: 'Filter miss', reason: 'salary', note: 'left over from Skipped' });
+    expect(component.reason).toBe('');
+
+    const saveBtn = fixture.nativeElement.querySelector('button[color="primary"]') as HTMLButtonElement;
+    expect(saveBtn.disabled).toBe(true);
+  });
+
+  it('still pre-fills a reason that is valid for both decline statuses', async () => {
+    await createWith({ status: 'Filter miss', reason: 'stack', note: '' });
+    expect(component.reason).toBe('stack');
+  });
+
   it('save() closes with the chosen reason and trimmed comment', async () => {
     await createWith({ status: 'Skipped', reason: '', note: '' });
     component.reason = 'location';

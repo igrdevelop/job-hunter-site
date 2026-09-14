@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  OnDestroy,
+  ViewChild,
+  inject,
+} from '@angular/core';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
@@ -9,8 +17,14 @@ import { Application } from '../../../core/api/models';
 export interface AppStatusCellRendererParams extends ICellRendererParams<Application, string> {
   /** Fired with the row node and the chosen status ('' clears it). The host
    * component decides what happens next — a direct save, or (for
-   * Skipped/Filter miss) opening DeclineReasonDialogComponent first. */
-  onSelect: (node: IRowNode<Application>, status: string) => void;
+   * Skipped/Filter miss) opening DeclineReasonDialogComponent first.
+   * `triggerElement` is this renderer's own pill button — pass it through to
+   * a MatDialog's `restoreFocus` so the dialog returns focus to the (still
+   * in the DOM) pill rather than to CdkDialogContainer's own default
+   * capture, which — if the dialog is opened from a mat-menu item click —
+   * grabs the menu ITEM as "previously focused", an element the menu itself
+   * detaches within its close animation, long before the dialog closes. */
+  onSelect: (node: IRowNode<Application>, status: string, triggerElement?: HTMLElement) => void;
   /** Fired when the menu opens/closes, so the host can pause its periodic
    * grid refresh while the user is choosing. */
   onMenuOpenChange?: (open: boolean) => void;
@@ -30,13 +44,14 @@ export interface AppStatusCellRendererParams extends ICellRendererParams<Applica
   imports: [MatMenuModule, MatIconModule, MatDividerModule],
   template: `
     <button
+      #trigger
       type="button"
       class="status-pill"
       [class.status-pill--empty]="!value"
       [matMenuTriggerFor]="statusMenu"
       (menuOpened)="setMenuOpen(true)"
       (menuClosed)="setMenuOpen(false)"
-      aria-label="Set status"
+      [attr.aria-label]="'My status: ' + (value || 'not set')"
     >
       <span class="status-pill-label">{{ value || 'Set status' }}</span>
       <mat-icon class="status-pill-icon" aria-hidden="true">expand_more</mat-icon>
@@ -106,6 +121,10 @@ export class AppStatusCellRendererComponent implements ICellRendererAngularComp,
   private params!: AppStatusCellRendererParams;
   private menuOpen = false;
 
+  // Passed back through onSelect so a dialog opened from a menu item can
+  // restore focus here instead of to the (about to be detached) menu item.
+  @ViewChild('trigger', { static: true }) private readonly triggerRef!: ElementRef<HTMLButtonElement>;
+
   value = '';
 
   setMenuOpen(open: boolean): void {
@@ -132,6 +151,6 @@ export class AppStatusCellRendererComponent implements ICellRendererAngularComp,
   }
 
   select(status: string): void {
-    this.params.onSelect(this.params.node, status);
+    this.params.onSelect(this.params.node, status, this.triggerRef?.nativeElement);
   }
 }

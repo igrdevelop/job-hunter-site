@@ -112,7 +112,13 @@ export class DeclineReasonDialogComponent {
   readonly reasons: OwnerReason[] = ownerReasonsForStatus(this.data.status);
   readonly title = this.data.status === 'Skipped' ? 'Why skipped?' : 'Which filter should have caught it?';
 
-  reason = this.data.reason;
+  // Pre-fill only if the existing reason is actually valid for THIS status —
+  // switching a row from Skipped to Filter miss (or vice versa) via the My
+  // Status menu passes the row's old ownerReason through unchanged, and a
+  // handful of codes (e.g. 'salary') are Skipped-only. Without this guard,
+  // no radio would show as selected yet Save would stay enabled (reason is
+  // still truthy), and the PATCH would 400.
+  reason = this.reasons.some((r) => r.code === this.data.reason) ? this.data.reason : '';
   note = this.data.note;
 
   save(): void {

@@ -13,7 +13,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
 import { BehaviorSubject, of } from 'rxjs';
 import { vi } from 'vitest';
-import { ApplicationsComponent, COLUMNS_STORAGE_KEY } from './applications.component';
+import { ApplicationsComponent, COLUMNS_STORAGE_KEY, REFRESH_INTERVAL_MS } from './applications.component';
 import { ApplicationsApi } from '../../core/api/applications.api';
 import { APP_STATUS_OPTIONS, Application } from '../../core/api/models';
 import { DeclineReasonDialogComponent } from './decline-reason-dialog/decline-reason-dialog.component';
@@ -338,6 +338,36 @@ describe('ApplicationsComponent — URL-driven filter and search', () => {
       } as never);
       expect(component.isUserInteracting()).toBe(true);
     });
+
+    it('the periodic refresh actually skips a tick while a status menu is open, and fires once it closes', async () => {
+      // The above specs only assert isUserInteracting() itself; this spies
+      // on setInterval to capture the constructor's real tick callback and
+      // invokes it directly, asserting the refresh call it gates. (Wrapping
+      // the whole setup in vi.useFakeTimers() instead deadlocks TestBed's
+      // fixture stabilization — Angular's own scheduler needs real timers —
+      // so this spy-and-invoke approach exercises the exact same callback
+      // without depending on a real 30s wait or fake-timer/zone interplay.)
+      const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
+      await setup({});
+      const tick = setIntervalSpy.mock.calls.find(([, ms]) => ms === REFRESH_INTERVAL_MS)?.[0] as
+        | (() => void)
+        | undefined;
+      expect(tick).toBeInstanceOf(Function);
+
+      const gridApi = { refreshInfiniteCache: vi.fn(), setGridOption: vi.fn(), getEditingCells: () => [] };
+      component.onGridReady({ api: gridApi } as never);
+
+      const col = component.columnDefs.find((d) => d.field === 'appStatus')!;
+      const params = col.cellRendererParams as { onMenuOpenChange: (open: boolean) => void };
+      params.onMenuOpenChange(true);
+
+      tick!();
+      expect(gridApi.refreshInfiniteCache).not.toHaveBeenCalled();
+
+      params.onMenuOpenChange(false);
+      tick!();
+      expect(gridApi.refreshInfiniteCache).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('saveRow (My Status menu + decline dialog)', () => {
@@ -398,6 +428,36 @@ describe('ApplicationsComponent — URL-driven filter and search', () => {
       component.onGridReady({ api: fakeGridApi() } as never);
 
       await component.saveRow(gridNode() as never, { appStatus: 'Sent' });
+
+      expect(open).not.toHaveBeenCalledWith('Moved to Filled', undefined, { duration: 3000 });
+    });
+
+    it('refreshes the grid and reloads stats for a Clear (appStatus: "") too, since it also changes sent', async () => {
+      // job-hunter-api#34: clearing a Skipped/Filter-miss row resets `sent`
+      // from '—' back to '' — the row returns to Unsent, so the grid/stats
+      // still need to refresh even though appStatus itself is now empty.
+      await setup({});
+      const api = TestBed.inject(ApplicationsApi);
+      const getStats = vi.spyOn(api, 'getStats');
+      vi.spyOn(api, 'patch').mockResolvedValue(baseApplication({ appStatus: '', sent: '' }));
+      const gridApi = fakeGridApi();
+      component.onGridReady({ api: gridApi } as never);
+
+      await component.saveRow(gridNode() as never, { appStatus: '' });
+
+      expect(gridApi.refreshInfiniteCache).toHaveBeenCalled();
+      expect(getStats).toHaveBeenCalled();
+    });
+
+    it('does not show "Moved to Filled" for a Clear that resets sent back to empty', async () => {
+      await setup({ filter: 'unsent' });
+      const api = TestBed.inject(ApplicationsApi);
+      vi.spyOn(api, 'patch').mockResolvedValue(baseApplication({ appStatus: '', sent: '' }));
+      const snackBar = TestBed.inject(MatSnackBar);
+      const open = vi.spyOn(snackBar, 'open');
+      component.onGridReady({ api: fakeGridApi() } as never);
+
+      await component.saveRow(gridNode() as never, { appStatus: '' });
 
       expect(open).not.toHaveBeenCalledWith('Moved to Filled', undefined, { duration: 3000 });
     });
@@ -473,6 +533,22 @@ describe('ApplicationsComponent — URL-driven filter and search', () => {
 
       expect(openSpy).toHaveBeenCalledWith(DeclineReasonDialogComponent, expect.anything());
     });
+
+    it('passes the pill trigger element through to openDeclineDialog, for focus restore', async () => {
+      await setup({});
+      const dialog = TestBed.inject(MatDialog);
+      const openSpy = vi.spyOn(dialog, 'open').mockReturnValue({
+        afterClosed: () => of(undefined),
+      } as unknown as ReturnType<MatDialog['open']>);
+      const pill = document.createElement('button');
+
+      component.onAppStatusSelected(gridNode() as never, 'Skipped', pill);
+
+      expect(openSpy).toHaveBeenCalledWith(
+        DeclineReasonDialogComponent,
+        expect.objectContaining({ restoreFocus: pill }),
+      );
+    });
   });
 
   describe('openDeclineDialog', () => {
@@ -534,6 +610,43 @@ describe('ApplicationsComponent — URL-driven filter and search', () => {
         ownerReasonNote: '3 days in Kraków',
       });
     });
+
+    it('restores focus to the given trigger element (the pill), not MatDialog\'s default capture', async () => {
+      // MatDialog's default restoreFocus:true captures whatever is
+      // document.activeElement when it opens — when opened from a mat-menu
+      // item click, that's the menu ITEM, which the menu detaches during
+      // its own close animation well before this dialog closes, so the
+      // default capture goes stale and focus falls back to <body>. Passing
+      // the pill button explicitly sidesteps that.
+      await setup({});
+      const dialog = TestBed.inject(MatDialog);
+      const openSpy = vi.spyOn(dialog, 'open').mockReturnValue({
+        afterClosed: () => of(undefined),
+      } as unknown as ReturnType<MatDialog['open']>);
+      const pill = document.createElement('button');
+
+      component.openDeclineDialog(gridNode() as never, 'Skipped', pill);
+
+      expect(openSpy).toHaveBeenCalledWith(
+        DeclineReasonDialogComponent,
+        expect.objectContaining({ restoreFocus: pill }),
+      );
+    });
+
+    it('falls back to MatDialog\'s default restoreFocus when opened without a trigger element (Reason column click)', async () => {
+      await setup({});
+      const dialog = TestBed.inject(MatDialog);
+      const openSpy = vi.spyOn(dialog, 'open').mockReturnValue({
+        afterClosed: () => of(undefined),
+      } as unknown as ReturnType<MatDialog['open']>);
+
+      component.openDeclineDialog(gridNode() as never, 'Skipped');
+
+      expect(openSpy).toHaveBeenCalledWith(
+        DeclineReasonDialogComponent,
+        expect.objectContaining({ restoreFocus: true }),
+      );
+    });
   });
 
   describe('Reason column', () => {
@@ -549,6 +662,18 @@ describe('ApplicationsComponent — URL-driven filter and search', () => {
         'Wrong stack',
       );
       expect(component.reasonText(baseApplication({}))).toBe('—');
+    });
+
+    it('tooltipValueGetter suppresses the tooltip entirely on an empty reason (no "—" hover)', async () => {
+      await setup({});
+      const value = reasonColDef().tooltipValueGetter!({ data: baseApplication({}) } as never);
+      expect(value).toBeUndefined();
+    });
+
+    it('tooltipValueGetter returns the same text as the cell for a populated reason', async () => {
+      await setup({});
+      const app = baseApplication({ ownerReason: 'stack', ownerReasonNote: 'React only' });
+      expect(reasonColDef().tooltipValueGetter!({ data: app } as never)).toBe(component.reasonText(app));
     });
 
     it('onCellClicked opens the decline dialog for a Skipped row', () => {

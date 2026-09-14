@@ -76,6 +76,18 @@ describe('AppStatusCellRendererComponent', () => {
     expect(pill.classList.contains('status-pill--empty')).toBe(true);
   });
 
+  it('exposes the current status via a dynamic aria-label, not a static one', async () => {
+    await setup('Interview');
+    const pill = fixture.nativeElement.querySelector('.status-pill') as HTMLElement;
+    expect(pill.getAttribute('aria-label')).toBe('My status: Interview');
+  });
+
+  it('labels an empty status distinctly for screen readers', async () => {
+    await setup('');
+    const pill = fixture.nativeElement.querySelector('.status-pill') as HTMLElement;
+    expect(pill.getAttribute('aria-label')).toBe('My status: not set');
+  });
+
   it('a single click opens the mat-menu as a CDK overlay on document.body', async () => {
     await setup('');
     expect(menuItems().length).toBe(0);
@@ -107,7 +119,21 @@ describe('AppStatusCellRendererComponent', () => {
     const skipped = menuItems().find((el) => el.textContent?.trim() === 'Skipped…')!;
     skipped.click();
 
-    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ id: '42' }) }), 'Skipped');
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ id: '42' }) }),
+      'Skipped',
+      expect.any(HTMLElement),
+    );
+  });
+
+  it('passes its own pill button as the third onSelect argument, for dialog focus restore', async () => {
+    await setup('');
+    openMenu();
+    const skipped = menuItems().find((el) => el.textContent?.trim() === 'Skipped…')!;
+    skipped.click();
+
+    const triggerElement = onSelect.mock.calls[0][2];
+    expect(triggerElement).toBe(fixture.nativeElement.querySelector('.status-pill'));
   });
 
   it('calls onSelect with an empty string for Clear', async () => {
@@ -116,7 +142,7 @@ describe('AppStatusCellRendererComponent', () => {
     const clear = menuItems().find((el) => el.textContent?.trim() === 'Clear')!;
     clear.click();
 
-    expect(onSelect).toHaveBeenCalledWith(expect.anything(), '');
+    expect(onSelect).toHaveBeenCalledWith(expect.anything(), '', expect.any(HTMLElement));
   });
 
   it('reports menu open to the host so it can pause the grid refresh', async () => {

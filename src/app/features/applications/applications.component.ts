@@ -56,7 +56,8 @@ import {
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-const REFRESH_INTERVAL_MS = 30_000;
+// Exported so specs can drive it with vi.useFakeTimers() instead of a real 30s wait.
+export const REFRESH_INTERVAL_MS = 30_000;
 const SEARCH_DEBOUNCE_MS = 400;
 export const COLUMNS_STORAGE_KEY = 'applications.columns';
 
@@ -155,12 +156,15 @@ export class ApplicationsComponent {
       // openDeclineDialog() instead of saving straight away.
       field: 'appStatus',
       headerName: 'My Status',
-      headerTooltip: 'Click to set a status — it fills Sent automatically. Skipped/Filter miss ask why.',
+      headerTooltip:
+        'Click to set a status — it fills Sent automatically. Skipped/Filter miss ask why. ' +
+        'Clear undoes Skipped/Filter miss and returns the row to Unsent.',
       width: 150,
       editable: false,
       cellRenderer: AppStatusCellRendererComponent,
       cellRendererParams: {
-        onSelect: (node: IRowNode<Application>, status: string) => this.onAppStatusSelected(node, status),
+        onSelect: (node: IRowNode<Application>, status: string, triggerElement?: HTMLElement) =>
+          this.onAppStatusSelected(node, status, triggerElement),
         onMenuOpenChange: (open: boolean) => {
           this.openStatusMenus = Math.max(0, this.openStatusMenus + (open ? 1 : -1));
         },
@@ -177,7 +181,9 @@ export class ApplicationsComponent {
       minWidth: 200,
       flex: 1,
       valueGetter: (p) => (p.data ? this.reasonText(p.data) : ''),
-      tooltipValueGetter: (p) => (p.data ? this.reasonText(p.data) : ''),
+      // undefined (not '—'/'') suppresses the tooltip entirely — an empty
+      // cell has nothing worth hovering over.
+      tooltipValueGetter: (p) => (p.data?.ownerReason?.trim() ? this.reasonText(p.data) : undefined),
       onCellClicked: (p) => {
         const status = p.data?.appStatus;
         if (p.data && status && isDeclineStatus(status)) {
@@ -414,20 +420,23 @@ export class ApplicationsComponent {
   }
 
   /** My Status menu callback (AppStatusCellRendererParams.onSelect). Direct
-   * statuses save immediately; Skipped/Filter miss ask why first. */
-  onAppStatusSelected(node: IRowNode<Application>, status: string): void {
+   * statuses save immediately; Skipped/Filter miss ask why first.
+   * `triggerElement` (the pill button) rides along so openDeclineDialog can
+   * hand it to MatDialog as the focus-restore target. */
+  onAppStatusSelected(node: IRowNode<Application>, status: string, triggerElement?: HTMLElement): void {
     if (isDeclineStatus(status)) {
-      this.openDeclineDialog(node, status);
+      this.openDeclineDialog(node, status, triggerElement);
       return;
     }
     void this.saveRow(node, { appStatus: status });
   }
 
   /** Opens DeclineReasonDialogComponent for a Skipped/Filter miss row — from
-   * the My Status menu (a fresh pick) or a click on the Reason column (an
-   * edit of an existing one, pre-filled). Cancel/Esc/backdrop resolves with
-   * `undefined`, which must change nothing, not even the status itself. */
-  openDeclineDialog(node: IRowNode<Application>, status: DeclineStatus): void {
+   * the My Status menu (a fresh pick, `triggerElement` set) or a click on
+   * the Reason column (an edit of an existing one, pre-filled,
+   * `triggerElement` unset). Cancel/Esc/backdrop resolves with `undefined`,
+   * which must change nothing, not even the status itself. */
+  openDeclineDialog(node: IRowNode<Application>, status: DeclineStatus, triggerElement?: HTMLElement): void {
     const data = node.data;
     this.dialog
       .open<DeclineReasonDialogComponent, DeclineReasonDialogData, DeclineReasonDialogResult | undefined>(
@@ -435,6 +444,15 @@ export class ApplicationsComponent {
         {
           // M3 dialogs cap at 560px by default; the two-column reason list needs a bit more.
           maxWidth: '95vw',
+          // Default `restoreFocus: true` captures whatever DOM element is
+          // focused at the moment the dialog attaches — when opened from a
+          // My Status menu item click, that's the menu item itself, which
+          // mat-menu detaches during its close animation long before this
+          // dialog closes, so the default capture goes stale and focus
+          // would fall back to <body>. Pass the (still-alive) pill button
+          // explicitly when we have one; fall back to the default otherwise
+          // (e.g. opened from the Reason column, not a menu).
+          restoreFocus: triggerElement ?? true,
           data: {
             status,
             reason: data?.ownerReason ?? '',
