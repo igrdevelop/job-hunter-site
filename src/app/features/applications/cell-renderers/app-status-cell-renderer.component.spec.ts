@@ -25,9 +25,11 @@ describe('AppStatusCellRendererComponent', () => {
   let fixture: ComponentFixture<AppStatusCellRendererComponent>;
   let component: AppStatusCellRendererComponent;
   let onSelect: ReturnType<typeof vi.fn>;
+  let onMenuOpenChange: ReturnType<typeof vi.fn>;
 
   async function setup(value: string): Promise<void> {
     onSelect = vi.fn();
+    onMenuOpenChange = vi.fn();
     await TestBed.configureTestingModule({
       imports: [AppStatusCellRendererComponent],
       providers: [provideAnimationsAsync()],
@@ -40,6 +42,7 @@ describe('AppStatusCellRendererComponent', () => {
       value,
       node,
       onSelect,
+      onMenuOpenChange,
     } as unknown as AppStatusCellRendererParams);
     fixture.detectChanges();
   }
@@ -114,6 +117,22 @@ describe('AppStatusCellRendererComponent', () => {
     clear.click();
 
     expect(onSelect).toHaveBeenCalledWith(expect.anything(), '');
+  });
+
+  it('reports menu open to the host so it can pause the grid refresh', async () => {
+    await setup('');
+    openMenu();
+    expect(onMenuOpenChange).toHaveBeenCalledWith(true);
+  });
+
+  it('releases the host pause when destroyed with the menu still open', async () => {
+    await setup('');
+    openMenu();
+    onMenuOpenChange.mockClear();
+
+    fixture.destroy();
+
+    expect(onMenuOpenChange).toHaveBeenCalledWith(false);
   });
 
   it('refresh() re-renders the current value', async () => {

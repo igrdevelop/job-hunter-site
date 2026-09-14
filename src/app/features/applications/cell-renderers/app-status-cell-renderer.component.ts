@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, inject } from '@angular/core';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
@@ -11,6 +11,9 @@ export interface AppStatusCellRendererParams extends ICellRendererParams<Applica
    * component decides what happens next — a direct save, or (for
    * Skipped/Filter miss) opening DeclineReasonDialogComponent first. */
   onSelect: (node: IRowNode<Application>, status: string) => void;
+  /** Fired when the menu opens/closes, so the host can pause its periodic
+   * grid refresh while the user is choosing. */
+  onMenuOpenChange?: (open: boolean) => void;
 }
 
 /**
@@ -31,6 +34,8 @@ export interface AppStatusCellRendererParams extends ICellRendererParams<Applica
       class="status-pill"
       [class.status-pill--empty]="!value"
       [matMenuTriggerFor]="statusMenu"
+      (menuOpened)="setMenuOpen(true)"
+      (menuClosed)="setMenuOpen(false)"
       aria-label="Set status"
     >
       <span class="status-pill-label">{{ value || 'Set status' }}</span>
@@ -96,11 +101,24 @@ export interface AppStatusCellRendererParams extends ICellRendererParams<Applica
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AppStatusCellRendererComponent implements ICellRendererAngularComp {
+export class AppStatusCellRendererComponent implements ICellRendererAngularComp, OnDestroy {
   private readonly cdr = inject(ChangeDetectorRef);
   private params!: AppStatusCellRendererParams;
+  private menuOpen = false;
 
   value = '';
+
+  setMenuOpen(open: boolean): void {
+    if (this.menuOpen === open) return;
+    this.menuOpen = open;
+    this.params.onMenuOpenChange?.(open);
+  }
+
+  ngOnDestroy(): void {
+    // A renderer destroyed with its menu open (row scrolled away, grid
+    // reloaded) must still release the host's refresh pause.
+    this.setMenuOpen(false);
+  }
 
   agInit(params: AppStatusCellRendererParams): void {
     this.params = params;

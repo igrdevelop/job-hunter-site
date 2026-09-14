@@ -22,6 +22,7 @@ import {
   CellValueChangedEvent,
   ColDef,
   GridApi,
+  GetRowIdParams,
   GridReadyEvent,
   IDatasource,
   IGetRowsParams,
@@ -91,6 +92,8 @@ export class ApplicationsComponent {
   private readonly dialog = inject(MatDialog);
 
   private gridApi?: GridApi<Application>;
+  /** How many My Status menus are open right now (normally 0 or 1). */
+  private openStatusMenus = 0;
 
   private readonly queryParams = toSignal(this.route.queryParamMap, { requireSync: true });
   /** Filter/search the grid last queried with — guards against redundant refreshes. */
@@ -158,7 +161,10 @@ export class ApplicationsComponent {
       cellRenderer: AppStatusCellRendererComponent,
       cellRendererParams: {
         onSelect: (node: IRowNode<Application>, status: string) => this.onAppStatusSelected(node, status),
-      } as Pick<AppStatusCellRendererParams, 'onSelect'>,
+        onMenuOpenChange: (open: boolean) => {
+          this.openStatusMenus = Math.max(0, this.openStatusMenus + (open ? 1 : -1));
+        },
+      } as Pick<AppStatusCellRendererParams, 'onSelect' | 'onMenuOpenChange'>,
     },
     {
       // Replaces the round-1 free-text Note column (never shipped api-side)
@@ -282,12 +288,14 @@ export class ApplicationsComponent {
       this.gridApi?.setGridOption('datasource', this.datasource);
     });
 
-    const intervalId = setInterval(
+    const intervalId = setInterval(() => {
+      // Skip a tick while the user is mid-interaction: a reload re-renders
+      // cells, which would close an open My Status menu under the cursor.
+      if (this.isUserInteracting()) return;
       // refreshInfiniteCache keeps current rows visible until new data arrives (no flicker),
       // unlike purgeInfiniteCache which blanks the grid immediately.
-      () => this.gridApi?.refreshInfiniteCache(),
-      REFRESH_INTERVAL_MS,
-    );
+      this.gridApi?.refreshInfiniteCache();
+    }, REFRESH_INTERVAL_MS);
     this.destroyRef.onDestroy(() => {
       clearInterval(intervalId);
       clearTimeout(this.searchDebounceHandle);
@@ -333,6 +341,19 @@ export class ApplicationsComponent {
         queryParamsHandling: 'merge',
       });
     }, SEARCH_DEBOUNCE_MS);
+  }
+
+  /** Stable row identity, so a cache refresh updates existing row nodes and
+   * their cell renderers in place instead of recreating them. */
+  readonly getRowId = (params: GetRowIdParams<Application>): string => params.data.id;
+
+  /** True while a My Status menu, any dialog, or an inline cell editor is open. */
+  isUserInteracting(): boolean {
+    return (
+      this.openStatusMenus > 0 ||
+      this.dialog.openDialogs.length > 0 ||
+      (this.gridApi?.getEditingCells().length ?? 0) > 0
+    );
   }
 
   onGridReady(event: GridReadyEvent<Application>): void {
@@ -412,6 +433,8 @@ export class ApplicationsComponent {
       .open<DeclineReasonDialogComponent, DeclineReasonDialogData, DeclineReasonDialogResult | undefined>(
         DeclineReasonDialogComponent,
         {
+          // M3 dialogs cap at 560px by default; the two-column reason list needs a bit more.
+          maxWidth: '95vw',
           data: {
             status,
             reason: data?.ownerReason ?? '',

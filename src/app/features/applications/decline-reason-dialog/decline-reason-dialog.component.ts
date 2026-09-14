@@ -70,18 +70,33 @@ const MAX_NOTE_LENGTH = 500;
   `,
   styles: [
     `
+      :host {
+        display: block;
+        width: min(600px, 90vw);
+      }
+      /* Two columns so all 14–16 reasons and the comment fit without scrolling. */
       .reason-list {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        min-width: min(360px, 80vw);
-        margin: 8px 0 16px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: 16px;
+        margin: 4px 0 12px;
+      }
+      @media (max-width: 600px) {
+        .reason-list {
+          grid-template-columns: 1fr;
+        }
       }
       .reason-option {
         font-size: 13px;
+        --mat-radio-touch-target-size: 32px;
+        --mat-radio-state-layer-size: 32px;
       }
+      /* Material's form-field font token is bare 'Barlow' (no fallback); the
+         self-hosted Barlow has no Cyrillic, so Russian comments rendered in a
+         serif default. --font-body carries the sans-serif fallbacks. */
       .comment-field {
         width: 100%;
+        --mat-form-field-container-text-font: var(--font-body);
       }
     `,
   ],

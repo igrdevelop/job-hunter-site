@@ -307,6 +307,39 @@ describe('ApplicationsComponent — URL-driven filter and search', () => {
     });
   });
 
+  describe('periodic refresh pause', () => {
+    it('uses the application id as the grid row id', async () => {
+      await setup({});
+      expect(component.getRowId({ data: baseApplication({ id: 'abc' }) } as never)).toBe('abc');
+    });
+
+    it('is not interacting by default', async () => {
+      await setup({});
+      component.onGridReady({ api: { setGridOption: vi.fn(), getEditingCells: () => [] } } as never);
+      expect(component.isUserInteracting()).toBe(false);
+    });
+
+    it('is interacting while a My Status menu is open, and stops once it closes', async () => {
+      await setup({});
+      const col = component.columnDefs.find((d) => d.field === 'appStatus')!;
+      const params = col.cellRendererParams as { onMenuOpenChange: (open: boolean) => void };
+
+      params.onMenuOpenChange(true);
+      expect(component.isUserInteracting()).toBe(true);
+
+      params.onMenuOpenChange(false);
+      expect(component.isUserInteracting()).toBe(false);
+    });
+
+    it('is interacting while an inline cell editor is open', async () => {
+      await setup({});
+      component.onGridReady({
+        api: { setGridOption: vi.fn(), getEditingCells: () => [{ rowIndex: 0 }] },
+      } as never);
+      expect(component.isUserInteracting()).toBe(true);
+    });
+  });
+
   describe('saveRow (My Status menu + decline dialog)', () => {
     function gridNode(data: Partial<Application> = { id: '42' }) {
       return { data, setData: vi.fn() };
