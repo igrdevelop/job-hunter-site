@@ -10,11 +10,13 @@ import {
 } from '@angular/router';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { BehaviorSubject } from 'rxjs';
+import { MatDialog } from '@angular/material/dialog';
+import { BehaviorSubject, of } from 'rxjs';
 import { vi } from 'vitest';
 import { ApplicationsComponent, COLUMNS_STORAGE_KEY } from './applications.component';
 import { ApplicationsApi } from '../../core/api/applications.api';
 import { APP_STATUS_OPTIONS, Application } from '../../core/api/models';
+import { DeclineReasonDialogComponent } from './decline-reason-dialog/decline-reason-dialog.component';
 
 function baseApplication(overrides: Partial<Application> = {}): Application {
   return {
@@ -161,29 +163,33 @@ describe('ApplicationsComponent — URL-driven filter and search', () => {
       }
     });
 
-    it('shows My Status by default as a select-editor column', async () => {
+    it('shows My Status by default as a non-editable pill-renderer column with no grid editor', async () => {
       await setup({});
       const def = colDef('appStatus');
       expect(def?.hide).toBeUndefined();
-      expect(def?.editable).toBe(true);
-      expect(def?.cellEditor).toBe('agSelectCellEditor');
+      expect(def?.editable).toBe(false);
+      expect(def?.cellEditor).toBeUndefined();
+      expect(def?.cellRenderer).toBeDefined();
+      expect(def?.cellRendererParams?.onSelect).toBeInstanceOf(Function);
     });
 
-    it('renames the sent column header to "Sent"', async () => {
+    it('makes the Sent column read-only', async () => {
       await setup({});
-      expect(colDef('sent')?.headerName).toBe('Sent');
+      const def = colDef('sent');
+      expect(def?.headerName).toBe('Sent');
+      expect(def?.editable).toBe(false);
     });
 
-    it('shows an editable Note column by default with a popup large-text editor', async () => {
+    it('shows a read-only Reason column by default, replacing Note', async () => {
       await setup({});
-      const def = colDef('note');
-      expect(def?.headerName).toBe('Note');
+      expect(colDef('note')).toBeUndefined();
+      const def = component.columnDefs.find((d) => d.colId === 'reason');
+      expect(def?.headerName).toBe('Reason');
       expect(def?.hide).toBeUndefined();
-      expect(def?.editable).toBe(true);
-      expect(def?.cellEditor).toBe('agLargeTextCellEditor');
-      expect(def?.cellEditorPopup).toBe(true);
-      expect(def?.cellEditorParams).toMatchObject({ maxLength: 2000 });
-      expect(def?.tooltipField).toBe('note');
+      expect(def?.editable).toBeFalsy();
+      expect(def?.valueGetter).toBeInstanceOf(Function);
+      expect(def?.tooltipValueGetter).toBeInstanceOf(Function);
+      expect(def?.onCellClicked).toBeInstanceOf(Function);
     });
 
     it('excludes icon-only folder/url columns from the toggle menu', async () => {
@@ -192,6 +198,7 @@ describe('ApplicationsComponent — URL-driven filter and search', () => {
       expect(ids).not.toContain('folder');
       expect(ids).not.toContain('url');
       expect(ids).toContain('driveUrl');
+      expect(ids).toContain('reason');
     });
 
     it('toggleColumn flips visibility and persists it to localStorage', async () => {
@@ -221,7 +228,20 @@ describe('ApplicationsComponent — URL-driven filter and search', () => {
       return { setData: vi.fn(), setDataValue: vi.fn() };
     }
 
-    it('patches appStatus edits through the API', async () => {
+    it('patches toLearn edits through the API', async () => {
+      await setup({});
+      const api = TestBed.inject(ApplicationsApi);
+      const patch = vi.spyOn(api, 'patch').mockResolvedValue(baseApplication());
+      component.onCellValueChanged({
+        colDef: { field: 'toLearn' },
+        data: { id: '42' },
+        newValue: 'RxJS',
+        node: gridNode(),
+      } as never);
+      expect(patch).toHaveBeenCalledWith('42', { toLearn: 'RxJS' });
+    });
+
+    it('does not patch appStatus through onCellValueChanged (no grid editor any more)', async () => {
       await setup({});
       const api = TestBed.inject(ApplicationsApi);
       const patch = vi.spyOn(api, 'patch').mockResolvedValue(baseApplication());
@@ -231,20 +251,7 @@ describe('ApplicationsComponent — URL-driven filter and search', () => {
         newValue: 'Rejected',
         node: gridNode(),
       } as never);
-      expect(patch).toHaveBeenCalledWith('42', { appStatus: 'Rejected' });
-    });
-
-    it('patches note edits through the API', async () => {
-      await setup({});
-      const api = TestBed.inject(ApplicationsApi);
-      const patch = vi.spyOn(api, 'patch').mockResolvedValue(baseApplication());
-      component.onCellValueChanged({
-        colDef: { field: 'note' },
-        data: { id: '42' },
-        newValue: 'not a fit',
-        node: gridNode(),
-      } as never);
-      expect(patch).toHaveBeenCalledWith('42', { note: 'not a fit' });
+      expect(patch).not.toHaveBeenCalled();
     });
 
     it('does not patch non-editable fields', async () => {
@@ -261,132 +268,24 @@ describe('ApplicationsComponent — URL-driven filter and search', () => {
     });
   });
 
-  describe('save flow', () => {
+  describe('patchFromGrid (toLearn inline edit)', () => {
     function gridNode() {
       return { setData: vi.fn(), setDataValue: vi.fn() };
-    }
-
-    function fakeGridApi() {
-      return { refreshInfiniteCache: vi.fn(), setGridOption: vi.fn() };
     }
 
     it('applies the PATCH response to the row via setData', async () => {
       await setup({});
       const api = TestBed.inject(ApplicationsApi);
-      const updated = baseApplication({ appStatus: 'Sent', sent: '2026-09-14' });
+      const updated = baseApplication({ toLearn: 'RxJS' });
       vi.spyOn(api, 'patch').mockResolvedValue(updated);
       const node = gridNode();
-      await component['patchFromGrid']({
-        colDef: { field: 'appStatus' },
-        data: { id: '42' },
-        newValue: 'Sent',
-        node,
-      } as never);
-      expect(node.setData).toHaveBeenCalledWith(updated);
-    });
-
-    it('refreshes the grid and reloads stats after a sent edit', async () => {
-      await setup({});
-      const api = TestBed.inject(ApplicationsApi);
-      const getStats = vi.spyOn(api, 'getStats');
-      vi.spyOn(api, 'patch').mockResolvedValue(baseApplication({ sent: '2026-09-14' }));
-      const gridApi = fakeGridApi();
-      component.onGridReady({ api: gridApi } as never);
-      await component['patchFromGrid']({
-        colDef: { field: 'sent' },
-        data: { id: '42' },
-        newValue: '2026-09-14',
-        node: gridNode(),
-      } as never);
-      expect(gridApi.refreshInfiniteCache).toHaveBeenCalled();
-      expect(getStats).toHaveBeenCalled();
-    });
-
-    it('refreshes the grid and reloads stats after an appStatus edit', async () => {
-      await setup({});
-      const api = TestBed.inject(ApplicationsApi);
-      const getStats = vi.spyOn(api, 'getStats');
-      vi.spyOn(api, 'patch').mockResolvedValue(
-        baseApplication({ appStatus: 'Skipped', sent: '—' }),
-      );
-      const gridApi = fakeGridApi();
-      component.onGridReady({ api: gridApi } as never);
-      await component['patchFromGrid']({
-        colDef: { field: 'appStatus' },
-        data: { id: '42' },
-        newValue: 'Skipped',
-        node: gridNode(),
-      } as never);
-      expect(gridApi.refreshInfiniteCache).toHaveBeenCalled();
-      expect(getStats).toHaveBeenCalled();
-    });
-
-    it('does not refresh the grid or reload stats after a toLearn edit', async () => {
-      await setup({});
-      const api = TestBed.inject(ApplicationsApi);
-      // setup()'s constructor call to loadStats() already used this spy once.
-      const getStats = vi.spyOn(api, 'getStats').mockClear();
-      vi.spyOn(api, 'patch').mockResolvedValue(baseApplication({ toLearn: 'RxJS' }));
-      const gridApi = fakeGridApi();
-      component.onGridReady({ api: gridApi } as never);
       await component['patchFromGrid']({
         colDef: { field: 'toLearn' },
         data: { id: '42' },
         newValue: 'RxJS',
-        node: gridNode(),
+        node,
       } as never);
-      expect(gridApi.refreshInfiniteCache).not.toHaveBeenCalled();
-      expect(getStats).not.toHaveBeenCalled();
-    });
-
-    it('does not refresh the grid or reload stats after a note edit', async () => {
-      await setup({});
-      const api = TestBed.inject(ApplicationsApi);
-      // setup()'s constructor call to loadStats() already used this spy once.
-      const getStats = vi.spyOn(api, 'getStats').mockClear();
-      vi.spyOn(api, 'patch').mockResolvedValue(baseApplication({ note: 'not a fit' }));
-      const gridApi = fakeGridApi();
-      component.onGridReady({ api: gridApi } as never);
-      await component['patchFromGrid']({
-        colDef: { field: 'note' },
-        data: { id: '42' },
-        newValue: 'not a fit',
-        node: gridNode(),
-      } as never);
-      expect(gridApi.refreshInfiniteCache).not.toHaveBeenCalled();
-      expect(getStats).not.toHaveBeenCalled();
-    });
-
-    it('shows "Moved to Filled" when a row leaves the unsent filter', async () => {
-      await setup({ filter: 'unsent' });
-      const api = TestBed.inject(ApplicationsApi);
-      vi.spyOn(api, 'patch').mockResolvedValue(baseApplication({ sent: '2026-09-14' }));
-      const snackBar = TestBed.inject(MatSnackBar);
-      const open = vi.spyOn(snackBar, 'open');
-      component.onGridReady({ api: fakeGridApi() } as never);
-      await component['patchFromGrid']({
-        colDef: { field: 'appStatus' },
-        data: { id: '42' },
-        newValue: 'Sent',
-        node: gridNode(),
-      } as never);
-      expect(open).toHaveBeenCalledWith('Moved to Filled', undefined, { duration: 3000 });
-    });
-
-    it('does not show "Moved to Filled" outside the unsent filter', async () => {
-      await setup({ filter: 'all' });
-      const api = TestBed.inject(ApplicationsApi);
-      vi.spyOn(api, 'patch').mockResolvedValue(baseApplication({ sent: '2026-09-14' }));
-      const snackBar = TestBed.inject(MatSnackBar);
-      const open = vi.spyOn(snackBar, 'open');
-      component.onGridReady({ api: fakeGridApi() } as never);
-      await component['patchFromGrid']({
-        colDef: { field: 'appStatus' },
-        data: { id: '42' },
-        newValue: 'Sent',
-        node: gridNode(),
-      } as never);
-      expect(open).not.toHaveBeenCalledWith('Moved to Filled', undefined, { duration: 3000 });
+      expect(node.setData).toHaveBeenCalledWith(updated);
     });
 
     it('reverts the cell and shows an error snackbar on a failed PATCH', async () => {
@@ -397,20 +296,265 @@ describe('ApplicationsComponent — URL-driven filter and search', () => {
       const open = vi.spyOn(snackBar, 'open');
       const node = gridNode();
       await component['patchFromGrid']({
-        colDef: { field: 'note' },
+        colDef: { field: 'toLearn' },
         data: { id: '42' },
-        newValue: 'not a fit',
+        newValue: 'RxJS',
         oldValue: '',
         node,
       } as never);
-      expect(node.setDataValue).toHaveBeenCalledWith('note', '');
+      expect(node.setDataValue).toHaveBeenCalledWith('toLearn', '');
       expect(open).toHaveBeenCalledWith('Failed to save change.', 'Dismiss', { duration: 4000 });
+    });
+  });
+
+  describe('saveRow (My Status menu + decline dialog)', () => {
+    function gridNode(data: Partial<Application> = { id: '42' }) {
+      return { data, setData: vi.fn() };
+    }
+
+    function fakeGridApi() {
+      return { refreshInfiniteCache: vi.fn(), setGridOption: vi.fn() };
+    }
+
+    it('applies the PATCH response to the row via setData, without an optimistic change first', async () => {
+      await setup({});
+      const api = TestBed.inject(ApplicationsApi);
+      const updated = baseApplication({ appStatus: 'Sent', sent: '2026-09-14' });
+      const patch = vi.spyOn(api, 'patch').mockResolvedValue(updated);
+      const node = gridNode();
+
+      await component.saveRow(node as never, { appStatus: 'Sent' });
+
+      expect(patch).toHaveBeenCalledWith('42', { appStatus: 'Sent' });
+      expect(node.setData).toHaveBeenCalledWith(updated);
+    });
+
+    it('refreshes the grid and reloads stats when the patch includes appStatus', async () => {
+      await setup({});
+      const api = TestBed.inject(ApplicationsApi);
+      const getStats = vi.spyOn(api, 'getStats');
+      vi.spyOn(api, 'patch').mockResolvedValue(baseApplication({ appStatus: 'Skipped', sent: '—' }));
+      const gridApi = fakeGridApi();
+      component.onGridReady({ api: gridApi } as never);
+
+      await component.saveRow(gridNode() as never, { appStatus: 'Skipped', ownerReason: 'stack', ownerReasonNote: '' });
+
+      expect(gridApi.refreshInfiniteCache).toHaveBeenCalled();
+      expect(getStats).toHaveBeenCalled();
+    });
+
+    it('shows "Moved to Filled" when a row leaves the unsent filter', async () => {
+      await setup({ filter: 'unsent' });
+      const api = TestBed.inject(ApplicationsApi);
+      vi.spyOn(api, 'patch').mockResolvedValue(baseApplication({ sent: '2026-09-14' }));
+      const snackBar = TestBed.inject(MatSnackBar);
+      const open = vi.spyOn(snackBar, 'open');
+      component.onGridReady({ api: fakeGridApi() } as never);
+
+      await component.saveRow(gridNode() as never, { appStatus: 'Sent' });
+
+      expect(open).toHaveBeenCalledWith('Moved to Filled', undefined, { duration: 3000 });
+    });
+
+    it('does not show "Moved to Filled" outside the unsent filter', async () => {
+      await setup({ filter: 'all' });
+      const api = TestBed.inject(ApplicationsApi);
+      vi.spyOn(api, 'patch').mockResolvedValue(baseApplication({ sent: '2026-09-14' }));
+      const snackBar = TestBed.inject(MatSnackBar);
+      const open = vi.spyOn(snackBar, 'open');
+      component.onGridReady({ api: fakeGridApi() } as never);
+
+      await component.saveRow(gridNode() as never, { appStatus: 'Sent' });
+
+      expect(open).not.toHaveBeenCalledWith('Moved to Filled', undefined, { duration: 3000 });
+    });
+
+    it('shows an error snackbar on a failed PATCH, with no optimistic state to revert', async () => {
+      await setup({});
+      const api = TestBed.inject(ApplicationsApi);
+      vi.spyOn(api, 'patch').mockRejectedValue(new Error('boom'));
+      const snackBar = TestBed.inject(MatSnackBar);
+      const open = vi.spyOn(snackBar, 'open');
+      const node = gridNode();
+
+      await component.saveRow(node as never, { appStatus: 'Sent' });
+
+      expect(node.setData).not.toHaveBeenCalled();
+      expect(open).toHaveBeenCalledWith('Failed to save change.', 'Dismiss', { duration: 4000 });
+    });
+  });
+
+  describe('onAppStatusSelected (My Status menu callback)', () => {
+    function gridNode(data: Partial<Application> = { id: '42' }) {
+      return { data, setData: vi.fn() };
+    }
+
+    it('saves a direct status immediately, without opening a dialog', async () => {
+      await setup({});
+      const api = TestBed.inject(ApplicationsApi);
+      const patch = vi.spyOn(api, 'patch').mockResolvedValue(baseApplication({ appStatus: 'Interview' }));
+      const dialog = TestBed.inject(MatDialog);
+      const openSpy = vi.spyOn(dialog, 'open');
+
+      component.onAppStatusSelected(gridNode() as never, 'Interview');
+      await Promise.resolve();
+
+      expect(patch).toHaveBeenCalledWith('42', { appStatus: 'Interview' });
+      expect(openSpy).not.toHaveBeenCalled();
+    });
+
+    it('clears a status directly (no dialog) when "Clear" is chosen', async () => {
+      await setup({});
+      const api = TestBed.inject(ApplicationsApi);
+      const patch = vi.spyOn(api, 'patch').mockResolvedValue(baseApplication({ appStatus: '' }));
+
+      component.onAppStatusSelected(gridNode() as never, '');
+      await Promise.resolve();
+
+      expect(patch).toHaveBeenCalledWith('42', { appStatus: '' });
+    });
+
+    it('opens the decline dialog for Skipped instead of saving directly', async () => {
+      await setup({});
+      const dialog = TestBed.inject(MatDialog);
+      const openSpy = vi.spyOn(dialog, 'open').mockReturnValue({
+        afterClosed: () => of(undefined),
+      } as unknown as ReturnType<MatDialog['open']>);
+      const api = TestBed.inject(ApplicationsApi);
+      const patch = vi.spyOn(api, 'patch');
+
+      component.onAppStatusSelected(gridNode() as never, 'Skipped');
+
+      expect(openSpy).toHaveBeenCalledWith(DeclineReasonDialogComponent, expect.anything());
+      expect(patch).not.toHaveBeenCalled();
+    });
+
+    it('opens the decline dialog for Filter miss instead of saving directly', async () => {
+      await setup({});
+      const dialog = TestBed.inject(MatDialog);
+      const openSpy = vi.spyOn(dialog, 'open').mockReturnValue({
+        afterClosed: () => of(undefined),
+      } as unknown as ReturnType<MatDialog['open']>);
+
+      component.onAppStatusSelected(gridNode() as never, 'Filter miss');
+
+      expect(openSpy).toHaveBeenCalledWith(DeclineReasonDialogComponent, expect.anything());
+    });
+  });
+
+  describe('openDeclineDialog', () => {
+    function gridNode(data: Partial<Application> = { id: '42' }) {
+      return { data, setData: vi.fn() };
+    }
+
+    it('pre-fills the dialog data from the row\'s existing reason when editing', async () => {
+      await setup({});
+      const dialog = TestBed.inject(MatDialog);
+      const openSpy = vi.spyOn(dialog, 'open').mockReturnValue({
+        afterClosed: () => of(undefined),
+      } as unknown as ReturnType<MatDialog['open']>);
+      const node = gridNode({ id: '42', ownerReason: 'stack', ownerReasonNote: 'React only' });
+
+      component.openDeclineDialog(node as never, 'Skipped');
+
+      expect(openSpy).toHaveBeenCalledWith(
+        DeclineReasonDialogComponent,
+        expect.objectContaining({
+          data: { status: 'Skipped', reason: 'stack', note: 'React only' },
+        }),
+      );
+    });
+
+    it('does not change anything when the dialog is cancelled', async () => {
+      await setup({});
+      const dialog = TestBed.inject(MatDialog);
+      vi.spyOn(dialog, 'open').mockReturnValue({
+        afterClosed: () => of(undefined),
+      } as unknown as ReturnType<MatDialog['open']>);
+      const api = TestBed.inject(ApplicationsApi);
+      const patch = vi.spyOn(api, 'patch');
+
+      component.openDeclineDialog(gridNode() as never, 'Skipped');
+      await Promise.resolve();
+
+      expect(patch).not.toHaveBeenCalled();
+    });
+
+    it('saves the chosen reason and comment when the dialog is confirmed', async () => {
+      await setup({});
+      const dialog = TestBed.inject(MatDialog);
+      vi.spyOn(dialog, 'open').mockReturnValue({
+        afterClosed: () => of({ reason: 'location', note: '3 days in Kraków' }),
+      } as unknown as ReturnType<MatDialog['open']>);
+      const api = TestBed.inject(ApplicationsApi);
+      const patch = vi
+        .spyOn(api, 'patch')
+        .mockResolvedValue(baseApplication({ appStatus: 'Skipped', sent: '—' }));
+
+      component.openDeclineDialog(gridNode() as never, 'Skipped');
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(patch).toHaveBeenCalledWith('42', {
+        appStatus: 'Skipped',
+        ownerReason: 'location',
+        ownerReasonNote: '3 days in Kraków',
+      });
+    });
+  });
+
+  describe('Reason column', () => {
+    function reasonColDef() {
+      return component.columnDefs.find((d) => d.colId === 'reason')!;
+    }
+
+    it('reasonText() formats label + comment, label only, or — when empty', () => {
+      expect(component.reasonText(baseApplication({ ownerReason: 'location', ownerReasonNote: '3 days' }))).toBe(
+        'Location / onsite / hybrid — 3 days',
+      );
+      expect(component.reasonText(baseApplication({ ownerReason: 'stack', ownerReasonNote: '' }))).toBe(
+        'Wrong stack',
+      );
+      expect(component.reasonText(baseApplication({}))).toBe('—');
+    });
+
+    it('onCellClicked opens the decline dialog for a Skipped row', () => {
+      const openSpy = vi.spyOn(component, 'openDeclineDialog').mockImplementation(() => {});
+      const node = { data: { appStatus: 'Skipped' } } as never;
+      reasonColDef().onCellClicked!({ data: { appStatus: 'Skipped' }, node } as never);
+      expect(openSpy).toHaveBeenCalledWith(node, 'Skipped');
+    });
+
+    it('onCellClicked opens the decline dialog for a Filter miss row', () => {
+      const openSpy = vi.spyOn(component, 'openDeclineDialog').mockImplementation(() => {});
+      const node = { data: { appStatus: 'Filter miss' } } as never;
+      reasonColDef().onCellClicked!({ data: { appStatus: 'Filter miss' }, node } as never);
+      expect(openSpy).toHaveBeenCalledWith(node, 'Filter miss');
+    });
+
+    it('onCellClicked does nothing for a non-decline row', () => {
+      const openSpy = vi.spyOn(component, 'openDeclineDialog').mockImplementation(() => {});
+      const node = { data: { appStatus: 'Sent' } } as never;
+      reasonColDef().onCellClicked!({ data: { appStatus: 'Sent' }, node } as never);
+      expect(openSpy).not.toHaveBeenCalled();
+    });
+
+    it('onCellClicked does nothing for a row with no status set', () => {
+      const openSpy = vi.spyOn(component, 'openDeclineDialog').mockImplementation(() => {});
+      const node = { data: { appStatus: '' } } as never;
+      reasonColDef().onCellClicked!({ data: { appStatus: '' }, node } as never);
+      expect(openSpy).not.toHaveBeenCalled();
     });
   });
 
   describe('APP_STATUS_OPTIONS', () => {
     it('includes Silence alongside the other outcome labels', () => {
       expect(APP_STATUS_OPTIONS).toContain('Silence');
+    });
+
+    it('includes Skipped and Filter miss, the two decline statuses', () => {
+      expect(APP_STATUS_OPTIONS).toContain('Skipped');
+      expect(APP_STATUS_OPTIONS).toContain('Filter miss');
     });
   });
 });

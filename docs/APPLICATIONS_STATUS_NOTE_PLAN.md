@@ -153,3 +153,80 @@ existing `sheets_dirty` → `resync_dirty()` path.
 - Undo for a row that vanished from the Unsent view.
 - Clearing an outcome from the web (needs a bot-side change so resync/pull can carry a blank).
 - `POST /api/applications` (New application dialog) — the api controller has no POST handler.
+
+## v2 (owner review 2026-09-14)
+
+The owner clicked through the round-1 build above (same day) and reported five problems, worked
+into a full plan at `C:\Users\IGR\.claude\plans\lovely-fluttering-pond.md` (Context / Design "UI" /
+Execution "site" / Verification sections) — that file is the authoritative plan for this round;
+this section is a summary of what the site half actually implemented, for anyone who only has this
+repo checked out.
+
+**Problems fixed:**
+
+1. Sent was still inline-editable (a legacy Sheets-era carryover) even though it's a derived value
+   now. → `editable: false`, renderer unchanged.
+2. My Status needed a double-click to open its `agSelectCellEditor`, then the list was clipped/
+   taller than the grid. → replaced with a pill button that opens a `mat-menu` (a CDK overlay on
+   `document.body`) on a single click; no grid editor for this column at all.
+3. Popup editors (My Status, Note) were hard to close — they stayed open. → the mat-menu closes on
+   selection/outside-click/Esc for free (CDK overlay behavior); the grid also gained
+   `stopEditingWhenCellsLoseFocus: true` so the one remaining inline editor (To Learn) commits on
+   outside click too.
+4. Note was really "why I didn't send" recorded as free text, which doesn't support analysis
+   (grouping "wrong stack" vs "seniority" vs "location", etc.). → replaced with a fixed reason-code
+   + optional-comment pair (`ownerReason`/`ownerReasonNote`), picked from a status-filtered list in
+   a new dialog. The round-1 `note` field was never deployed api-side, so nothing needed migrating.
+5. There was no way to flag "the bot should have filtered this" (as opposed to "the bot was right
+   to let it through, I decided not to apply"), which is exactly the label a future filter-tuning
+   pass would need. → two decline statuses, `Skipped` and `Filter miss`, both open the same reason
+   dialog; `Filter miss` hides two reasons (`salary`, `not_interesting`) that only make sense as a
+   personal decision, never as something the bot's filters could have detected.
+
+**Site implementation, in one paragraph** (full narrative in the CLAUDE.md work-log entry dated
+2026-09-14 "v2"): `models.ts` drops `Application.note`/`ApplicationPatch.note` and adds
+`ownerReason?`/`ownerReasonNote?`, plus `DeclineStatus`, `isDeclineStatus()`, `OwnerReason`,
+`OWNER_REASONS` (16 codes, labels, and per-status allowance — mirrors the api's
+`src/tracker/app-status.ts`, kept identical by hand since there's no shared package), and
+`ownerReasonsForStatus()`/`ownerReasonLabel()` helpers. New `AppStatusCellRendererComponent`
+(`cell-renderers/`) renders the pill + menu (`Sent` · divider · `Interview`/`Rejected`/`Offer`/
+`Silence` · divider · `Skipped…`/`Filter miss…` · divider · `Clear`) and reports the choice via an
+`onSelect(node, status)` callback passed through `cellRendererParams`, the AG Grid standard pattern
+for a custom renderer that needs to call back into its host. New `DeclineReasonDialogComponent`
+(`decline-reason-dialog/`, modeled on `new-application-dialog/` and `profile-editor/
+add-variant-dialog/`) asks "Why skipped?" / "Which filter should have caught it?", lists reasons
+filtered by status via `mat-radio-group`, takes an optional 500-char comment, disables Save until a
+reason is picked, and — since Cancel/Esc/backdrop all resolve `afterClosed()` with `undefined` by
+MatDialog's own default — the caller treats a falsy result as "no change at all, not even the
+status". `applications.component.ts` gained one shared save path, `saveRow(node, patch)`: PATCH →
+`node.setData(updated)` on success (deliberately no optimistic write first, so failure has nothing
+to revert, just a "Failed to save change." snackbar) → `refreshInfiniteCache()` + `loadStats()` +
+a 3s "Moved to Filled" snackbar in the unsent view whenever the patch carries `appStatus`.
+`onAppStatusSelected()` routes Skipped/Filter miss to `openDeclineDialog()` (pre-filled from the
+row's current `ownerReason`/`ownerReasonNote` when re-editing an already-declined row) and saves
+every other status directly. The Reason column (replacing Note) has no single backing `field` — it
+derives from two — so it's declared with `colId: 'reason'` instead, which meant teaching
+`columnToggles`/`hiddenColumns`/`applyStoredVisibility` (all previously keyed on `field`) to fall
+back to `colId`; it renders `"<label> — <comment>"`, the label alone, or `—`, the same text serving
+as both the cell value and the tooltip, and its `onCellClicked` reopens the dialog only when the
+row's `appStatus` is Skipped or Filter miss. `onCellValueChanged` now only reacts to `toLearn` — the
+only field still edited inline in the grid.
+
+**Deviations / judgment calls (no api or AG Grid surprises forced anything drastic):**
+
+- The plan describes the reason list as "a radio/chip list" — implemented as a Material
+  `mat-radio-group` (single-select, matches "pick one category" better than a chip multi-select
+  UI, and keeps parity with the api's single `ownerReason` field, not an array).
+- `saveRow`'s refresh/stats/snackbar guard is keyed on `patch.appStatus !== undefined` rather than
+  unconditionally, even though every current caller (the menu, the dialog) always includes
+  `appStatus` — kept as an explicit guard so a future caller that reuses `saveRow` for a
+  non-status field doesn't get a spurious grid refresh.
+- `AppStatusCellRendererComponent` and `DeclineReasonDialogComponent` were not wired into a live
+  grid/dialog interaction test against a running AG Grid instance (out of scope per the work
+  order — no dev server, no browser verification this round); their specs mount the components
+  directly via TestBed and assert DOM/callback behavior, plus `applications.component.spec.ts`
+  covers the colDef wiring (`cellRenderer`, `cellRendererParams.onSelect`, `onCellClicked`) and the
+  save/dialog flow by calling the component's own methods. The coordinator's own browser pass
+  (against the real, parallel-in-progress api change) is the first end-to-end check.
+
+Tests: 415 → 444. `npm run build` and `npm test` both clean.
