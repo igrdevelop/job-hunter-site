@@ -229,4 +229,56 @@ only field still edited inline in the grid.
   save/dialog flow by calling the component's own methods. The coordinator's own browser pass
   (against the real, parallel-in-progress api change) is the first end-to-end check.
 
+### Review follow-ups (2026-09-14, code review pass on PR #49)
+
+Six findings from a code-review pass on the v2 PR, all fixed with specs, same day:
+
+1. **Decline dialog pre-fill bug.** `openDeclineDialog()` always passed the row's current
+   `ownerReason` through to the dialog, even when switching status (e.g. Skipped → Filter miss).
+   A handful of reason codes (`salary`, `not_interesting`) are Skipped-only, so re-opening with an
+   invalid carried-over code left no radio selected while Save stayed enabled (`reason` was still
+   truthy) — Save then 400'd. Fixed in `DeclineReasonDialogComponent` itself: `reason` now
+   pre-fills only when `ownerReasonsForStatus(status)` actually contains the incoming code, else
+   `''`.
+2. **a11y: static `aria-label`.** The status pill's `aria-label="Set status"` was static, so a
+   screen reader never announced the actual current status. Now
+   `[attr.aria-label]="'My status: ' + (value || 'not set')"`.
+3. **Reason column tooltip on empty cells.** `tooltipValueGetter` reused `reasonText()`, which
+   returns `'—'` for an empty reason — so hovering an empty cell showed a `'—'` tooltip. It now
+   checks `ownerReason` directly and returns `undefined` (no tooltip) when there's nothing to show.
+4. **Refresh-pause test gap.** The existing specs only asserted `isUserInteracting()`, never that
+   the periodic refresh itself actually skips/fires. Added a spec that spies on `setInterval` to
+   capture the constructor's real tick callback and invokes it directly while a status menu is
+   open vs. closed — asserting `refreshInfiniteCache` is skipped then called. (`vi.useFakeTimers()`
+   around the whole component-creation flow was tried first per the review's own suggestion, but
+   deadlocked TestBed's fixture stabilization — Angular's scheduler needs real timers — so the
+   spy-and-invoke approach was used instead; it exercises the identical callback.)
+5. **Focus after the decline dialog closes — investigated, real bug, fixed.** The dialog opens
+   synchronously from inside a mat-menu item's click handler. Reading Angular Material's own
+   source (`node_modules/@angular/material/fesm2022/menu.mjs`, `@angular/cdk/fesm2022/dialog.mjs`)
+   confirmed: MatDialog's initial autofocus-into-the-dialog is deferred via `afterNextRender`, so
+   it always wins over the menu's own (synchronous) close-time focus restore — opening the dialog
+   is fine. But `CdkDialogContainer` also captures "the element focused right before I opened" for
+   its own close-time `restoreFocus`, and that capture happens *before* the menu has finished
+   closing — so it grabs the **menu item**, not the pill. The menu detaches that item from the DOM
+   within its close animation, long before the user finishes the dialog, so when the dialog
+   eventually closes, `restoreFocus` calls `.focus()` on a detached element (a no-op) and focus is
+   lost to `<body>` — a real, confirmed accessibility regression on every Skipped/Filter miss save
+   or cancel. Fixed by threading the pill's own DOM element through
+   `AppStatusCellRendererParams.onSelect(node, status, triggerElement)` (via a `#trigger` template
+   ref + a static `ViewChild` in the renderer) to `onAppStatusSelected()` → `openDeclineDialog()`,
+   which now passes `restoreFocus: triggerElement ?? true` to `dialog.open()` — an explicit,
+   still-alive element MatDialog can always refocus, instead of relying on its own (here, stale)
+   automatic capture. The Reason-column click path (not opened from a menu) keeps the harmless
+   default (`true`).
+6. **Api behavior change coming in job-hunter-api#34** (Clear now resets `sent` from `—` back to
+   `''`, so the row returns to Unsent). Verified `saveRow`'s refresh/stats guard
+   (`patch.appStatus !== undefined`) already covers Clear (`appStatus: ''` is not `undefined`), and
+   that the "Moved to Filled" snackbar's own guard (`updated.sent.trim() !== ''`) already stays
+   silent for a Clear, since the api response's `sent` comes back empty — both locked in with new
+   specs, no logic change needed. Reworded the My Status header tooltip to mention it: "Clear
+   undoes Skipped/Filter miss and returns the row to Unsent."
+
+`npm test`: 450 → 463 (13 new specs across the three touched files); `npm run build` stays clean.
+
 Tests: 415 → 444. `npm run build` and `npm test` both clean.
