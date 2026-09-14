@@ -65,6 +65,11 @@
   --ag-control-panel-background-color: var(--color-neutral-100);
   --ag-subheader-background-color: var(--color-neutral-100);
   --ag-panel-background-color: var(--color-neutral-100);
+  // Without this, a tooltipField popup keeps ag-theme-material's light
+  // default (#fff) while its text color follows --ag-foreground-color
+  // above (light, for this dark theme) — illegible. See CLAUDE.md's AG
+  // Grid 36 theming gotcha for why this needs restating in styles.scss too.
+  --ag-tooltip-background-color: var(--color-neutral-200);
   --ag-modal-overlay-background-color: rgba(0, 0, 0, 0.55);
   --ag-input-background-color: var(--color-neutral-050);
   --ag-input-border-color: var(--color-neutral-300);

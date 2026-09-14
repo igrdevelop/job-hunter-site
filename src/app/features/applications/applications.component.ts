@@ -114,19 +114,34 @@ export class ApplicationsComponent {
     {
       field: 'sent',
       sortable: true,
-      headerName: 'Status',
+      headerName: 'Sent',
+      headerTooltip: 'Date you applied, or — if not applying. Empty = Unsent.',
       width: 130,
       editable: true,
       cellRenderer: SentStatusCellRendererComponent,
     },
     {
-      // Manual status, independent of `sent` (which drives the Unsent filter/stats).
+      // Manual status; picking one fills `sent` (and, for some values, the
+      // bot's outcome_label) server-side — see onCellValueChanged/patchFromGrid.
       field: 'appStatus',
       headerName: 'My Status',
+      headerTooltip: 'Picking a status fills Sent automatically',
       width: 130,
       editable: true,
       cellEditor: 'agSelectCellEditor',
       cellEditorParams: { values: [...APP_STATUS_OPTIONS] },
+      valueFormatter: (p) => p.value || '—',
+    },
+    {
+      field: 'note',
+      headerName: 'Note',
+      minWidth: 160,
+      flex: 1,
+      editable: true,
+      cellEditor: 'agLargeTextCellEditor',
+      cellEditorPopup: true,
+      cellEditorParams: { maxLength: 2000, rows: 6, cols: 50 },
+      tooltipField: 'note',
       valueFormatter: (p) => p.value || '—',
     },
     { field: 'toLearn', headerName: 'To Learn', minWidth: 120, flex: 0.6, editable: true },
@@ -322,7 +337,10 @@ export class ApplicationsComponent {
 
   onCellValueChanged(event: CellValueChangedEvent<Application>): void {
     const field = event.colDef.field as keyof Application;
-    if ((field === 'sent' || field === 'toLearn' || field === 'appStatus') && event.data) {
+    if (
+      (field === 'sent' || field === 'toLearn' || field === 'appStatus' || field === 'note') &&
+      event.data
+    ) {
       void this.patchFromGrid(event);
     }
   }
@@ -330,7 +348,26 @@ export class ApplicationsComponent {
   private async patchFromGrid(event: CellValueChangedEvent<Application>): Promise<void> {
     const field = event.colDef.field!;
     try {
-      await this.api.patch(event.data!.id, { [field]: event.newValue });
+      const updated = await this.api.patch(event.data!.id, { [field]: event.newValue });
+      if (updated && typeof updated === 'object') {
+        // Reflect the server's row (e.g. an appStatus edit auto-fills `sent`).
+        event.node.setData(updated);
+      }
+
+      // sent/appStatus can change which filter a row belongs to and the stat
+      // cards; toLearn/note edits never do, so skip the reload for those.
+      if (field === 'sent' || field === 'appStatus') {
+        this.gridApi?.refreshInfiniteCache();
+        void this.loadStats();
+      }
+
+      if (
+        this.statusFilter() === 'unsent' &&
+        typeof updated?.sent === 'string' &&
+        updated.sent.trim() !== ''
+      ) {
+        this.snackBar.open('Moved to Filled', undefined, { duration: 3000 });
+      }
     } catch {
       event.node.setDataValue(field, event.oldValue);
       this.snackBar.open('Failed to save change.', 'Dismiss', { duration: 4000 });

@@ -17,21 +17,28 @@ export interface Application {
   reapplication?: string;
   driveUrl?: string;
   appStatus?: string;
+  // Free-text note (reason for not applying, or any remark). API-owned,
+  // never mirrored to the Sheet. Optional until the API deploy that adds it.
+  note?: string;
 }
 
-export type ApplicationPatch = Partial<Pick<Application, 'sent' | 'toLearn' | 'appStatus'>>;
+export type ApplicationPatch = Partial<
+  Pick<Application, 'sent' | 'toLearn' | 'appStatus' | 'note'>
+>;
 
-// Manual status set by the user from the grid dropdown. Web-only field
-// (tracker.db app_status) — independent of `sent`, which drives the
-// Unsent/Filled filter and stats.
+// Manual status set by the user from the grid dropdown. Picking a status
+// fills `sent` (and, for Interview/Rejected/Offer/Silence, the bot's
+// outcome_label) server-side — see docs/APPLICATIONS_STATUS_NOTE_PLAN.md.
+// Order = dropdown order; keep identical to the api's own list.
 export const APP_STATUS_OPTIONS = [
   '',
   'Sent',
-  'Rejected',
   'Interview',
+  'Rejected',
   'Offer',
-  'Filter miss',
+  'Silence',
   'Skipped',
+  'Filter miss',
 ] as const;
 
 // A new application is created from a job listing URL, the vacancy text, or both.
