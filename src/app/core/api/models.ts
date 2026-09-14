@@ -17,22 +17,82 @@ export interface Application {
   reapplication?: string;
   driveUrl?: string;
   appStatus?: string;
+  // Structured "why I'm not applying" feedback, set only for appStatus
+  // Skipped/Filter miss (via DeclineReasonDialogComponent); cleared by the
+  // api whenever appStatus moves to anything else. API-owned, never
+  // mirrored to the Sheet. Optional until the API deploy that adds them —
+  // replaces the round-1 free-text `note` field, which the api never
+  // shipped. See docs/APPLICATIONS_STATUS_NOTE_PLAN.md "v2".
+  ownerReason?: string;
+  ownerReasonNote?: string;
 }
 
-export type ApplicationPatch = Partial<Pick<Application, 'sent' | 'toLearn' | 'appStatus'>>;
+export type ApplicationPatch = Partial<
+  Pick<Application, 'sent' | 'toLearn' | 'appStatus' | 'ownerReason' | 'ownerReasonNote'>
+>;
 
-// Manual status set by the user from the grid dropdown. Web-only field
-// (tracker.db app_status) — independent of `sent`, which drives the
-// Unsent/Filled filter and stats.
+// Manual status set by the user from the My Status menu. Picking a status
+// fills `sent` (and, for Interview/Rejected/Offer/Silence, the bot's
+// outcome_label) server-side — see docs/APPLICATIONS_STATUS_NOTE_PLAN.md.
+// Order = dropdown order; keep identical to the api's own list.
 export const APP_STATUS_OPTIONS = [
   '',
   'Sent',
-  'Rejected',
   'Interview',
+  'Rejected',
   'Offer',
-  'Filter miss',
+  'Silence',
   'Skipped',
+  'Filter miss',
 ] as const;
+
+// Statuses that ask "why" via DeclineReasonDialogComponent instead of
+// saving straight away.
+export type DeclineStatus = 'Skipped' | 'Filter miss';
+
+export function isDeclineStatus(status: string): status is DeclineStatus {
+  return status === 'Skipped' || status === 'Filter miss';
+}
+
+/** A reason code the owner can pick when declining (Skipped/Filter miss),
+ * mirrored from the api's `src/tracker/app-status.ts` — keep identical
+ * (code, label, and which status each is allowed for). */
+export interface OwnerReason {
+  code: string;
+  label: string;
+  statuses: readonly DeclineStatus[];
+}
+
+const BOTH: readonly DeclineStatus[] = ['Skipped', 'Filter miss'];
+
+export const OWNER_REASONS: readonly OwnerReason[] = [
+  { code: 'stack', label: 'Wrong stack', statuses: BOTH },
+  { code: 'fullstack_backend', label: 'Fullstack with heavy backend', statuses: BOTH },
+  { code: 'level', label: 'Seniority / level', statuses: BOTH },
+  { code: 'title', label: 'Off-domain role / title', statuses: BOTH },
+  { code: 'location', label: 'Location / onsite / hybrid', statuses: BOTH },
+  { code: 'language', label: 'Language required', statuses: BOTH },
+  { code: 'work_authorization', label: 'Work authorization', statuses: BOTH },
+  { code: 'contract', label: 'Part-time / short contract', statuses: BOTH },
+  { code: 'relocation', label: 'Relocation required', statuses: BOTH },
+  { code: 'company', label: 'Blocked company / AI-training mill', statuses: BOTH },
+  { code: 'russia', label: 'Russian market', statuses: BOTH },
+  { code: 'duplicate', label: 'Duplicate / repost', statuses: BOTH },
+  { code: 'expired', label: 'Expired', statuses: BOTH },
+  { code: 'salary', label: 'Salary / conditions', statuses: ['Skipped'] },
+  { code: 'not_interesting', label: 'Not interesting', statuses: ['Skipped'] },
+  { code: 'other', label: 'Other', statuses: BOTH },
+] as const;
+
+export function ownerReasonsForStatus(status: DeclineStatus): OwnerReason[] {
+  return OWNER_REASONS.filter((r) => r.statuses.includes(status));
+}
+
+/** Label for a reason code; falls back to the raw code for forward
+ * compatibility with a code the api knows about but this build doesn't. */
+export function ownerReasonLabel(code: string): string {
+  return OWNER_REASONS.find((r) => r.code === code)?.label ?? code;
+}
 
 // A new application is created from a job listing URL, the vacancy text, or both.
 export interface ApplicationCreate {
