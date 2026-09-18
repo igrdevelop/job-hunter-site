@@ -12,7 +12,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { ICellRendererAngularComp } from 'ag-grid-angular';
 import { ICellRendererParams, IRowNode } from 'ag-grid-community';
-import { Application } from '../../../core/api/models';
+import { Application, isStatusLocked } from '../../../core/api/models';
 
 export interface AppStatusCellRendererParams extends ICellRendererParams<Application, string> {
   /** Fired with the row node and the chosen status ('' clears it). The host
@@ -30,6 +30,16 @@ export interface AppStatusCellRendererParams extends ICellRendererParams<Applica
   onMenuOpenChange?: (open: boolean) => void;
 }
 
+/** Why a row's My Status is read-only, shown as the cell's tooltip. */
+const LOCKED_HINTS: Record<'SKIP' | 'FAIL', string> = {
+  SKIP: 'Skipped by the job filter — nothing was sent, so there is no status to set.',
+  FAIL: 'Generation failed — nothing was sent, so there is no status to set.',
+};
+
+function atsVerdict(app: Application): 'SKIP' | 'FAIL' {
+  return app.atsStatus.trim().toUpperCase() === 'FAIL' ? 'FAIL' : 'SKIP';
+}
+
 /**
  * My Status cell renderer — a pill button that opens a mat-menu (a CDK
  * overlay on `document.body`, so it's never clipped by the grid and closes
@@ -43,32 +53,38 @@ export interface AppStatusCellRendererParams extends ICellRendererParams<Applica
   selector: 'app-app-status-cell-renderer',
   imports: [MatMenuModule, MatIconModule, MatDividerModule],
   template: `
-    <button
-      #trigger
-      type="button"
-      class="status-pill"
-      [class.status-pill--empty]="!value"
-      [matMenuTriggerFor]="statusMenu"
-      (menuOpened)="setMenuOpen(true)"
-      (menuClosed)="setMenuOpen(false)"
-      [attr.aria-label]="'My status: ' + (value || 'not set')"
-    >
-      <span class="status-pill-label">{{ value || 'Set status' }}</span>
-      <mat-icon class="status-pill-icon" aria-hidden="true">expand_more</mat-icon>
-    </button>
-    <mat-menu #statusMenu="matMenu">
-      <button mat-menu-item type="button" (click)="select('Sent')">Sent</button>
-      <mat-divider></mat-divider>
-      <button mat-menu-item type="button" (click)="select('Interview')">Interview</button>
-      <button mat-menu-item type="button" (click)="select('Rejected')">Rejected</button>
-      <button mat-menu-item type="button" (click)="select('Offer')">Offer</button>
-      <button mat-menu-item type="button" (click)="select('Silence')">Silence</button>
-      <mat-divider></mat-divider>
-      <button mat-menu-item type="button" (click)="select('Skipped')">Skipped…</button>
-      <button mat-menu-item type="button" (click)="select('Filter miss')">Filter miss…</button>
-      <mat-divider></mat-divider>
-      <button mat-menu-item type="button" (click)="select('')">Clear</button>
-    </mat-menu>
+    @if (locked) {
+      <span class="status-locked" [title]="lockedHint" [attr.aria-label]="'My status: none. ' + lockedHint"
+        >—</span
+      >
+    } @else {
+      <button
+        #trigger
+        type="button"
+        class="status-pill"
+        [class.status-pill--empty]="!value"
+        [matMenuTriggerFor]="statusMenu"
+        (menuOpened)="setMenuOpen(true)"
+        (menuClosed)="setMenuOpen(false)"
+        [attr.aria-label]="'My status: ' + (value || 'not set')"
+      >
+        <span class="status-pill-label">{{ value || 'Set status' }}</span>
+        <mat-icon class="status-pill-icon" aria-hidden="true">expand_more</mat-icon>
+      </button>
+      <mat-menu #statusMenu="matMenu">
+        <button mat-menu-item type="button" (click)="select('Sent')">Sent</button>
+        <mat-divider></mat-divider>
+        <button mat-menu-item type="button" (click)="select('Interview')">Interview</button>
+        <button mat-menu-item type="button" (click)="select('Rejected')">Rejected</button>
+        <button mat-menu-item type="button" (click)="select('Offer')">Offer</button>
+        <button mat-menu-item type="button" (click)="select('Silence')">Silence</button>
+        <mat-divider></mat-divider>
+        <button mat-menu-item type="button" (click)="select('Skipped')">Skipped…</button>
+        <button mat-menu-item type="button" (click)="select('Filter miss')">Filter miss…</button>
+        <mat-divider></mat-divider>
+        <button mat-menu-item type="button" (click)="select('')">Clear</button>
+      </mat-menu>
+    }
   `,
   styles: [
     `
@@ -105,6 +121,11 @@ export interface AppStatusCellRendererParams extends ICellRendererParams<Applica
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      .status-locked {
+        color: var(--color-neutral-600);
+        font-size: 12px;
+        cursor: default;
+      }
       .status-pill-icon {
         flex-shrink: 0;
         font-size: 16px;
@@ -123,9 +144,15 @@ export class AppStatusCellRendererComponent implements ICellRendererAngularComp,
 
   // Passed back through onSelect so a dialog opened from a menu item can
   // restore focus here instead of to the (about to be detached) menu item.
-  @ViewChild('trigger', { static: true }) private readonly triggerRef!: ElementRef<HTMLButtonElement>;
+  // Not `static: true`: the button sits inside an @if, so the query only
+  // resolves after the first change detection run. It is read in select(),
+  // long after that.
+  @ViewChild('trigger') private readonly triggerRef?: ElementRef<HTMLButtonElement>;
 
   value = '';
+  /** Read-only cell instead of the pill menu — see isStatusLocked(). */
+  locked = false;
+  lockedHint = '';
 
   setMenuOpen(open: boolean): void {
     if (this.menuOpen === open) return;
@@ -142,6 +169,9 @@ export class AppStatusCellRendererComponent implements ICellRendererAngularComp,
   agInit(params: AppStatusCellRendererParams): void {
     this.params = params;
     this.value = params.value ?? '';
+    const app = params.data ?? params.node?.data;
+    this.locked = app ? isStatusLocked(app) : false;
+    this.lockedHint = this.locked && app ? LOCKED_HINTS[atsVerdict(app)] : '';
     this.cdr.markForCheck();
   }
 

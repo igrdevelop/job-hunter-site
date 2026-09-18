@@ -27,7 +27,7 @@ describe('AppStatusCellRendererComponent', () => {
   let onSelect: ReturnType<typeof vi.fn>;
   let onMenuOpenChange: ReturnType<typeof vi.fn>;
 
-  async function setup(value: string): Promise<void> {
+  async function setup(value: string, overrides: Partial<Application> = {}): Promise<void> {
     onSelect = vi.fn();
     onMenuOpenChange = vi.fn();
     await TestBed.configureTestingModule({
@@ -37,9 +37,11 @@ describe('AppStatusCellRendererComponent', () => {
 
     fixture = TestBed.createComponent(AppStatusCellRendererComponent);
     component = fixture.componentInstance;
-    const node = { data: baseApplication() };
+    const data = { ...baseApplication(), appStatus: value, ...overrides };
+    const node = { data };
     component.agInit({
       value,
+      data,
       node,
       onSelect,
       onMenuOpenChange,
@@ -167,5 +169,61 @@ describe('AppStatusCellRendererComponent', () => {
     component.refresh({ value: 'Rejected', node, onSelect } as unknown as AppStatusCellRendererParams);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.status-pill').textContent).toContain('Rejected');
+  });
+
+  // The bot writes SKIP when its filter rejected the vacancy and FAIL when
+  // generation errored out: nothing was sent either way, so there is no
+  // outcome for the owner to record.
+  for (const atsStatus of ['SKIP', 'FAIL']) {
+    it(`renders a read-only cell with no pill or menu for an ${atsStatus} row`, async () => {
+      await setup('', { atsStatus });
+
+      expect(fixture.nativeElement.querySelector('.status-pill')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.status-locked')?.textContent?.trim()).toBe('—');
+      expect(menuItems().length).toBe(0);
+    });
+  }
+
+  it('explains in the cell tooltip why a SKIP row has no status to set', async () => {
+    await setup('', { atsStatus: 'SKIP' });
+    const locked = fixture.nativeElement.querySelector('.status-locked') as HTMLElement;
+    expect(locked.getAttribute('title')).toContain('Skipped by the job filter');
+  });
+
+  it('explains in the cell tooltip why a FAIL row has no status to set', async () => {
+    await setup('', { atsStatus: 'FAIL' });
+    const locked = fixture.nativeElement.querySelector('.status-locked') as HTMLElement;
+    expect(locked.getAttribute('title')).toContain('Generation failed');
+  });
+
+  it('keeps the menu on a SKIP row that already carries a status, so it can still be corrected', async () => {
+    await setup('Sent', { atsStatus: 'SKIP' });
+
+    expect(fixture.nativeElement.querySelector('.status-locked')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.status-pill')).not.toBeNull();
+    openMenu();
+    expect(menuItems().length).toBeGreaterThan(0);
+  });
+
+  it('still offers the menu on an ordinary scored row', async () => {
+    await setup('', { atsStatus: '82%' });
+    expect(fixture.nativeElement.querySelector('.status-pill')).not.toBeNull();
+  });
+
+  it('locks the cell when a refresh turns an ordinary row into a SKIP row', async () => {
+    await setup('', { atsStatus: '82%' });
+    expect(fixture.nativeElement.querySelector('.status-pill')).not.toBeNull();
+
+    const data = { ...baseApplication(), atsStatus: 'SKIP' };
+    component.refresh({
+      value: '',
+      data,
+      node: { data },
+      onSelect,
+    } as unknown as AppStatusCellRendererParams);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.status-pill')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.status-locked')).not.toBeNull();
   });
 });

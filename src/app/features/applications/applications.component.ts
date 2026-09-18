@@ -139,6 +139,41 @@ export class ApplicationsComponent {
       cellClass: 'cell-ats',
     },
     {
+      // The one link worth a click from the table: the original posting.
+      // Wide enough to carry a readable header rather than a bare icon.
+      field: 'url',
+      headerName: 'Job Link',
+      headerTooltip: 'Opens the original job posting in a new tab.',
+      width: 110,
+      cellRenderer: UrlCellRendererComponent,
+    },
+    {
+      // Where the generated files live: the tail of the bot's own folder
+      // path, which is also the folder name under Applications/ on Google
+      // Drive. Text, not a link — the two actual links (Drive, and the
+      // in-app file browser) are the hidden-by-default columns below.
+      colId: 'drivePath',
+      headerName: 'Drive Folder',
+      headerTooltip:
+        'Applications/<date>/<company> — the folder with the generated files for this row, ' +
+        'both on disk and on Google Drive.',
+      minWidth: 170,
+      flex: 0.9,
+      valueGetter: (p) => (p.data ? this.drivePath(p.data) : ''),
+      tooltipValueGetter: (p) => (p.data?.folder?.trim() ? p.data.folder : undefined),
+      cellClass: 'cell-stack',
+    },
+    {
+      // The in-app file browser for the same folder. Hidden by default —
+      // the Drive Folder column above already says where to look.
+      field: 'folder',
+      headerName: 'Site Folder',
+      headerTooltip: 'Opens the same folder in the app file browser.',
+      width: 100,
+      hide: true,
+      cellRenderer: FolderCellRendererComponent,
+    },
+    {
       // Read-only: it's a derived record of the date applied (or — for a
       // deliberate non-apply), not something to hand-edit any more — see
       // docs/APPLICATIONS_STATUS_NOTE_PLAN.md "v2".
@@ -155,12 +190,14 @@ export class ApplicationsComponent {
       // bot's outcome_label) server-side. No grid editor at all — the pill
       // renderer opens a mat-menu on click and reports the choice via
       // onAppStatusSelected(); Skipped/Filter miss route through
-      // openDeclineDialog() instead of saving straight away.
+      // openDeclineDialog() instead of saving straight away. SKIP/FAIL rows
+      // render as read-only text instead of a pill — see isStatusLocked().
       field: 'appStatus',
       headerName: 'My Status',
       headerTooltip:
         'Click to set a status — it fills Sent automatically. Skipped/Filter miss ask why. ' +
-        'Clear undoes Skipped/Filter miss and returns the row to Unsent.',
+        'Clear undoes Skipped/Filter miss and returns the row to Unsent. ' +
+        'Rows the bot skipped or failed to generate have no status to set.',
       width: 150,
       editable: false,
       cellRenderer: AppStatusCellRendererComponent,
@@ -209,8 +246,9 @@ export class ApplicationsComponent {
     },
     {
       field: 'driveUrl',
-      headerName: 'Drive',
-      width: 80,
+      headerName: 'Drive Link',
+      headerTooltip: 'Opens the Google Drive folder for this row.',
+      width: 100,
       hide: true,
       cellRenderer: UrlCellRendererComponent,
     },
@@ -231,11 +269,9 @@ export class ApplicationsComponent {
       valueFormatter: (p) => (p.value != null ? String(p.value) : '—'),
     },
     { field: 'id', headerName: 'ID', width: 90, hide: true, cellClass: 'cell-date' },
-    { field: 'folder', headerName: '', width: 52, cellRenderer: FolderCellRendererComponent },
-    { field: 'url', headerName: '', width: 52, cellRenderer: UrlCellRendererComponent, pinned: 'right' },
   ]);
 
-  /** Columns togglable from the toolbar menu (icon-only folder/url excluded). */
+  /** Columns togglable from the toolbar menu (every column has a header). */
   readonly columnToggles = this.columnDefs
     .filter((def) => def.headerName)
     .map((def) => ({ colId: colKey(def), label: def.headerName as string }));
@@ -551,6 +587,15 @@ export class ApplicationsComponent {
     } catch {
       this.snackBar.open('Failed to save change.', 'Dismiss', { duration: 4000 });
     }
+  }
+
+  /** Drive Folder column text: the last two segments of the bot's `folder`
+   * path ("<date>/<company>"), which is also the folder's name under
+   * Applications/ on Google Drive. Rows with no folder (SKIP/FAIL never
+   * generate one) show — rather than a fabricated path. */
+  drivePath(app: Application): string {
+    const parts = (app.folder ?? '').split(/[\\/]+/).filter((part) => part.length > 0);
+    return parts.length ? parts.slice(-2).join('/') : '—';
   }
 
   /** Reason column text: "<label> — <comment>", label only, or — when empty. */
