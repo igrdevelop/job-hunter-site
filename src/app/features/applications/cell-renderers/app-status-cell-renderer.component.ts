@@ -54,7 +54,9 @@ function atsVerdict(app: Application): 'SKIP' | 'FAIL' {
   imports: [MatMenuModule, MatIconModule, MatDividerModule],
   template: `
     @if (locked) {
-      <span class="status-locked" [title]="lockedHint">—</span>
+      <span class="status-locked" [title]="lockedHint" [attr.aria-label]="'My status: none. ' + lockedHint"
+        >—</span
+      >
     } @else {
       <button
         #trigger

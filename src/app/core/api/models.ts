@@ -60,7 +60,7 @@ export function isDeclineStatus(status: string): status is DeclineStatus {
 // recorded "not applying" itself.
 const ATS_NO_APPLICATION = ['SKIP', 'FAIL'];
 
-export function isAtsNoApplication(atsStatus: string | undefined): boolean {
+function isAtsNoApplication(atsStatus: string | undefined): boolean {
   return ATS_NO_APPLICATION.includes((atsStatus ?? '').trim().toUpperCase());
 }
 
