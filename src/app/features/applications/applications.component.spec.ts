@@ -192,13 +192,50 @@ describe('ApplicationsComponent — URL-driven filter and search', () => {
       expect(def?.onCellClicked).toBeInstanceOf(Function);
     });
 
-    it('excludes icon-only folder/url columns from the toggle menu', async () => {
+    it('offers every column in the toggle menu, including the two link columns', async () => {
       await setup({});
       const ids = component.columnToggles.map((t) => t.colId);
-      expect(ids).not.toContain('folder');
-      expect(ids).not.toContain('url');
+      expect(ids).toContain('folder');
+      expect(ids).toContain('url');
       expect(ids).toContain('driveUrl');
+      expect(ids).toContain('drivePath');
       expect(ids).toContain('reason');
+    });
+
+    it('hides both folder-link columns by default, leaving the Drive Folder path visible', async () => {
+      await setup({});
+      expect(colDef('folder')?.hide).toBe(true);
+      expect(colDef('driveUrl')?.hide).toBe(true);
+      const drivePath = component.columnDefs.find((d) => d.colId === 'drivePath');
+      expect(drivePath?.hide).toBeUndefined();
+    });
+
+    it('puts the Job Link and Drive Folder columns right after ATS %, unpinned', async () => {
+      await setup({});
+      const order = component.columnDefs.map((d) => d.colId ?? d.field);
+      const ats = order.indexOf('atsStatus');
+      expect(order[ats + 1]).toBe('url');
+      expect(order[ats + 2]).toBe('drivePath');
+      expect(colDef('url')?.pinned).toBeUndefined();
+      expect(colDef('url')?.headerName).toBe('Job Link');
+    });
+
+    it('shows the date/company tail of the folder path, and the full path as its tooltip', async () => {
+      await setup({});
+      const def = component.columnDefs.find((d) => d.colId === 'drivePath')!;
+      const row = baseApplication({ folder: 'Applications/2026-09-01/Acme Corp' });
+      expect(component.drivePath(row)).toBe('2026-09-01/Acme Corp');
+      expect(def.tooltipValueGetter!({ data: row } as never)).toBe(
+        'Applications/2026-09-01/Acme Corp',
+      );
+    });
+
+    it('shows a dash instead of a fabricated path when the row has no folder', async () => {
+      await setup({});
+      const def = component.columnDefs.find((d) => d.colId === 'drivePath')!;
+      const row = baseApplication({ folder: '' });
+      expect(component.drivePath(row)).toBe('—');
+      expect(def.tooltipValueGetter!({ data: row } as never)).toBeUndefined();
     });
 
     it('toggleColumn flips visibility and persists it to localStorage', async () => {
