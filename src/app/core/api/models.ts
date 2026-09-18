@@ -54,6 +54,25 @@ export function isDeclineStatus(status: string): status is DeclineStatus {
   return status === 'Skipped' || status === 'Filter miss';
 }
 
+// ATS verdicts the bot writes when no application exists to track: `SKIP`
+// (the job filter rejected the vacancy) and `FAIL` (generation errored out).
+// The bot stamps `sent = '—'` on both (`hunter/db.py`), i.e. it already
+// recorded "not applying" itself.
+const ATS_NO_APPLICATION = ['SKIP', 'FAIL'];
+
+export function isAtsNoApplication(atsStatus: string | undefined): boolean {
+  return ATS_NO_APPLICATION.includes((atsStatus ?? '').trim().toUpperCase());
+}
+
+/** True when the My Status cell should render as read-only text instead of
+ * the pill menu: the bot never sent anything for this row and said so
+ * itself, so there is no outcome to track. A row that somehow already
+ * carries a status stays editable, so a stray one can always be corrected
+ * or cleared. */
+export function isStatusLocked(app: Application): boolean {
+  return isAtsNoApplication(app.atsStatus) && !app.appStatus?.trim();
+}
+
 /** A reason code the owner can pick when declining (Skipped/Filter miss),
  * mirrored from the api's `src/tracker/app-status.ts` — keep identical
  * (code, label, and which status each is allowed for). */
