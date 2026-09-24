@@ -42,6 +42,12 @@ export const routes: Routes = [
         loadComponent: () => import('./features/stats/stats.component').then((m) => m.StatsComponent),
       },
       {
+        // Read-only pipeline view (bot repo docs/PIPELINE_VIZ_PLAN.md M3).
+        path: 'pipeline',
+        loadComponent: () =>
+          import('./features/pipeline/pipeline.component').then((m) => m.PipelineComponent),
+      },
+      {
         path: 'profile',
         children: [
           {

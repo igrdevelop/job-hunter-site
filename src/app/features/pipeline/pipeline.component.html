@@ -1,0 +1,116 @@
+<div class="page">
+  <div class="page-head">
+    <div>
+      <h1>Pipeline</h1>
+      <p class="page-subtitle">
+        What the bot found, what it is generating, and what is ready to send.
+      </p>
+    </div>
+
+    <div class="controls">
+      @if (llm(); as l) {
+        <span class="llm-pill" [class.bad]="!l.ok" data-testid="llm-pill">
+          <span class="dot" aria-hidden="true"></span>{{ l.text }}
+        </span>
+      }
+      <div class="filter-pills" role="group" aria-label="Time window">
+        @for (opt of dayOptions; track opt.days) {
+          <button
+            type="button"
+            class="filter-pill"
+            [class.active]="days() === opt.days"
+            [attr.aria-pressed]="days() === opt.days"
+            [attr.data-days]="opt.days"
+            (click)="onDaysChange(opt.days)"
+          >
+            {{ opt.label }}
+          </button>
+        }
+      </div>
+      @if (updatedText(); as t) {
+        <span class="updated">{{ t }}</span>
+      }
+    </div>
+  </div>
+
+  @if (sample()) {
+    <div class="sample-banner" role="status" data-testid="sample-banner">
+      Sample data — API not deployed yet. These numbers are a fixed example, not your pipeline.
+    </div>
+  }
+
+  @if (snapshot()) {
+    @if (refreshError(); as err) {
+      <p class="inline-error" role="alert">{{ err }}</p>
+    }
+
+    <div class="tiers" [class.switching]="switching()">
+      <section class="tier" aria-labelledby="tier-hunt">
+        <h2 id="tier-hunt" class="tier-title">Hunt</h2>
+        <div class="grid">
+          @for (c of huntCards(); track c.label) {
+            <app-stat-card [card]="c" />
+          }
+        </div>
+      </section>
+
+      <section class="tier" aria-labelledby="tier-apply">
+        <h2 id="tier-apply" class="tier-title">Apply</h2>
+        <div class="grid">
+          @for (c of applyCards(); track c.label) {
+            <app-stat-card [card]="c" />
+          }
+        </div>
+        <div class="runs">
+          @for (card of runCards(); track $index) {
+            <app-run-card [card]="card" />
+          } @empty {
+            <p class="muted-line">Nothing is being generated right now.</p>
+          }
+        </div>
+      </section>
+
+      <section class="tier" aria-labelledby="tier-result">
+        <h2 id="tier-result" class="tier-title">Result</h2>
+        <div class="grid">
+          @for (c of resultCards(); track c.label) {
+            <app-stat-card [card]="c" />
+          }
+        </div>
+      </section>
+
+      <section class="tier" aria-labelledby="tier-events">
+        <h2 id="tier-events" class="tier-title">Recent events</h2>
+        @if (events(); as rows) {
+          @if (rows.length) {
+            <ol class="events">
+              @for (e of rows; track $index) {
+                <li class="event">
+                  <span class="time">{{ e.time }}</span>
+                  <span class="what">
+                    {{ e.stage }}
+                    <span class="ev" [class.ok]="e.tone === 'ok'" [class.bad]="e.tone === 'bad'">{{
+                      e.event
+                    }}</span>
+                  </span>
+                  <span class="company">{{ e.company }}</span>
+                  @if (e.payload) {
+                    <span class="payload">{{ e.payload }}</span>
+                  }
+                </li>
+              }
+            </ol>
+          } @else {
+            <p class="muted-line">No events yet.</p>
+          }
+        } @else {
+          <p class="muted-line" data-testid="events-unmeasured">{{ unmeasuredText }}.</p>
+        }
+      </section>
+    </div>
+  } @else if (refreshError(); as err) {
+    <p class="inline-error" role="alert">{{ err }}</p>
+  } @else {
+    <div class="loading"><mat-spinner diameter="28" /> Loading pipeline…</div>
+  }
+</div>
