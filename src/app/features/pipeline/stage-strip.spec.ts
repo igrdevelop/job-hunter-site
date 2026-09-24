@@ -36,7 +36,27 @@ describe('buildStageStrip', () => {
     const refine = view.items.find((i) => i.key === 'refine')!;
     expect(refine.state).toBe('now');
     expect(refine.label).toBe('refine 2/5');
+    expect(refine.title).toBe('2 of 5 rounds decided');
     expect(states(view)).toBe('ddddddddnp');
+    expect(view.items.filter((i) => i.title !== null)).toHaveLength(1);
+  });
+
+  it("uses the run's own refine_max_rounds, the last DECIDED round, and falls back to 5 when null", () => {
+    const progress = { round: 1, kind: 'honest', score: 84, best: 85, outcome: 'rejected' };
+    const custom = buildStageStrip(
+      run('refine', 'refine round rejected', { refine_progress: progress, refine_max_rounds: 3 }),
+    );
+    const chip = custom.items.find((i) => i.key === 'refine')!;
+    expect(chip.label).toBe('refine 1/3');
+    expect(chip.title).toBe('1 of 3 rounds decided');
+
+    const fallback = buildStageStrip(
+      run('refine', 'refine round rejected', {
+        refine_progress: progress,
+        refine_max_rounds: null,
+      }),
+    );
+    expect(fallback.items.find((i) => i.key === 'refine')!.label).toBe('refine 1/5');
   });
 
   it('shows a plain refine label when no round is known (pre-M1 or garbage payload)', () => {

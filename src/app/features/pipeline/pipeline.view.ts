@@ -1,4 +1,11 @@
-import { CountPairs, PipelineEvent, PipelineSnapshot } from '../../core/api/pipeline.models';
+import {
+  CountPairs,
+  InProgressRun,
+  PipelineEvent,
+  PipelineSnapshot,
+} from '../../core/api/pipeline.models';
+import { formatEventPayload } from './event-payload';
+import { verdictTarget } from './stage-strip';
 
 /**
  * Pure snapshot → view-model mapping for the /pipeline stat cards. Kept out of
@@ -156,7 +163,7 @@ export function eventRows(events: PipelineEvent[], now: Date): EventRow[] {
     stage: e.stage.replaceAll('_', ' '),
     event: e.event,
     company: e.company || '—',
-    payload: shorten(e.payload, 60),
+    payload: formatEventPayload(e.stage, e.event, e.payload),
     tone:
       e.event === 'error' || e.event === 'blocked'
         ? 'bad'
@@ -176,6 +183,27 @@ export function formatEventTime(ts: string, now: Date): string {
     d.getMonth() === now.getMonth() &&
     d.getDate() === now.getDate();
   return sameDay ? hhmm : `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hhmm}`;
+}
+
+/**
+ * The run card's verdict headline: `first → best so far (target N)`.
+ * Best so far = `refine_progress.best` while the refine loop is running, else
+ * `verdict_final`, else just `first`. The raw `verdict_final` column is stamped
+ * only after the loop, so during refine it lags the loop's own best — it never
+ * headlines while a round has been decided.
+ */
+export function verdictHeadline(run: InProgressRun | null): string {
+  const target = `(target ${verdictTarget(run)})`;
+  const first = run?.verdict_first ?? null;
+  const best = run?.refine_progress?.best ?? run?.verdict_final ?? null;
+  if (first === null && best === null) return `verdict — ${target}`;
+  if (first === null) return `verdict ${fmtVerdict(best)} ${target}`;
+  if (best === null) return `verdict ${fmtVerdict(first)} ${target}`;
+  return `verdict ${fmtVerdict(first)} → ${fmtVerdict(best)} ${target}`;
+}
+
+function fmtVerdict(v: number | null): string {
+  return v === null ? '—' : String(Math.round(v));
 }
 
 export function formatMinutes(min: number): string {
@@ -209,10 +237,6 @@ function plural(n: number, word: string): string {
 function joinParts(parts: (string | null)[]): string | null {
   const kept = parts.filter((p): p is string => !!p);
   return kept.length ? kept.join(' · ') : null;
-}
-
-function shorten(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
 function pad(n: number): string {

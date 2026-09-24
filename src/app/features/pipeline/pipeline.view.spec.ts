@@ -1,6 +1,13 @@
 import { PipelineSnapshot } from '../../core/api/pipeline.models';
 import { clonePipelineSample } from '../../core/api/pipeline.mock';
-import { applyCards, eventRows, formatEventTime, huntCards, resultCards } from './pipeline.view';
+import {
+  applyCards,
+  eventRows,
+  formatEventTime,
+  huntCards,
+  resultCards,
+  verdictHeadline,
+} from './pipeline.view';
 
 function byLabel(cards: ReturnType<typeof huntCards>, label: string) {
   const card = cards.find((c) => c.label === label);
@@ -102,6 +109,41 @@ describe('pipeline view models', () => {
     expect(rows).toHaveLength(15);
     expect(rows[0].company).toBe('C0');
     expect(eventRows(s.events!, new Date())[7].company).toBe('—');
+  });
+
+  describe('verdictHeadline', () => {
+    const baseRun = () => clonePipelineSample().apply.in_progress.cards[0].run!;
+
+    it("shows first → the refine loop's best so far, not the stale verdict_final column", () => {
+      const run = baseRun(); // verdict_final 88, refine_progress.best 90
+      expect(verdictHeadline(run)).toBe('verdict 85 → 90 (target 95)');
+    });
+
+    it('falls back to verdict_final without refine progress, then to first alone', () => {
+      const run = baseRun();
+      run.refine_progress = null;
+      expect(verdictHeadline(run)).toBe('verdict 85 → 88 (target 95)');
+      run.verdict_final = null;
+      expect(verdictHeadline(run)).toBe('verdict 85 (target 95)');
+      run.verdict_first = null;
+      expect(verdictHeadline(run)).toBe('verdict — (target 95)');
+      expect(verdictHeadline(null)).toBe('verdict — (target 95)');
+    });
+
+    it("uses the run's own refine_target, 95 when null", () => {
+      const run = baseRun();
+      run.refine_target = 90;
+      expect(verdictHeadline(run)).toBe('verdict 85 → 90 (target 90)');
+      run.refine_target = null;
+      expect(verdictHeadline(run)).toContain('(target 95)');
+    });
+  });
+
+  it('formats event payloads into human lines in the footer', () => {
+    const rows = eventRows(s.events!, new Date());
+    expect(rows[0].payload).toBe('round 2 · honest · 90 (best 90)');
+    expect(rows[2].payload).toBe('target 95 · up to 5 rounds · from 85');
+    expect(rows[3].payload).toBe('');
   });
 
   it('formats event time as HH:MM today and MM-DD HH:MM otherwise', () => {

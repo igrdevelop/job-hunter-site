@@ -135,6 +135,13 @@ export interface InProgressRun {
   current_stage: CurrentStage;
   stage_started_min_ago: number | null;
   refine_progress: RefineProgress | null;
+  /**
+   * From this run's own refine `start` event (not config). `null` before the loop
+   * starts, when it never runs, or on a pre-M1 run — the page falls back to its
+   * display defaults (95 / 5).
+   */
+  refine_target: number | null;
+  refine_max_rounds: number | null;
   verdict_first: number | null;
   verdict_final: number | null;
   refine_rounds: number | null;

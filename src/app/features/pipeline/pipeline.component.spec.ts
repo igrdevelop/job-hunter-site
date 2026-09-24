@@ -120,6 +120,9 @@ describe('PipelineComponent', () => {
     );
     const now = el.querySelector('app-run-card [data-state="now"]');
     expect(now?.textContent?.trim()).toBe('refine 2/5');
+    expect(now?.getAttribute('title')).toBe('2 of 5 rounds decided');
+    expect(now?.getAttribute('aria-label')).toBe('refine: 2 of 5 rounds decided');
+    expect(el.querySelector('app-run-card')?.textContent).toContain('verdict 85 → 90 (target 95)');
     expect(el.querySelectorAll('app-run-card [data-state="done"]')).toHaveLength(8);
   });
 

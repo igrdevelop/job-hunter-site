@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { InProgressCard } from '../../../core/api/pipeline.models';
-import { VERDICT_TARGET, buildStageStrip } from '../stage-strip';
-import { formatMinutes } from '../pipeline.view';
+import { buildStageStrip } from '../stage-strip';
+import { formatMinutes, verdictHeadline } from '../pipeline.view';
 
 /**
  * One wide card per vacancy being generated right now: identity line, elapsed
@@ -39,6 +39,8 @@ import { formatMinutes } from '../pipeline.view';
           [class.now]="item.state === 'now'"
           [attr.data-state]="item.state"
           [attr.aria-current]="item.state === 'now' ? 'step' : null"
+          [attr.title]="item.title"
+          [attr.aria-label]="item.title ? 'refine: ' + item.title : null"
         >
           {{ item.label }}
         </li>
@@ -155,15 +157,5 @@ export class RunCardComponent {
     return min === null ? 'running' : `running ${formatMinutes(min)}`;
   });
 
-  protected readonly verdictText = computed(() => {
-    const run = this.card().run;
-    const first = run?.verdict_first ?? null;
-    const final = run?.verdict_final ?? null;
-    if (first === null && final === null) return `verdict — (target ${VERDICT_TARGET})`;
-    return `verdict ${fmt(first)} → ${fmt(final)} (target ${VERDICT_TARGET})`;
-  });
-}
-
-function fmt(v: number | null): string {
-  return v === null ? '—' : String(Math.round(v));
+  protected readonly verdictText = computed(() => verdictHeadline(this.card().run));
 }

@@ -35,15 +35,21 @@ const STAGE_LABELS: Record<StageKey, string> = {
 };
 
 /**
- * The bot's default ATS_VERDICT_MAX_REFINES. The snapshot does not carry the
- * configured value (only the refine `start` event's payload does, and the
- * footer payload is a truncated display string), so the strip labels rounds
- * against the default.
+ * Display fallbacks for `run.refine_max_rounds` / `run.refine_target` — the bot
+ * defaults (ATS_VERDICT_MAX_REFINES / ATS_VERDICT_TARGET). Used only when the
+ * run's own refine `start` event has not been written (loop not started yet,
+ * never runs, or a pre-M1 run).
  */
-export const REFINE_MAX_ROUNDS = 5;
+export const DEFAULT_REFINE_MAX_ROUNDS = 5;
+export const DEFAULT_VERDICT_TARGET = 95;
 
-/** The verdict score the refine loop aims for (bot default ATS_VERDICT_TARGET). */
-export const VERDICT_TARGET = 95;
+export function refineMaxRounds(run: InProgressRun | null): number {
+  return run?.refine_max_rounds ?? DEFAULT_REFINE_MAX_ROUNDS;
+}
+
+export function verdictTarget(run: InProgressRun | null): number {
+  return run?.refine_target ?? DEFAULT_VERDICT_TARGET;
+}
 
 export type StageState = 'done' | 'now' | 'pending';
 
@@ -51,6 +57,8 @@ export interface StageStripItem {
   key: StageKey;
   label: string;
   state: StageState;
+  /** Accessible/tooltip text when the label abbreviates something (refine k/N). */
+  title: string | null;
 }
 
 export interface StageStripView {
@@ -81,15 +89,20 @@ export function buildStageStrip(run: InProgressRun | null): StageStripView {
         : i === index
           ? 'now'
           : 'pending';
-    return { key, label: stageLabel(key, state, run), state };
+    const round = refineRound(key, state, run);
+    const max = refineMaxRounds(run);
+    return round === null
+      ? { key, label: STAGE_LABELS[key], state, title: null }
+      : { key, label: `refine ${round}/${max}`, state, title: `${round} of ${max} rounds decided` };
   });
   return { items, known, inferred };
 }
 
-function stageLabel(key: StageKey, state: StageState, run: InProgressRun | null): string {
+/**
+ * `refine_progress.round` is the last round already DECIDED (accepted/rejected/
+ * discarded), not the one running — the chip shows it as-is, never round + 1.
+ */
+function refineRound(key: StageKey, state: StageState, run: InProgressRun | null): number | null {
   const round = run?.refine_progress?.round;
-  if (key === 'refine' && state === 'now' && typeof round === 'number') {
-    return `refine ${round}/${REFINE_MAX_ROUNDS}`;
-  }
-  return STAGE_LABELS[key];
+  return key === 'refine' && state === 'now' && typeof round === 'number' ? round : null;
 }

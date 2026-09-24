@@ -108,6 +108,8 @@ export const PIPELINE_SAMPLE_SNAPSHOT: PipelineSnapshot = {
               outcome: 'accepted',
               at: '13:59',
             },
+            refine_target: 95,
+            refine_max_rounds: 5,
             verdict_first: 85.0,
             verdict_final: 88.0,
             refine_rounds: 1,
