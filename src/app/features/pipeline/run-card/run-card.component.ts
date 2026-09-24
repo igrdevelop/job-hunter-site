@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { InProgressCard } from '../../../core/api/pipeline.models';
 import { buildStageStrip } from '../stage-strip';
-import { formatMinutes, verdictHeadline } from '../pipeline.view';
+import { formatMinutes, formatSnapshotTime, verdictHeadline } from '../pipeline.view';
 
 /**
  * One wide card per vacancy being generated right now: identity line, elapsed
@@ -26,6 +26,9 @@ import { formatMinutes, verdictHeadline } from '../pipeline.view';
     <div class="facts">
       <span>{{ runningText() }}</span>
       <span>{{ verdictText() }}</span>
+      @if (lastEventText(); as last) {
+        <span data-testid="last-event">{{ last }}</span>
+      }
       @if (card().stale) {
         <span class="stale-note">no heartbeat &gt; 60 min</span>
       }
@@ -158,4 +161,15 @@ export class RunCardComponent {
   });
 
   protected readonly verdictText = computed(() => verdictHeadline(this.card().run));
+
+  /**
+   * "last: refine accepted · 13:59" — the time is the raw `last_event.ts`
+   * formatted in Europe/Warsaw. Formatted against the current clock at render
+   * (the page re-renders on every poll), so "today" follows the Warsaw date.
+   */
+  protected readonly lastEventText = computed(() => {
+    const last = this.card().run?.last_event;
+    if (!last) return null;
+    return `last: ${last.stage.replaceAll('_', ' ')} ${last.event} · ${formatSnapshotTime(last.ts, new Date())}`;
+  });
 }

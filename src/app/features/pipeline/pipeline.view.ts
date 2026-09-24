@@ -4,7 +4,7 @@ import {
   PipelineEvent,
   PipelineSnapshot,
 } from '../../core/api/pipeline.models';
-import { formatEventPayload } from './event-payload';
+import { formatEventDetails } from './event-details';
 import { verdictTarget } from './stage-strip';
 
 /**
@@ -150,7 +150,8 @@ export interface EventRow {
   stage: string;
   event: string;
   company: string;
-  payload: string;
+  /** Human line from `details`; '' when the event has none. */
+  details: string;
   tone: 'ok' | 'bad' | 'neutral';
 }
 
@@ -159,11 +160,11 @@ export const EVENTS_MAX = 15;
 /** Newest first (the API already orders them), capped at 15. */
 export function eventRows(events: PipelineEvent[], now: Date): EventRow[] {
   return events.slice(0, EVENTS_MAX).map((e) => ({
-    time: formatEventTime(e.ts, now),
+    time: formatSnapshotTime(e.ts, now),
     stage: e.stage.replaceAll('_', ' '),
     event: e.event,
     company: e.company || '—',
-    payload: formatEventPayload(e.stage, e.event, e.payload),
+    details: formatEventDetails(e.stage, e.event, e.details),
     tone:
       e.event === 'error' || e.event === 'blocked'
         ? 'bad'
@@ -173,16 +174,41 @@ export function eventRows(events: PipelineEvent[], now: Date): EventRow[] {
   }));
 }
 
-/** `HH:MM` for today (browser local time), `MM-DD HH:MM` otherwise, `--:--` if unparseable. */
-export function formatEventTime(ts: string, now: Date): string {
+/** The pipeline's own calendar: the snapshot window is Warsaw days. */
+export const PIPELINE_TZ = 'Europe/Warsaw';
+
+const WARSAW_PARTS = new Intl.DateTimeFormat('en-GB', {
+  timeZone: PIPELINE_TZ,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+/**
+ * Formats a raw UTC `ts` from the snapshot in Europe/Warsaw, whatever the
+ * browser's own zone: `HH:mm` when it falls on today's Warsaw date, otherwise
+ * `MM-dd HH:mm`; `--:--` when unparseable. The API serves no display strings.
+ */
+export function formatSnapshotTime(ts: string, now: Date): string {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return '--:--';
-  const hhmm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  const sameDay =
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate();
-  return sameDay ? hhmm : `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hhmm}`;
+  const t = warsawParts(d);
+  const today = warsawParts(now);
+  const hhmm = `${t.hour}:${t.minute}`;
+  return t.year === today.year && t.month === today.month && t.day === today.day
+    ? hhmm
+    : `${t.month}-${t.day} ${hhmm}`;
+}
+
+function warsawParts(d: Date): Record<'year' | 'month' | 'day' | 'hour' | 'minute', string> {
+  const out = { year: '', month: '', day: '', hour: '', minute: '' };
+  for (const p of WARSAW_PARTS.formatToParts(d)) {
+    if (p.type in out) out[p.type as keyof typeof out] = p.value;
+  }
+  return out;
 }
 
 /**
@@ -237,8 +263,4 @@ function plural(n: number, word: string): string {
 function joinParts(parts: (string | null)[]): string | null {
   const kept = parts.filter((p): p is string => !!p);
   return kept.length ? kept.join(' · ') : null;
-}
-
-function pad(n: number): string {
-  return String(n).padStart(2, '0');
 }

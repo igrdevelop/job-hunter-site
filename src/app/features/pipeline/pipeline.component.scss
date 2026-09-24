@@ -167,14 +167,13 @@
 }
 
 .company,
-.payload {
+.details {
   @media (max-width: 720px) {
     grid-column: 1 / -1;
   }
 }
 
-.payload {
-  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+.details {
   font-size: 12px;
   color: var(--color-neutral-500);
   overflow-wrap: anywhere;

@@ -2,6 +2,8 @@ import { InProgressRun } from '../../core/api/pipeline.models';
 import { PIPELINE_SAMPLE_SNAPSHOT } from '../../core/api/pipeline.mock';
 import { STAGE_ORDER, buildStageStrip } from './stage-strip';
 
+const TS = '2026-09-22T11:59:00+00:00';
+
 function run(stage: string, basis: string, extra: Partial<InProgressRun> = {}): InProgressRun {
   const base = structuredClone(PIPELINE_SAMPLE_SNAPSHOT.apply.in_progress.cards[0].run!);
   return { ...base, refine_progress: null, current_stage: { stage, basis }, ...extra };
@@ -30,7 +32,14 @@ describe('buildStageStrip', () => {
   it('labels an in-flight refine stage with the round from refine_progress', () => {
     const view = buildStageStrip(
       run('refine', 'refine round accepted', {
-        refine_progress: { round: 2, kind: 'honest', score: 90, best: 90, outcome: 'accepted' },
+        refine_progress: {
+          round: 2,
+          kind: 'honest',
+          score: 90,
+          best: 90,
+          outcome: 'accepted',
+          ts: TS,
+        },
       }),
     );
     const refine = view.items.find((i) => i.key === 'refine')!;
@@ -42,7 +51,7 @@ describe('buildStageStrip', () => {
   });
 
   it("uses the run's own refine_max_rounds, the last DECIDED round, and falls back to 5 when null", () => {
-    const progress = { round: 1, kind: 'honest', score: 84, best: 85, outcome: 'rejected' };
+    const progress = { round: 1, kind: 'honest', score: 84, best: 85, outcome: 'rejected', ts: TS };
     const custom = buildStageStrip(
       run('refine', 'refine round rejected', { refine_progress: progress, refine_max_rounds: 3 }),
     );
@@ -65,7 +74,14 @@ describe('buildStageStrip', () => {
 
     const nullRound = buildStageStrip(
       run('refine', 'refine round discarded', {
-        refine_progress: { round: null, kind: null, score: null, best: null, outcome: 'discarded' },
+        refine_progress: {
+          round: null,
+          kind: null,
+          score: null,
+          best: null,
+          outcome: 'discarded',
+          ts: TS,
+        },
       }),
     );
     expect(nullRound.items.find((i) => i.key === 'refine')!.label).toBe('refine');

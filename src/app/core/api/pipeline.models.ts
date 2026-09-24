@@ -1,10 +1,12 @@
 /**
- * GET /api/pipeline/snapshot?days=1|7 — the served shape.
- *
- * Mirrors the bot repo's `docs/PIPELINE_SNAPSHOT_CONTRACT.md` (PIPELINE_VIZ_PLAN
- * M2). Only keys IN the contract are typed here: `hunt.next_slot`, `coverage`,
- * `apply.queue_enabled_local_config` and `apply.failures.next_retry` are local-
- * config diagnostics the API does not serve, so the page never reads them.
+ * GET /api/pipeline/snapshot?days=1|7 — the served shape, copied (not
+ * imported) from job-hunter-api's response builder
+ * (`src/pipeline/pipeline-snapshot.ts`), which ports the bot repo's
+ * `docs/PIPELINE_SNAPSHOT_CONTRACT.md` minus its "Not in the contract" keys:
+ * no `hunt.next_slot`, `hunt.window`, `coverage`,
+ * `apply.queue_enabled_local_config`, `apply.failures.next_retry`, no `at`
+ * display strings and no `events[].payload`. Every time is a raw UTC `ts`
+ * (`…+00:00`); the page formats it itself in Europe/Warsaw.
  *
  * `null` means UNMEASURED (the table behind that block does not exist on the
  * server's DB yet), never zero — every consumer must render a calm "not measured
@@ -25,8 +27,6 @@ export interface PipelineWindow {
 
 export interface HuntRunsLast {
   ts: string;
-  /** Display helper — the API may drop it (format from `ts` instead). */
-  at?: string;
   trigger: string;
   sources: string[];
   found: number;
@@ -81,8 +81,6 @@ export interface EnteredTrackerBlock {
 }
 
 export interface HuntTier {
-  /** Duplicate of `window.label`, kept by the tool for its text report. */
-  window?: string;
   hunt_runs: HuntRunsBlock | null;
   hunt_runs_unmeasured: string | null;
   source_runs: SourceRunsBlock | null;
@@ -107,7 +105,8 @@ export interface PendingBlock {
 export interface StageEventRef {
   stage: string;
   event: string;
-  at?: string;
+  /** Raw UTC timestamp of the event. */
+  ts: string;
 }
 
 export interface CurrentStage {
@@ -122,7 +121,8 @@ export interface RefineProgress {
   score: number | null;
   best: number | null;
   outcome: string;
-  at?: string;
+  /** Raw UTC timestamp of the round's decision event. */
+  ts: string;
 }
 
 export interface InProgressRun {
@@ -222,16 +222,35 @@ export interface ResultTier {
   cost: CostBlock;
 }
 
+/**
+ * The stable fields of an event's FULL payload, parsed server-side. Each key is
+ * present only when the payload had it; numeric keys are passed through as-is
+ * (so a consumer still type-checks them), `error` is cut to 200 chars and
+ * `reason` to 120.
+ */
+export interface EventDetails {
+  round?: unknown;
+  kind?: unknown;
+  score?: unknown;
+  best?: unknown;
+  target?: unknown;
+  max_rounds?: unknown;
+  verdict_first?: unknown;
+  chars?: unknown;
+  error?: string;
+  reason?: string;
+}
+
 export interface PipelineEvent {
-  at?: string;
+  /** Raw UTC timestamp. */
   ts: string;
   stage: string;
   event: string;
   duration_ms: number | null;
   company: string;
   pipeline: string;
-  /** Display string truncated to 80 chars server-side — never parsed as JSON. */
-  payload: string;
+  /** `null` for an empty/unparseable payload or one with none of the known keys. */
+  details: EventDetails | null;
 }
 
 export interface PipelineSnapshot {

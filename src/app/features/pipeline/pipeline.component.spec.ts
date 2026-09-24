@@ -123,7 +123,18 @@ describe('PipelineComponent', () => {
     expect(now?.getAttribute('title')).toBe('2 of 5 rounds decided');
     expect(now?.getAttribute('aria-label')).toBe('refine: 2 of 5 rounds decided');
     expect(el.querySelector('app-run-card')?.textContent).toContain('verdict 85 → 90 (target 95)');
+    expect(el.querySelector('[data-testid="last-event"]')?.textContent).toMatch(
+      /^last: refine accepted · (09-22 )?13:59$/,
+    );
     expect(el.querySelectorAll('app-run-card [data-state="done"]')).toHaveLength(8);
+  });
+
+  it('renders the footer with details lines, and nothing after the name when details is null', async () => {
+    const el = await setup({});
+    const rows = el.querySelectorAll('.events .event');
+    expect(rows).toHaveLength(10);
+    expect(rows[0].querySelector('.details')?.textContent).toBe('round 2 · honest · 90 (best 90)');
+    expect(rows[3].querySelector('.details')).toBeNull();
   });
 
   it('says nothing is generating when there is no in-progress card', async () => {

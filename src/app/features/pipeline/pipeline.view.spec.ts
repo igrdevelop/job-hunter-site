@@ -3,7 +3,7 @@ import { clonePipelineSample } from '../../core/api/pipeline.mock';
 import {
   applyCards,
   eventRows,
-  formatEventTime,
+  formatSnapshotTime,
   huntCards,
   resultCards,
   verdictHeadline,
@@ -139,21 +139,29 @@ describe('pipeline view models', () => {
     });
   });
 
-  it('formats event payloads into human lines in the footer', () => {
-    const rows = eventRows(s.events!, new Date());
-    expect(rows[0].payload).toBe('round 2 · honest · 90 (best 90)');
-    expect(rows[2].payload).toBe('target 95 · up to 5 rounds · from 85');
-    expect(rows[3].payload).toBe('');
+  it('formats event details into human lines and Warsaw times in the footer', () => {
+    const rows = eventRows(s.events!, new Date('2026-09-22T12:00:00Z'));
+    expect(rows[0]).toMatchObject({ time: '13:59', details: 'round 2 · honest · 90 (best 90)' });
+    expect(rows[2].details).toBe('target 95 · up to 5 rounds · from 85');
+    expect(rows[3].details).toBe('');
   });
 
-  it('formats event time as HH:MM today and MM-DD HH:MM otherwise', () => {
-    const ts = '2026-09-22T11:59:00+00:00';
-    const d = new Date(ts);
-    const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-    expect(formatEventTime(ts, d)).toBe(hhmm);
-    expect(formatEventTime(ts, new Date(d.getTime() + 3 * 86_400_000))).toMatch(
-      /^\d\d-\d\d \d\d:\d\d$/,
-    );
-    expect(formatEventTime('garbage', d)).toBe('--:--');
+  describe('formatSnapshotTime (Europe/Warsaw, independent of the browser zone)', () => {
+    const now = new Date('2026-09-22T12:00:00Z'); // 14:00 CEST on 09-22
+
+    it("shows HH:mm for a timestamp on today's Warsaw date", () => {
+      expect(formatSnapshotTime('2026-09-22T11:59:00+00:00', now)).toBe('13:59');
+      // 22:30 UTC on 09-21 is already 00:30 on 09-22 in Warsaw
+      expect(formatSnapshotTime('2026-09-21T22:30:00+00:00', now)).toBe('00:30');
+    });
+
+    it('shows MM-dd HH:mm for any other Warsaw date', () => {
+      expect(formatSnapshotTime('2026-09-21T21:30:00+00:00', now)).toBe('09-21 23:30');
+      expect(formatSnapshotTime('2026-01-05T08:00:00Z', now)).toBe('01-05 09:00'); // CET
+    });
+
+    it('returns --:-- for garbage', () => {
+      expect(formatSnapshotTime('garbage', now)).toBe('--:--');
+    });
   });
 });
