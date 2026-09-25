@@ -5,6 +5,19 @@
       <p class="page-subtitle">
         What the bot found, what it is generating, and what is ready to send.
       </p>
+      @if (nextRun(); as n) {
+        <p class="next-run" data-testid="next-run">
+          @if (n.offline) {
+            <span class="offline" data-testid="bot-offline">bot offline</span>
+          }
+          @if (n.hunt) {
+            <span>{{ n.hunt }}</span>
+          }
+          @if (n.retry) {
+            <span>{{ n.retry }}</span>
+          }
+        </p>
+      }
     </div>
 
     <div class="controls">
@@ -44,9 +57,107 @@
       <p class="inline-error" role="alert">{{ err }}</p>
     }
 
+    @if (isOwner()) {
+      <section class="control-bar" aria-label="Start the bot" data-testid="control-bar">
+        <div class="buttons">
+          <span [matTooltip]="disabled().hunt ?? ''" [matTooltipDisabled]="!disabled().hunt">
+            <button
+              mat-flat-button
+              type="button"
+              data-testid="hunt-all"
+              [disabled]="!!disabled().hunt"
+              (click)="send('hunt', null)"
+            >
+              Hunt everywhere
+            </button>
+          </span>
+          @if (sources().length) {
+            <span [matTooltip]="disabled().hunt ?? ''" [matTooltipDisabled]="!disabled().hunt">
+              <button
+                mat-stroked-button
+                type="button"
+                data-testid="hunt-source"
+                [disabled]="!!disabled().hunt"
+                [matMenuTriggerFor]="sourceMenu"
+              >
+                Hunt one source ▾
+              </button>
+            </span>
+            <mat-menu #sourceMenu="matMenu" class="source-menu">
+              @for (source of sources(); track source) {
+                <button
+                  mat-menu-item
+                  type="button"
+                  [attr.data-source]="source"
+                  [disabled]="!!disabled().hunt"
+                  (click)="send('hunt', [source])"
+                >
+                  {{ source }}
+                </button>
+              }
+            </mat-menu>
+          }
+          <span [matTooltip]="disabled().retry ?? ''" [matTooltipDisabled]="!disabled().retry">
+            <button
+              mat-stroked-button
+              type="button"
+              data-testid="retry-failed"
+              [disabled]="!!disabled().retry"
+              (click)="send('retry_failed')"
+            >
+              Retry failed
+            </button>
+          </span>
+          <span
+            [matTooltip]="disabled().checkExpired ?? ''"
+            [matTooltipDisabled]="!disabled().checkExpired"
+          >
+            <button
+              mat-stroked-button
+              type="button"
+              data-testid="check-expired"
+              [disabled]="!!disabled().checkExpired"
+              (click)="send('check_expired')"
+            >
+              Check expired
+            </button>
+          </span>
+        </div>
+        @if (trackedText(); as t) {
+          <p class="tracked" role="status" data-testid="tracked-command">
+            <mat-spinner diameter="14" strokeWidth="2" />{{ t }}
+          </p>
+        } @else if (disabled().hunt; as why) {
+          <p class="why">{{ why }}</p>
+        }
+        @if (commandRows().length) {
+          <ul class="commands" aria-label="Recent commands">
+            @for (c of commandRows(); track c.id) {
+              <li [attr.data-status]="c.status" [attr.title]="c.error || null">
+                <span class="time">{{ c.time }}</span>
+                {{ c.label }}
+                <span
+                  class="status"
+                  [class.ok]="c.tone === 'ok'"
+                  [class.bad]="c.tone === 'bad'"
+                  [class.live]="c.tone === 'live'"
+                  >{{ c.status }}</span
+                >
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    }
+
     <div class="tiers" [class.switching]="switching()">
       <section class="tier" aria-labelledby="tier-hunt">
         <h2 id="tier-hunt" class="tier-title">Hunt</h2>
+        @if (liveHunt(); as live) {
+          <app-hunt-stepper [row]="live" [now]="serverNow()" [allSources]="allSourcesCount()" />
+        } @else if (lastHuntText(); as last) {
+          <p class="muted-line" data-testid="last-hunt">{{ last }}</p>
+        }
         <div class="grid">
           @for (c of huntCards(); track c.label) {
             <app-stat-card [card]="c" />

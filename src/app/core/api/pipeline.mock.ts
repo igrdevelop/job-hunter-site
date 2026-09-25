@@ -14,7 +14,42 @@ import { PipelineSnapshot } from './pipeline.models';
  * `queue_enabled_local_config`, `next_retry`, `at` display strings or
  * `events[].payload`). Frozen at 2026-09-22T12:00:00Z (Warsaw 14:00), user u1.
  * Re-copy it when the contract changes; do not hand-edit.
+ *
+ * Exception: `hunt.live`, `hunt.next` and `control` (the control-bar keys of
+ * the bot plan "pipeline: live loaders, next-run time, action buttons") were
+ * written by hand from that plan's shared contract, ahead of the API fixture
+ * refresh — replace them with the API's object once it asserts them. They show
+ * a web hunt in `fetch` (linkedin, 3/25, found 41), the next scheduled hunt,
+ * and a few commands.
  */
+const SAMPLE_SOURCES = [
+  'justjoin',
+  'nofluffjobs',
+  'linkedin',
+  'bulldogjob',
+  'pracuj',
+  'theprotocol',
+  'solidjobs',
+  'arbeitnow',
+  'remotive',
+  'workingnomads',
+  'jobspresso',
+  'builtin',
+  'justremote',
+  'remoteok',
+  'himalayas',
+  'findmyremote',
+  'thesmartjobs',
+  'fourdayweek',
+  'weworkremotely',
+  'remoteleaf',
+  'inhire',
+  'jobleads',
+  'ats_aggregator',
+  'linkedin_scout_relay',
+  'telegram_channels',
+];
+
 export const PIPELINE_SAMPLE_SNAPSHOT: PipelineSnapshot = {
   generated_at: '2026-09-22T12:00:00+00:00',
   window: {
@@ -94,6 +129,41 @@ export const PIPELINE_SAMPLE_SNAPSHOT: PipelineSnapshot = {
         SKIP: 1,
       },
       by_source: [['justjoin', 12]],
+    },
+    live: {
+      active: {
+        hunt_id: 'h_web',
+        trigger: 'web',
+        sources: SAMPLE_SOURCES,
+        started_at: '2026-09-22T11:58:00+00:00',
+        step: 'fetch',
+        step_started_at: '2026-09-22T11:58:05+00:00',
+        current_source: 'linkedin',
+        sources_done: 3,
+        sources_total: 25,
+        found_so_far: 41,
+        command_id: 'cmd_hunt_all',
+        finished_at: null,
+      },
+      last: {
+        hunt_id: 'h_sched',
+        trigger: 'scheduled',
+        sources: ['pracuj'],
+        started_at: '2026-09-22T11:20:00+00:00',
+        step: 'done',
+        step_started_at: '2026-09-22T11:22:00+00:00',
+        current_source: '',
+        sources_done: 1,
+        sources_total: 1,
+        found_so_far: 18,
+        command_id: '',
+        finished_at: '2026-09-22T11:22:10+00:00',
+      },
+    },
+    next: {
+      hunt: { at: '2026-09-22T12:40:00+00:00', source: 'justjoin', sources_total: 25 },
+      retry: { at: '2026-09-23T00:45:00+00:00' },
+      updated_at: '2026-09-22T11:59:30+00:00',
     },
   },
   apply: {
@@ -316,6 +386,41 @@ export const PIPELINE_SAMPLE_SNAPSHOT: PipelineSnapshot = {
       details: null,
     },
   ],
+  control: {
+    sources: SAMPLE_SOURCES,
+    commands: [
+      {
+        id: 'cmd_hunt_all',
+        kind: 'hunt',
+        payload: { sources: null },
+        status: 'running',
+        error: '',
+        created_at: '2026-09-22T11:57:58+00:00',
+        started_at: '2026-09-22T11:58:00+00:00',
+        finished_at: null,
+      },
+      {
+        id: 'cmd_hunt_busy',
+        kind: 'hunt',
+        payload: { sources: ['linkedin'] },
+        status: 'rejected',
+        error: 'hunt already running',
+        created_at: '2026-09-22T11:21:00+00:00',
+        started_at: null,
+        finished_at: '2026-09-22T11:21:02+00:00',
+      },
+      {
+        id: 'cmd_expired',
+        kind: 'check_expired',
+        payload: {},
+        status: 'done',
+        error: '',
+        created_at: '2026-09-22T09:00:00+00:00',
+        started_at: '2026-09-22T09:00:02+00:00',
+        finished_at: '2026-09-22T09:04:40+00:00',
+      },
+    ],
+  },
 };
 
 /** A fresh deep copy, so a consumer can never mutate the shared sample. */

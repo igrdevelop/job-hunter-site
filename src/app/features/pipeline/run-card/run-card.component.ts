@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { InProgressCard } from '../../../core/api/pipeline.models';
 import { buildStageStrip } from '../stage-strip';
 import { formatMinutes, formatSnapshotTime, verdictHeadline } from '../pipeline.view';
@@ -10,6 +11,7 @@ import { formatMinutes, formatSnapshotTime, verdictHeadline } from '../pipeline.
  */
 @Component({
   selector: 'app-run-card',
+  imports: [MatProgressSpinnerModule],
   template: `
     <div class="head">
       <div class="who">
@@ -45,6 +47,9 @@ import { formatMinutes, formatSnapshotTime, verdictHeadline } from '../pipeline.
           [attr.title]="item.title"
           [attr.aria-label]="item.title ? 'refine: ' + item.title : null"
         >
+          @if (item.state === 'now' && !card().stale) {
+            <mat-spinner diameter="11" strokeWidth="2" data-testid="stage-spinner" />
+          }
           {{ item.label }}
         </li>
       }
@@ -112,6 +117,9 @@ import { formatMinutes, formatSnapshotTime, verdictHeadline } from '../pipeline.
         padding: 0;
       }
       .stage {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
         font-size: 12px;
         padding: 4px 10px;
         border-radius: var(--radius-pill);

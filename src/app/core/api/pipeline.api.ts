@@ -2,7 +2,14 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { PipelineDays, PipelineSnapshot, PipelineSnapshotResult } from './pipeline.models';
+import {
+  BotCommand,
+  BotCommandKind,
+  PipelineDays,
+  PipelineSnapshot,
+  PipelineSnapshotResult,
+  PostCommandBody,
+} from './pipeline.models';
 import { clonePipelineSample } from './pipeline.mock';
 
 /**
@@ -15,6 +22,9 @@ import { clonePipelineSample } from './pipeline.mock';
  * would hide a real outage.
  */
 export const PIPELINE_MOCK_FALLBACK_ENABLED = true;
+
+/** Upper bound for GET /pipeline/commands/:id — below the 3 s fast poll. */
+export const COMMAND_LOOKUP_TIMEOUT_MS = 2000;
 
 @Injectable({ providedIn: 'root' })
 export class PipelineApi {
@@ -48,6 +58,32 @@ export class PipelineApi {
       }
       throw err;
     }
+  }
+
+  /**
+   * POST /api/pipeline/commands — owner-only. Resolves to the new command id
+   * (201 `{id}`). Errors are rethrown untouched: the page maps 403 (not the
+   * owner), 409 (a hunt/retry is live or already queued) and 503 (bot state
+   * unavailable) onto its own messages. No mock fallback — a command must never
+   * look sent when it was not.
+   */
+  async postCommand(kind: BotCommandKind, sources?: string[] | null): Promise<string> {
+    const body: PostCommandBody = sources === undefined ? { kind } : { kind, sources };
+    const res = await firstValueFrom(
+      this.http.post<{ id: string }>(`${this.baseUrl}/pipeline/commands`, body),
+    );
+    return res.id;
+  }
+
+  /** GET /api/pipeline/commands/:id — one command's current status (owner-only). */
+  getCommand(id: string): Promise<BotCommand> {
+    return firstValueFrom(
+      // Bounded below the 3 s fast poll: load() awaits this lookup, and a stalled
+      // one would keep every later poll tick from refreshing the page.
+      this.http.get<BotCommand>(`${this.baseUrl}/pipeline/commands/${encodeURIComponent(id)}`, {
+        timeout: COMMAND_LOOKUP_TIMEOUT_MS,
+      }),
+    );
   }
 }
 

@@ -86,6 +86,92 @@ export interface HuntTier {
   source_runs: SourceRunsBlock | null;
   postings_seen: PostingsSeenBlock | null;
   entered_tracker: EnteredTrackerBlock;
+  /**
+   * Live hunt state (bot `hunt_live` table). `null` when the table does not
+   * exist yet. Absent on an API that predates the control PRs — consumers read
+   * it with `?? null`.
+   */
+  live: HuntLive | null;
+  /** Scheduler facts (bot `config` KV `bot_state.*`); `null` when never written. */
+  next: HuntNext | null;
+}
+
+export type HuntLiveStep = 'waiting' | 'fetch' | 'filter' | 'dedup' | 'act' | 'done' | 'error';
+
+export type HuntTrigger = 'scheduled' | 'manual' | 'web' | 'retry';
+
+/** One `hunt_live` row, `sources` parsed. Every timestamp is raw UTC `…+00:00`. */
+export interface HuntLiveRow {
+  hunt_id: string;
+  trigger: HuntTrigger | string;
+  sources: string[];
+  started_at: string;
+  step: HuntLiveStep | string;
+  step_started_at: string;
+  current_source: string;
+  sources_done: number;
+  sources_total: number;
+  found_so_far: number;
+  command_id: string;
+  finished_at: string | null;
+}
+
+export interface HuntLive {
+  /** The hunt running (or waiting for the lock) right now; `null` when idle. */
+  active: HuntLiveRow | null;
+  /** The newest finished hunt. */
+  last: HuntLiveRow | null;
+}
+
+export interface NextHunt {
+  at: string;
+  source: string;
+  sources_total: number;
+}
+
+export interface NextRetry {
+  at: string;
+}
+
+export interface HuntNext {
+  hunt: NextHunt | null;
+  retry: NextRetry | null;
+  /** When the bot last wrote its scheduler facts; stale > 5 min ⇒ "bot offline". */
+  updated_at: string | null;
+}
+
+export type BotCommandKind = 'hunt' | 'retry_failed' | 'check_expired';
+
+export type BotCommandStatus = 'pending' | 'running' | 'done' | 'error' | 'rejected';
+
+/** `hunt` payload: `{"sources": ["linkedin"]}` or `{"sources": null}` (= every source). */
+export interface BotCommandPayload {
+  sources?: string[] | null;
+}
+
+export interface BotCommand {
+  id: string;
+  kind: BotCommandKind | string;
+  payload: BotCommandPayload | null;
+  status: BotCommandStatus | string;
+  /** The reason for `rejected`, the failure for `error`; '' otherwise. */
+  error: string;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export interface Control {
+  /** Source names the bot can hunt (`bot_state.sources`); `null` when never written. */
+  sources: string[] | null;
+  /** The 10 newest `bot_commands` rows, newest first; `null` when the table is missing. */
+  commands: BotCommand[] | null;
+}
+
+/** POST /api/pipeline/commands body. */
+export interface PostCommandBody {
+  kind: BotCommandKind;
+  sources?: string[] | null;
 }
 
 export interface PendingHeadRow {
@@ -261,6 +347,8 @@ export interface PipelineSnapshot {
   apply: ApplyTier;
   result: ResultTier;
   events: PipelineEvent[] | null;
+  /** Owner control surface; `null` when the bot has not written it yet. */
+  control: Control | null;
 }
 
 /** What the page receives: the snapshot plus whether it is the offline sample. */

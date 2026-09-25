@@ -21,6 +21,8 @@ export interface StatCardView {
   sub: string | null;
   /** Colours the number: accent for the tier's headline, warn for failures. */
   tone?: 'default' | 'warn' | 'ok';
+  /** Something behind this number is moving right now — the card shows a spinner. */
+  busy?: boolean;
 }
 
 export const UNMEASURED_TEXT = 'Not measured yet';
@@ -96,14 +98,20 @@ export function applyCards(s: PipelineSnapshot): StatCardView[] {
     : null;
 
   return [
-    card(
-      'Queued',
-      pending.count,
-      pending.oldest_wait_min !== null
-        ? `oldest waits ${formatMinutes(pending.oldest_wait_min)}`
-        : null,
-    ),
-    card('In progress', in_progress.count, stale > 0 ? `${stale} stale` : null),
+    {
+      ...card(
+        'Queued',
+        pending.count,
+        pending.oldest_wait_min !== null
+          ? `oldest waits ${formatMinutes(pending.oldest_wait_min)}`
+          : null,
+      ),
+      busy: pending.count > 0,
+    },
+    {
+      ...card('In progress', in_progress.count, stale > 0 ? `${stale} stale` : null),
+      busy: in_progress.count > 0,
+    },
     runs ? card('Cut at $0', runs.cut_zero_cost_total, cutSub) : unmeasured('Cut at $0'),
     {
       ...card('Failures', failures.in_window, `${failures.gave_up_total} gave up (all time)`),
