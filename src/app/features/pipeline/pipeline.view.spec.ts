@@ -73,6 +73,19 @@ describe('pipeline view models', () => {
     expect(byLabel(degraded, 'Queued').sub).toBeNull();
   });
 
+  it('marks Queued / In progress busy only when their count is above zero', () => {
+    const cards = applyCards(s);
+    expect(byLabel(cards, 'Queued').busy).toBe(true);
+    expect(byLabel(cards, 'In progress').busy).toBe(true);
+    expect(byLabel(cards, 'Failures').busy).toBeUndefined();
+
+    s.apply.pending = { count: 0, oldest_date: null, oldest_wait_min: null, head: [] };
+    s.apply.in_progress = { count: 0, cards: [] };
+    const idle = applyCards(s);
+    expect(byLabel(idle, 'Queued').busy).toBe(false);
+    expect(byLabel(idle, 'In progress').busy).toBe(false);
+  });
+
   it('never prints $0.00 for unpriced (CLI) rows', () => {
     expect(byLabel(resultCards(s), 'LLM spend')).toMatchObject({
       value: '$0.81',

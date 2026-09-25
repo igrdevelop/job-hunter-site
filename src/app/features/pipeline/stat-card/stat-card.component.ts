@@ -1,11 +1,18 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { StatCardView, UNMEASURED_TEXT } from '../pipeline.view';
 
 /** One stat tile of a /pipeline tier; `value: null` renders the unmeasured state. */
 @Component({
   selector: 'app-stat-card',
+  imports: [MatProgressSpinnerModule],
   template: `
-    <div class="label">{{ card().label }}</div>
+    <div class="label">
+      {{ card().label }}
+      @if (card().busy && card().value !== null) {
+        <mat-spinner diameter="12" strokeWidth="2" aria-label="working" data-testid="card-busy" />
+      }
+    </div>
     @if (card().value !== null) {
       <div class="value" [class.ok]="card().tone === 'ok'" [class.warn]="card().tone === 'warn'">
         {{ card().value }}
@@ -30,6 +37,9 @@ import { StatCardView, UNMEASURED_TEXT } from '../pipeline.view';
         border-radius: var(--radius);
       }
       .label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
         font-size: 12px;
         font-weight: 600;
         letter-spacing: 0.04em;

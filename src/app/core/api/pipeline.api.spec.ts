@@ -58,4 +58,53 @@ describe('PipelineApi', () => {
       .flush('boom', { status: 500, statusText: 'Server Error' });
     await expect(p).rejects.toMatchObject({ status: 500 });
   });
+
+  it('POSTs a hunt command with its sources and resolves to the new id', async () => {
+    const p = api.postCommand('hunt', ['linkedin']);
+    const req = http.expectOne('/api/pipeline/commands');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ kind: 'hunt', sources: ['linkedin'] });
+    req.flush({ id: 'cmd1' }, { status: 201, statusText: 'Created' });
+    expect(await p).toBe('cmd1');
+  });
+
+  it('sends sources: null for "hunt everywhere" and no sources key for other kinds', async () => {
+    const all = api.postCommand('hunt', null);
+    const allReq = http.expectOne('/api/pipeline/commands');
+    expect(allReq.request.body).toEqual({ kind: 'hunt', sources: null });
+    allReq.flush({ id: 'a' });
+    await all;
+
+    const retry = api.postCommand('retry_failed');
+    const retryReq = http.expectOne('/api/pipeline/commands');
+    expect(retryReq.request.body).toEqual({ kind: 'retry_failed' });
+    retryReq.flush({ id: 'b' });
+    await retry;
+  });
+
+  it('rethrows POST errors — no mock fallback for commands, not even on 404', async () => {
+    for (const status of [409, 404]) {
+      const p = api.postCommand('check_expired');
+      http.expectOne('/api/pipeline/commands').flush('no', { status, statusText: 'x' });
+      await expect(p).rejects.toMatchObject({ status });
+    }
+  });
+
+  it('GETs one command by id', async () => {
+    const p = api.getCommand('c/1');
+    const req = http.expectOne('/api/pipeline/commands/c%2F1');
+    expect(req.request.method).toBe('GET');
+    const row = {
+      id: 'c/1',
+      kind: 'hunt',
+      payload: { sources: null },
+      status: 'running',
+      error: '',
+      created_at: '2026-09-22T11:57:58+00:00',
+      started_at: '2026-09-22T11:58:00+00:00',
+      finished_at: null,
+    };
+    req.flush(row);
+    expect(await p).toEqual(row);
+  });
 });
