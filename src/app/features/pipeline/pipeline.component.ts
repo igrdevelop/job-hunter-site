@@ -145,8 +145,14 @@ export class PipelineComponent {
 
   readonly control = computed(() => this.snapshot()?.control ?? null);
   readonly sources = computed(() => this.control()?.sources ?? []);
+  /**
+   * The snapshot the control bar and the poll cadence react to. The offline
+   * sample carries a fake live hunt and a fake running command; reacting to
+   * them would lock the buttons and poll a 404 every 3 s.
+   */
+  private readonly liveSnapshot = computed(() => (this.sample() ? null : this.snapshot()));
   readonly disabled = computed(() =>
-    controlDisabled(this.snapshot(), this.tracked(), this.posting()),
+    controlDisabled(this.liveSnapshot(), this.tracked(), this.posting()),
   );
   readonly commandRows = computed(() =>
     commandRows(this.control()?.commands ?? null, this.serverNow()),
@@ -159,7 +165,7 @@ export class PipelineComponent {
     return t.status === 'pending' ? `${label}: sent, waiting for the bot…` : `${label}: running…`;
   });
 
-  readonly pollMs = computed(() => pollIntervalMs(this.snapshot(), this.tracked()));
+  readonly pollMs = computed(() => pollIntervalMs(this.liveSnapshot(), this.tracked()));
 
   /** The toggle moved but the matching snapshot has not arrived yet. */
   readonly switching = computed(() => {
@@ -249,7 +255,7 @@ export class PipelineComponent {
       this.lastUpdatedAt.set(Date.now());
       this.now.set(Date.now());
       this.refreshError.set(null);
-      await this.followTracked(result.snapshot);
+      await this.followTracked(result.snapshot, seq);
     } catch {
       if (seq !== this.loadSeq) return;
       this.refreshError.set(
@@ -268,7 +274,7 @@ export class PipelineComponent {
    * from GET /pipeline/commands/:id. A failed lookup keeps the current status;
    * the next poll tries again. Terminal: one snackbar, then stop following.
    */
-  private async followTracked(snapshot: PipelineSnapshot): Promise<void> {
+  private async followTracked(snapshot: PipelineSnapshot, seq: number): Promise<void> {
     const t = this.tracked();
     if (!t || isTerminal(t.status)) return;
     let row = findCommand(snapshot, t.id);
@@ -279,8 +285,9 @@ export class PipelineComponent {
         return;
       }
     }
-    // A newer send may have replaced the tracked command while we waited.
-    if (this.tracked()?.id !== t.id) return;
+    // A newer load may have applied a fresher status, or a newer send may have
+    // replaced the tracked command, while we waited.
+    if (seq !== this.loadSeq || this.tracked()?.id !== t.id) return;
     const next = mergeTracked(t, row);
     if (!isTerminal(next.status)) {
       this.tracked.set(next);

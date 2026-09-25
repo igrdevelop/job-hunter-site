@@ -212,6 +212,38 @@ describe('PipelineComponent', () => {
       expect(el.querySelectorAll('.control-bar .commands li')).toHaveLength(3);
     });
 
+    it('ignores the fake live hunt in the offline sample: buttons enabled, idle poll', async () => {
+      const el = await setup({}, { snapshot: clonePipelineSample(), sample: true }, true);
+      expect(button(el, 'hunt-all').disabled).toBe(false);
+      expect(button(el, 'retry-failed').disabled).toBe(false);
+      expect(button(el, 'check-expired').disabled).toBe(false);
+      expect(component.pollMs()).toBe(15000);
+    });
+
+    it('drops a command lookup that a newer load has overtaken', async () => {
+      await setup({}, { snapshot: idle(), sample: false }, true);
+      vi.spyOn(api, 'postCommand').mockResolvedValue('cmd7');
+      const get = vi.spyOn(api, 'getCommand').mockResolvedValue(cmd('cmd7', 'pending'));
+      await component.send('check_expired');
+      await settle();
+      expect(component.tracked()?.status).toBe('pending');
+
+      let resolveSlow: (c: ReturnType<typeof cmd>) => void = () => undefined;
+      get.mockReset();
+      get
+        .mockReturnValueOnce(new Promise((r) => (resolveSlow = r)))
+        .mockResolvedValue(cmd('cmd7', 'running'));
+      const slow = component.load(1);
+      // The slow load is parked inside getCommand before the newer one starts.
+      await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(1));
+      await component.load(1);
+      expect(component.tracked()?.status).toBe('running');
+      resolveSlow(cmd('cmd7', 'pending'));
+      await slow;
+      expect(get).toHaveBeenCalledTimes(2);
+      expect(component.tracked()?.status).toBe('running');
+    });
+
     it('sends "hunt everywhere", shows the waiting line, then reports a rejection', async () => {
       const el = await setup({}, { snapshot: idle(), sample: false }, true);
       const post = vi.spyOn(api, 'postCommand').mockResolvedValue('cmd1');
