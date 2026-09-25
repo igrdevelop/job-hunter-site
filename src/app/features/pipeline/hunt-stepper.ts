@@ -49,7 +49,15 @@ export interface HuntStepperView {
   failed: boolean;
 }
 
-export function buildHuntStepper(row: HuntLiveRow, now: Date): HuntStepperView {
+/**
+ * `allSources` is the bot's full source count (`control.sources.length`);
+ * `null` when unknown, which never claims "all sources".
+ */
+export function buildHuntStepper(
+  row: HuntLiveRow,
+  now: Date,
+  allSources: number | null = null,
+): HuntStepperView {
   const index = (HUNT_STEPS as readonly string[]).indexOf(row.step);
   const failed = row.step === 'error';
   const finished = row.step === 'done';
@@ -68,17 +76,21 @@ export function buildHuntStepper(row: HuntLiveRow, now: Date): HuntStepperView {
 
   return {
     items,
-    heading: huntHeading(row),
+    heading: huntHeading(row, allSources),
     elapsed: elapsedSince(row.started_at, now) ?? '',
     failed,
   };
 }
 
 /** One compact line for the newest finished hunt when nothing is running. */
-export function lastHuntSummary(row: HuntLiveRow, now: Date): string {
+export function lastHuntSummary(
+  row: HuntLiveRow,
+  now: Date,
+  allSources: number | null = null,
+): string {
   const parts = [
     `Last hunt ${formatSnapshotTime(row.finished_at ?? row.started_at, now)}`,
-    huntHeading(row),
+    huntHeading(row, allSources),
     `found ${row.found_so_far}`,
   ];
   const took = row.finished_at ? durationBetween(row.started_at, row.finished_at) : null;
@@ -87,7 +99,9 @@ export function lastHuntSummary(row: HuntLiveRow, now: Date): string {
   return parts.join(' · ');
 }
 
-function huntHeading(row: HuntLiveRow): string {
+// `sources_total` is this hunt's own N (always the length of its `sources`),
+// so "all sources" is decided against the bot's full source list instead.
+function huntHeading(row: HuntLiveRow, allSources: number | null): string {
   const who = TRIGGER_LABELS[row.trigger] ?? row.trigger;
   const sources = row.sources ?? [];
   const what =
@@ -95,7 +109,7 @@ function huntHeading(row: HuntLiveRow): string {
       ? null
       : sources.length === 1
         ? sources[0]
-        : row.sources_total > 0 && sources.length >= row.sources_total
+        : allSources !== null && allSources > 0 && sources.length >= allSources
           ? 'all sources'
           : `${sources.length} sources`;
   return what ? `${who} · ${what}` : who;

@@ -23,6 +23,9 @@ import { clonePipelineSample } from './pipeline.mock';
  */
 export const PIPELINE_MOCK_FALLBACK_ENABLED = true;
 
+/** Upper bound for GET /pipeline/commands/:id — below the 3 s fast poll. */
+export const COMMAND_LOOKUP_TIMEOUT_MS = 2000;
+
 @Injectable({ providedIn: 'root' })
 export class PipelineApi {
   private readonly http = inject(HttpClient);
@@ -75,7 +78,11 @@ export class PipelineApi {
   /** GET /api/pipeline/commands/:id — one command's current status (owner-only). */
   getCommand(id: string): Promise<BotCommand> {
     return firstValueFrom(
-      this.http.get<BotCommand>(`${this.baseUrl}/pipeline/commands/${encodeURIComponent(id)}`),
+      // Bounded below the 3 s fast poll: load() awaits this lookup, and a stalled
+      // one would keep every later poll tick from refreshing the page.
+      this.http.get<BotCommand>(`${this.baseUrl}/pipeline/commands/${encodeURIComponent(id)}`, {
+        timeout: COMMAND_LOOKUP_TIMEOUT_MS,
+      }),
     );
   }
 }

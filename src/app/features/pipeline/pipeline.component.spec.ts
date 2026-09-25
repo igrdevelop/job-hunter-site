@@ -288,6 +288,21 @@ describe('PipelineComponent', () => {
       expect(component.tracked()?.status).toBe('running');
     });
 
+    it('locks an already-open source menu once a hunt goes live', async () => {
+      const el = await setup({}, { snapshot: idle(), sample: false }, true);
+      const post = vi.spyOn(api, 'postCommand').mockResolvedValue('cmd3');
+      button(el, 'hunt-source').click();
+      await settle();
+      getSnapshot.mockResolvedValueOnce({ snapshot: clonePipelineSample(), sample: false });
+      await component.load(1);
+      await settle();
+      const item = document.querySelector('[data-source="linkedin"]') as HTMLButtonElement | null;
+      expect(item?.disabled).toBe(true);
+      item?.click();
+      await settle();
+      expect(post).not.toHaveBeenCalled();
+    });
+
     it('hunts one source from the menu', async () => {
       const el = await setup({}, { snapshot: idle(), sample: false }, true);
       const post = vi.spyOn(api, 'postCommand').mockResolvedValue('cmd2');

@@ -23,7 +23,7 @@ function states(row: HuntLiveRow): string[] {
 
 describe('hunt stepper mapping', () => {
   it('maps the sample web hunt in fetch: waiting done, fetch now with live numbers', () => {
-    const view = buildHuntStepper(activeRow(), NOW);
+    const view = buildHuntStepper(activeRow(), NOW, 25);
     expect(view.items.map((i) => i.label)).toEqual([
       'waiting',
       'fetch',
@@ -45,6 +45,8 @@ describe('hunt stepper mapping', () => {
     expect(fetch.elapsed).toBe('1 min 55 s');
     expect(view.items.filter((i) => i.elapsed !== null)).toHaveLength(1);
     expect(view.heading).toBe('started from the site · all sources');
+    // Without the bot's full count, a hunt's own sources_total never claims "all".
+    expect(buildHuntStepper(activeRow(), NOW).heading).toBe('started from the site · 25 sources');
     expect(view.elapsed).toBe('2 min 00 s');
     expect(view.failed).toBe(false);
   });

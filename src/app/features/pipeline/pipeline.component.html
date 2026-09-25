@@ -89,6 +89,7 @@
                   mat-menu-item
                   type="button"
                   [attr.data-source]="source"
+                  [disabled]="!!disabled().hunt"
                   (click)="send('hunt', [source])"
                 >
                   {{ source }}
@@ -153,7 +154,7 @@
       <section class="tier" aria-labelledby="tier-hunt">
         <h2 id="tier-hunt" class="tier-title">Hunt</h2>
         @if (liveHunt(); as live) {
-          <app-hunt-stepper [row]="live" [now]="serverNow()" />
+          <app-hunt-stepper [row]="live" [now]="serverNow()" [allSources]="allSourcesCount()" />
         } @else if (lastHuntText(); as last) {
           <p class="muted-line" data-testid="last-hunt">{{ last }}</p>
         }

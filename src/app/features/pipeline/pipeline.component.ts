@@ -133,9 +133,11 @@ export class PipelineComponent {
   });
 
   readonly liveHunt = computed(() => this.snapshot()?.hunt.live?.active ?? null);
+  /** The bot's full source count, for the "all sources" label; `null` on an older API. */
+  readonly allSourcesCount = computed(() => this.snapshot()?.control?.sources?.length ?? null);
   readonly lastHuntText = computed(() => {
     const last = this.snapshot()?.hunt.live?.last ?? null;
-    return last ? lastHuntSummary(last, this.serverNow()) : null;
+    return last ? lastHuntSummary(last, this.serverNow(), this.allSourcesCount()) : null;
   });
   /** `null` until a snapshot arrived — the header says nothing rather than "offline". */
   readonly nextRun = computed(() => {

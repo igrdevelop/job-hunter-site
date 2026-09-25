@@ -137,5 +137,9 @@ export class HuntStepperComponent {
   /** Estimate of the server clock, ticking every second. */
   readonly now = input.required<Date>();
 
-  protected readonly view = computed(() => buildHuntStepper(this.row(), this.now()));
+  /** The bot's full source count; `null` when the snapshot has no `control` block. */
+  readonly allSources = input<number | null>(null);
+  protected readonly view = computed(() =>
+    buildHuntStepper(this.row(), this.now(), this.allSources()),
+  );
 }
