@@ -5,6 +5,8 @@ import { environment } from '../../../environments/environment';
 import {
   BotCommand,
   BotCommandKind,
+  HuntDetail,
+  HuntsResponse,
   PipelineDays,
   PipelineSnapshot,
   PipelineSnapshotResult,
@@ -22,6 +24,9 @@ import { clonePipelineSample } from './pipeline.mock';
  * would hide a real outage.
  */
 export const PIPELINE_MOCK_FALLBACK_ENABLED = true;
+
+/** Rows the hunts table asks for. */
+export const HUNTS_LIMIT = 30;
 
 /** Upper bound for GET /pipeline/commands/:id — below the 3 s fast poll. */
 export const COMMAND_LOOKUP_TIMEOUT_MS = 2000;
@@ -73,6 +78,35 @@ export class PipelineApi {
       this.http.post<{ id: string }>(`${this.baseUrl}/pipeline/commands`, body),
     );
     return res.id;
+  }
+
+  /**
+   * GET /api/pipeline/hunts — the hunts table. A 404 means the API predates
+   * the endpoint: resolves to `null` (the page hides the table) instead of
+   * throwing. `{hunts: null}` is the bot not having written any hunt yet.
+   */
+  async getHunts(limit = HUNTS_LIMIT): Promise<HuntsResponse | null> {
+    const params = new HttpParams().set('limit', limit);
+    try {
+      return await firstValueFrom(
+        this.http.get<HuntsResponse>(`${this.baseUrl}/pipeline/hunts`, { params }),
+      );
+    } catch (err) {
+      if (isNotFound(err)) return null;
+      throw err;
+    }
+  }
+
+  /** GET /api/pipeline/hunts/:id — one hunt's drill-down; `null` when unknown (404). */
+  async getHunt(id: string): Promise<HuntDetail | null> {
+    try {
+      return await firstValueFrom(
+        this.http.get<HuntDetail>(`${this.baseUrl}/pipeline/hunts/${encodeURIComponent(id)}`),
+      );
+    } catch (err) {
+      if (isNotFound(err)) return null;
+      throw err;
+    }
   }
 
   /** GET /api/pipeline/commands/:id — one command's current status (owner-only). */
