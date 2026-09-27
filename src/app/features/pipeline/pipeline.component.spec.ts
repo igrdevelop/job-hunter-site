@@ -514,6 +514,15 @@ describe('PipelineComponent', () => {
       expect(el.querySelector('[data-testid="hunt-jobs"]')?.textContent).toContain('Gamma');
     });
 
+    it('shows an opened hunt that is older than the listed rows', async () => {
+      huntsResult = { hunts: [{ ...hunt, hunt_id: 'h_newer' }] };
+      huntDetailResult = detail;
+      const el = await setup({ hunt: 'h_done' }, undefined, true);
+      const outside = el.querySelector('[data-testid="hunt-outside"]');
+      expect(outside?.textContent).toContain('Gamma');
+      expect(el.querySelector('tr.detail-row')).toBeNull();
+    });
+
     it('says so when the opened hunt is no longer stored', async () => {
       huntsResult = { hunts: [hunt] };
       const el = await setup({ hunt: 'h_done' }, undefined, true);

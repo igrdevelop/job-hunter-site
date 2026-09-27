@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { HuntDetail, HuntListRow } from '../../../core/api/pipeline.models';
 import { buildStageStrip } from '../stage-strip';
@@ -16,7 +17,7 @@ export type HuntDetailState = 'loading' | 'missing' | 'error' | null;
  */
 @Component({
   selector: 'app-hunts-table',
-  imports: [MatProgressSpinnerModule],
+  imports: [MatProgressSpinnerModule, NgTemplateOutlet],
   template: `
     <div class="wrap">
       <table class="hunts">
@@ -75,67 +76,7 @@ export type HuntDetailState = 'loading' | 'missing' | 'error' | null;
             @if (r.id === openId()) {
               <tr class="detail-row">
                 <td colspan="7">
-                  @if (detail(); as d) {
-                    <div class="funnel-steps" data-testid="hunt-funnel">
-                      @for (s of steps(); track s.label; let last = $last) {
-                        <div class="step">
-                          <span class="label">{{ s.label }}</span>
-                          <span class="value">{{ s.value ?? '—' }}</span>
-                          @if (s.sub) {
-                            <span class="sub">{{ s.sub }}</span>
-                          }
-                        </div>
-                        @if (!last) {
-                          <span class="arrow" aria-hidden="true">→</span>
-                        }
-                      }
-                    </div>
-                    @if (jobs(); as list) {
-                      @if (list.length) {
-                        <ul class="jobs" data-testid="hunt-jobs">
-                          @for (j of list; track $index) {
-                            <li class="job">
-                              <span class="chip state" [attr.data-tone]="j.state.tone">{{
-                                j.state.label
-                              }}</span>
-                              <span class="who">
-                                <a [href]="j.url" target="_blank" rel="noopener">{{ j.title }}</a>
-                                <span class="company">{{ j.company }} · {{ j.source }}</span>
-                              </span>
-                              <span class="detail">
-                                {{ j.detail ?? '' }}
-                                @if (j.link; as l) {
-                                  <a [href]="l.href" target="_blank" rel="noopener">{{
-                                    l.label
-                                  }}</a>
-                                }
-                              </span>
-                              @if (j.live) {
-                                <ol class="strip" aria-label="Stages">
-                                  @for (item of strip(j.live).items; track item.key) {
-                                    <li [attr.data-state]="item.state">{{ item.label }}</li>
-                                  }
-                                </ol>
-                              }
-                            </li>
-                          }
-                        </ul>
-                      } @else {
-                        <p class="muted">No vacancy passed the filter in this hunt.</p>
-                      }
-                    } @else {
-                      <p class="muted">
-                        Per-vacancy rows are not recorded for this hunt (older than 30 days, or
-                        before the bot started keeping them).
-                      </p>
-                    }
-                  } @else if (detailState() === 'loading') {
-                    <div class="muted loading"><mat-spinner diameter="16" /> Loading…</div>
-                  } @else if (detailState() === 'missing') {
-                    <p class="muted">This hunt is no longer stored.</p>
-                  } @else {
-                    <p class="muted">Could not load this hunt.</p>
-                  }
+                  <ng-container *ngTemplateOutlet="detailTpl" />
                 </td>
               </tr>
             }
@@ -143,6 +84,79 @@ export type HuntDetailState = 'loading' | 'missing' | 'error' | null;
         </tbody>
       </table>
     </div>
+
+    @if (openOutsideList()) {
+      <!-- ?hunt= names a hunt older than the rows the list returned: show it anyway. -->
+      <section class="detail-outside" data-testid="hunt-outside" aria-label="Opened hunt">
+        <div class="outside-head">
+          <span>Hunt {{ openId() }} — older than the rows above</span>
+          <button type="button" class="close" (click)="toggle.emit(openId()!)">Close</button>
+        </div>
+        <ng-container *ngTemplateOutlet="detailTpl" />
+      </section>
+    }
+
+    <ng-template #detailTpl>
+      @if (detail(); as d) {
+        <div class="funnel-steps" data-testid="hunt-funnel">
+          @for (s of steps(); track s.label; let last = $last) {
+            <div class="step">
+              <span class="label">{{ s.label }}</span>
+              <span class="value">{{ s.value ?? '—' }}</span>
+              @if (s.sub) {
+                <span class="sub">{{ s.sub }}</span>
+              }
+            </div>
+            @if (!last) {
+              <span class="arrow" aria-hidden="true">→</span>
+            }
+          }
+        </div>
+        @if (jobs(); as list) {
+          @if (list.length) {
+            <ul class="jobs" data-testid="hunt-jobs">
+              @for (j of list; track $index) {
+                <li class="job">
+                  <span class="chip state" [attr.data-tone]="j.state.tone">{{
+                    j.state.label
+                  }}</span>
+                  <span class="who">
+                    <a [href]="j.url" target="_blank" rel="noopener">{{ j.title }}</a>
+                    <span class="company">{{ j.company }} · {{ j.source }}</span>
+                  </span>
+                  <span class="detail">
+                    {{ j.detail ?? '' }}
+                    @if (j.link; as l) {
+                      <a [href]="l.href" target="_blank" rel="noopener">{{ l.label }}</a>
+                    }
+                  </span>
+                  @if (j.live) {
+                    <ol class="strip" aria-label="Stages">
+                      @for (item of strip(j.live).items; track item.key) {
+                        <li [attr.data-state]="item.state">{{ item.label }}</li>
+                      }
+                    </ol>
+                  }
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="muted">No vacancy passed the filter in this hunt.</p>
+          }
+        } @else {
+          <p class="muted">
+            Per-vacancy rows are not recorded for this hunt (older than 30 days, or before the bot
+            started keeping them).
+          </p>
+        }
+      } @else if (detailState() === 'loading') {
+        <div class="muted loading"><mat-spinner diameter="16" /> Loading…</div>
+      } @else if (detailState() === 'missing') {
+        <p class="muted">This hunt is no longer stored.</p>
+      } @else {
+        <p class="muted">Could not load this hunt.</p>
+      }
+    </ng-template>
   `,
   styles: [
     `
@@ -228,6 +242,29 @@ export type HuntDetailState = 'loading' | 'missing' | 'error' | null;
       }
       .muted {
         color: var(--color-neutral-500);
+      }
+      .detail-outside {
+        margin-top: 8px;
+        border: 1px solid var(--color-neutral-300);
+        border-radius: var(--radius);
+        background: var(--color-surface-2);
+        padding: 12px 16px 16px;
+      }
+      .outside-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 8px;
+        font-size: 13px;
+        color: var(--color-neutral-600);
+      }
+      .close {
+        background: none;
+        border: 1px solid var(--color-neutral-300);
+        border-radius: var(--radius-pill);
+        color: var(--color-text);
+        padding: 0 10px;
+        cursor: pointer;
       }
       tr.detail-row > td {
         background: var(--color-surface-2);
@@ -372,6 +409,11 @@ export class HuntsTableComponent {
   readonly rows = computed(() =>
     this.hunts().map((h) => huntRowView(h, this.now(), this.allSources())),
   );
+  /** The opened hunt is not among the listed rows (older than the list's limit). */
+  readonly openOutsideList = computed(() => {
+    const id = this.openId();
+    return !!id && !this.rows().some((r) => r.id === id);
+  });
   readonly steps = computed(() => {
     const d = this.detail();
     return d ? funnelSteps(d) : [];
