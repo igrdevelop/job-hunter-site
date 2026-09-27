@@ -457,14 +457,21 @@ describe('PipelineComponent', () => {
       ],
     };
 
-    it('is hidden on an API without GET /pipeline/hunts', async () => {
+    it('never asks for hunts as a non-owner', async () => {
+      huntsResult = { hunts: [hunt] };
       const el = await setup({});
+      expect(TestBed.inject(PipelineApi).getHunts).not.toHaveBeenCalled();
+      expect(el.querySelector('[data-testid="hunts-section"]')).toBeNull();
+    });
+
+    it('is hidden on an API without GET /pipeline/hunts', async () => {
+      const el = await setup({}, undefined, true);
       expect(el.querySelector('[data-testid="hunts-section"]')).toBeNull();
     });
 
     it('lists hunts and writes a row click into ?hunt=', async () => {
       huntsResult = { hunts: [hunt] };
-      const el = await setup({});
+      const el = await setup({}, undefined, true);
       const row = el.querySelector<HTMLElement>('tr[data-hunt="h_done"]');
       expect(row?.textContent).toContain('found 57 → passed 10 → new 9 → queued 9');
       expect(row?.textContent).toContain('1 ready');
@@ -479,7 +486,7 @@ describe('PipelineComponent', () => {
     it('opens the hunt from ?hunt= with its funnel and vacancies', async () => {
       huntsResult = { hunts: [hunt] };
       huntDetailResult = detail;
-      const el = await setup({ hunt: 'h_done' });
+      const el = await setup({ hunt: 'h_done' }, undefined, true);
       expect(getHunt).toHaveBeenCalledWith('h_done');
       expect(el.querySelector('[data-testid="hunt-funnel"]')?.textContent).toContain('cut 47');
       const jobs = el.querySelector('[data-testid="hunt-jobs"]')?.textContent ?? '';
@@ -499,7 +506,7 @@ describe('PipelineComponent', () => {
       huntsResult = { hunts: [hunt] };
       huntDetailResult = detail;
       huntDetailFailsFirst = true;
-      const el = await setup({ hunt: 'h_done' });
+      const el = await setup({ hunt: 'h_done' }, undefined, true);
       expect(el.textContent).toContain('Could not load this hunt.');
       await component.load(1);
       await settle();
@@ -509,7 +516,7 @@ describe('PipelineComponent', () => {
 
     it('says so when the opened hunt is no longer stored', async () => {
       huntsResult = { hunts: [hunt] };
-      const el = await setup({ hunt: 'h_done' });
+      const el = await setup({ hunt: 'h_done' }, undefined, true);
       expect(el.textContent).toContain('This hunt is no longer stored.');
     });
   });

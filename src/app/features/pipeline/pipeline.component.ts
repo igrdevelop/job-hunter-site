@@ -326,7 +326,9 @@ export class PipelineComponent {
   // response because a newer poll started would starve a list slower than the
   // 3 s fast poll forever. Single-flight instead.
   private async loadHunts(): Promise<void> {
-    if (this.huntsInFlight) return;
+    // Owner-only on the API (the one bot's hunt; per-vacancy rows reveal the
+    // owner's applications) — a non-owner never asks, the section stays hidden.
+    if (this.huntsInFlight || !this.isOwner()) return;
     this.huntsInFlight = true;
     try {
       const res = await this.api.getHunts();
