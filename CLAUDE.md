@@ -260,7 +260,28 @@ allowlist import — that one rejects localhost by design).
   in once through the real form; specs reuse `e2e/.auth/{owner,user}.json` via
   `test.use({ storageState })`. The `/auth/*` routes (incl. `/auth/me`, called on every
   page load) are throttled at 30/min per IP — and behind the dev proxy every request
-  has the same IP — so keep UI logins in setup.
+  has the same IP — so keep UI logins in setup. The Nest throttler keys per route, so
+  `/auth/me` is the bucket that fills: a full run spends ~17 of its 30 within the
+  window (measured from `x-ratelimit-remaining`, 2026-09-27). A spec that asserts on
+  owner-only UI waits for the app's own `/auth/me` answer first (`gotoAfterMe` in
+  `role-gating.spec.ts`), otherwise an absence check passes for any role.
+- **Specs** (`e2e/specs/`): `auth` (guard redirect, wrong password, login + logout),
+  `applications` (owner sees the fixture rows, the regular user none), `profile-editor`
+  (owner: empty state → Start from scratch → the three required identity fields → `PUT
+  /api/profile` 200 + snackbar → reload keeps them; the render job stays pending, no
+  bot), `filters` (regular user flips "Skip jobs that require German" → `PUT
+  /api/filters` 200 → reload keeps it + "modified"), `pipeline` (owner: the harness
+  appends two fresh `source_runs` rows — `recordSourceRun`, playing the bot — and the
+  Hunt tier's Found card shows their sum from the real snapshot; control bar visible),
+  `role-gating` (regular user: empty list from the API itself, `/admin` → `/applications`,
+  no "Rendered Files" tab even via `?tab=files`, no pipeline control bar; owner: the tab
+  and `/admin` through the header link), `signup` (/signup UI → token from app.sqlite →
+  `/verify?token=` → its own redirect to /login → UI login → /applications).
+- **Known site bug, pinned as `test.fixme`** in `role-gating.spec.ts`: a HARD load of
+  `/admin` sends even the owner to `/applications` — `adminGuard` reads `currentUser()`
+  synchronously, and on a fresh page load the user is only being fetched (`App`'s
+  constructor → `GET /auth/me`), so the guard sees `null`. Reload/bookmark of /admin
+  never works; in-app navigation does. Drop the `fixme` when the guard waits for the user.
 - **Mock fallbacks are off:** production configuration makes every
   `*_MOCK_FALLBACK_ENABLED` false, and `e2e/helpers/fixtures.ts` (import `test`/`expect`
   from there, not from `@playwright/test`) fails a test that logs a mock-fallback
@@ -382,3 +403,4 @@ Frontend-specific plan: `docs/IMPLEMENTATION_PLAN.md` in this repo.
 | 2026-09-27 | opus | `/pipeline` hunt runs table + per-hunt drill-down (bot docs/HUNT_DRILLDOWN_PLAN.md M4; branch `feat/hunt-drilldown`). Models `HuntListRow`/`HuntDetail`/`HuntJob` copied from job-hunter-api's `pipeline-hunts.ts`; `PipelineApi.getHunts()`/`getHunt()` resolve a 404 to `null` (no mock sample — an undeployed endpoint hides the section). `HuntsTableComponent` is presentational (inputs + `toggle` output), the page owns loading and `?hunt=`. First cut awaited the hunts request inside `load()` — it held the whole snapshot hostage (20 page specs hung on an unmocked request); now it runs alongside the snapshot, single-flight (`huntsInFlight`), deliberately NOT tied to `loadSeq` (a seq guard starves a list slower than the 3 s poll). A `?hunt=` older than the listed rows renders its detail under the table. Verified end to end against a local API on the bot's contract fixture DB (list, open, every vacancy state, the generating row's stage strip) and at 375 px (no horizontal scroll after hiding three columns). 13 view specs + 4 page specs; 589 tests pass, build clean. |
 | 2026-09-27 | opus | Hunt runs table follows the page window (branch `feat/hunts-window`). Owner: show every run of today, not the newest 30. `getHunts(days, offset)` asks for one 100-row page of the Warsaw window (API `{window,total,offset,limit,hunts}`); the table header carries its own Today / 7 days pills (same ?days=), a pager appears when the window holds more than a page, and a window change resets to page one. loadHunts stays single-flight per (days, offset): a poll skips while its page is out, a window/page change goes out at once and a stale page answer is dropped. 594 tests pass. |
 | 2026-09-27 | opus | Local e2e harness, E1 of `docs/E2E_TESTING_PLAN.md` (branch `feat/e2e-local`): `e2e/` with its own Playwright config (API + `ng serve --configuration production` as `webServer`s, per-run scratch SQLite created at config load), a setup project for the seeded owner + a registered-and-verified regular user, a mock-fallback guard fixture, `node:sqlite` db helpers, and the first specs (`auth.spec.ts`: guard redirect, wrong password, login, logout; `applications.spec.ts`: the owner's grid shows the real fixture rows and the Total stat is 14, the regular user sees 0). `FILTERS_MOCK_FALLBACK_ENABLED` and `PIPELINE_MOCK_FALLBACK_ENABLED` became `!environment.production` (like the profile flag): both were temporary bridges "until the endpoint is live" and job-hunter-api master serves both; the prod bundle no longer contains either mock. Two API bugs found and worked around in the harness only (see "Local E2E"). 7/7 e2e twice from fresh scratch dirs, 592 unit tests, `npm run build` clean. |
+| 2026-09-27 | opus | Local e2e, five more specs (branch `feat/e2e-local`, PR #55): `profile-editor`, `filters`, `pipeline`, `role-gating`, `signup` (list in "Local E2E"), plus `recordSourceRun()` in `e2e/helpers/db.ts` (the fixture's `source_runs` are months old, so the pipeline window was otherwise all zeros). Found a real site bug and left it visible as `test.fixme` instead of routing around it: `adminGuard` bounces the owner from a hard-loaded `/admin` because `/auth/me` has not answered yet (confirmed by a probe: owner `goto('/admin')` → `/applications`). Auth budget measured: `/auth/me` ~17 of 30 per window per run. Two clean runs 15 passed / 1 skipped (~33 s each), `npm test` 596 green, `npm run build` and `tsc -p e2e` clean. Merged `origin/master` into the branch (CLAUDE.md conflict only) — the PR was CONFLICTING, which is why no `pull_request` workflow had ever run on it. |

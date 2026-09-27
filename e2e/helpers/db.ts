@@ -122,3 +122,19 @@ export function countApplications(email: string): number {
   );
   return Number(row.c);
 }
+
+/**
+ * Appends one `source_runs` row stamped now — what the bot's hunt loop writes
+ * after each `source.search()` (hunter/source_health.py). The fixture's own
+ * rows are months old, so without this every window of the pipeline page is
+ * empty. `ts` uses the bot's format (UTC seconds, `+00:00`), which the API
+ * compares as text against its window start.
+ */
+export function recordSourceRun(source: string, found: number): void {
+  const ts = new Date().toISOString().slice(0, 19) + '+00:00';
+  trackerDb((db) =>
+    db
+      .prepare('INSERT INTO source_runs (source, ts, yield, ok, error) VALUES (?, ?, ?, 1, ?)')
+      .run(source, ts, found, ''),
+  );
+}
