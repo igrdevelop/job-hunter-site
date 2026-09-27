@@ -1,0 +1,95 @@
+name: Local E2E
+# Full-stack Playwright suite (e2e/) against a LOCAL API + site started by
+# Playwright's own `webServer` (e2e/playwright.config.ts): the API is built
+# and run from API_DIR on :3100 with its own temp SQLite/env, the site runs
+# via `ng serve --configuration production` on :4300. Nothing here touches
+# production — unlike smoke.yml, which checks the live deploy.
+#
+# Named "Local E2E" so it cannot collide with "Build and Deploy" (deploy.yml,
+# which smoke.yml's workflow_run trigger listens to) or "Live Smoke E2E".
+
+on:
+  pull_request:
+    branches: [ master ]
+  push:
+    branches: [ master ]
+  workflow_dispatch: {}
+
+concurrency:
+  # One run per ref; a newer push to the same PR supersedes the old run.
+  # Pushes to master are never cancelled mid-run.
+  group: local-e2e-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout site
+        uses: actions/checkout@v4
+
+      - name: Checkout job-hunter-api (master)
+        uses: actions/checkout@v4
+        with:
+          # igrdevelop/job-hunter-api is PUBLIC (checked 2026-09-27), so the
+          # default GITHUB_TOKEN is enough. If the repo is ever made private,
+          # add `token: ${{ secrets.API_REPO_TOKEN }}` here and create that
+          # secret (a fine-grained PAT with read-only Contents access to
+          # job-hunter-api) in this repo's settings.
+          repository: igrdevelop/job-hunter-api
+          ref: master
+          path: api
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            api/package-lock.json
+
+      - name: Install site dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install API dependencies
+        working-directory: api
+        run: npm ci --no-audit --no-fund
+
+      - name: Resolve pinned Playwright version
+        id: playwright-version
+        run: echo "version=$(node -p "require('./package.json').devDependencies['@playwright/test']")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browser binaries
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          # Same key as smoke.yml: the exact pinned @playwright/test version,
+          # so a version bump always fetches a matching browser build.
+          key: playwright-browsers-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright browser (+ OS deps)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright OS deps only (browser cached)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Run local e2e suite
+        env:
+          CI: true
+          API_DIR: ${{ github.workspace }}/api
+        run: npm run e2e
+
+      - name: Upload Playwright report and traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-playwright-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
