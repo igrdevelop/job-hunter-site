@@ -562,6 +562,36 @@ describe('PipelineComponent', () => {
       expect(getHunts).toHaveBeenLastCalledWith(1, 0);
     });
 
+    it('drops an older answer for the same page (A -> B -> A)', async () => {
+      huntsResult = { hunts: [hunt], total: 1, offset: 0, limit: 100 };
+      await setup({}, undefined, true);
+      const api = TestBed.inject(PipelineApi);
+      let resolveOld!: (v: HuntsResponse) => void;
+      vi.mocked(api.getHunts)
+        .mockImplementationOnce(() => new Promise((r) => (resolveOld = r)))
+        .mockResolvedValueOnce({ hunts: [], total: 0, offset: 0, limit: 100 });
+      const load = (component as unknown as { loadHunts(f: boolean): Promise<void> }).loadHunts;
+      const older = load.call(component, true);
+      await load.call(component, true); // the newer request for the same page lands first
+      resolveOld({ hunts: [hunt, hunt], total: 2, offset: 0, limit: 100 });
+      await older;
+      expect(component.hunts()).toEqual([]);
+      expect(component.huntsTotal()).toBe(0);
+    });
+
+    it('a window change disables the old window pager until the new one answers', async () => {
+      huntsResult = { hunts: [hunt], total: 250, offset: 0, limit: 100 };
+      const el = await setup({ days: '7' }, undefined, true);
+      expect(el.querySelector('[data-testid="hunts-pager"]')).not.toBeNull();
+      vi.mocked(TestBed.inject(PipelineApi).getHunts).mockImplementation(
+        () => new Promise(() => undefined),
+      );
+      queryParams$.next(convertToParamMap({}));
+      await settle();
+      expect(component.huntsTotal()).toBeNull();
+      expect(el.querySelector('[data-testid="hunts-pager"]')).toBeNull();
+    });
+
     it('says so when the opened hunt is no longer stored', async () => {
       huntsResult = { hunts: [hunt] };
       const el = await setup({ hunt: 'h_done' }, undefined, true);

@@ -209,6 +209,8 @@ export class PipelineComponent {
   private huntsInFlight = false;
   /** The (days, offset) the shown list belongs to — a response for another is dropped. */
   private huntsKey = '';
+  /** Every started list request gets the next number; only the newest may land. */
+  private huntsGen = 0;
   private detailInFlight = false;
 
   /** The toggle moved but the matching snapshot has not arrived yet. */
@@ -239,6 +241,9 @@ export class PipelineComponent {
       untracked(() => {
         // A new window starts on its first page.
         this.huntsOffset.set(0);
+        // The old window's total must not keep its pager usable until the
+        // new window answers (a stale "Older runs" would jump past page one).
+        this.huntsTotal.set(null);
         void this.load(days);
       });
     });
@@ -367,15 +372,18 @@ export class PipelineComponent {
     if (this.huntsInFlight && !force && key === this.huntsKey) return;
     this.huntsKey = key;
     this.huntsInFlight = true;
+    // The page key alone is not enough: A -> B -> A leaves two requests for A
+    // in flight, and the older one must not land over the newer.
+    const gen = ++this.huntsGen;
     try {
       const res = await this.api.getHunts(days, offset);
-      if (key !== this.huntsKey) return;
+      if (gen !== this.huntsGen) return;
       this.hunts.set(res?.hunts ?? null);
       this.huntsTotal.set(res?.total ?? null);
     } catch {
       return;
     } finally {
-      if (key === this.huntsKey) this.huntsInFlight = false;
+      if (gen === this.huntsGen) this.huntsInFlight = false;
     }
     const id = this.openHuntId();
     if (!id || this.detailInFlight) return;
