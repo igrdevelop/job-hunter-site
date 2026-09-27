@@ -17,11 +17,19 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { PipelineApi } from '../../core/api/pipeline.api';
-import { BotCommandKind, PipelineDays, PipelineSnapshot } from '../../core/api/pipeline.models';
+import {
+  BotCommandKind,
+  HuntDetail,
+  HuntListRow,
+  PipelineDays,
+  PipelineSnapshot,
+} from '../../core/api/pipeline.models';
 import { AuthService } from '../../core/auth/auth.service';
 import { StatCardComponent } from './stat-card/stat-card.component';
 import { RunCardComponent } from './run-card/run-card.component';
 import { HuntStepperComponent } from './hunt-stepper/hunt-stepper.component';
+import { HuntDetailState, HuntsTableComponent } from './hunts-table/hunts-table.component';
+import { detailMoving } from './hunts-table.view';
 import { lastHuntSummary, nextRunView } from './hunt-stepper';
 import {
   TrackedCommand,
@@ -69,6 +77,7 @@ const DAY_OPTIONS: { days: PipelineDays; label: string }[] = [
     StatCardComponent,
     RunCardComponent,
     HuntStepperComponent,
+    HuntsTableComponent,
   ],
   templateUrl: './pipeline.component.html',
   styleUrl: './pipeline.component.scss',
@@ -169,6 +178,18 @@ export class PipelineComponent {
 
   readonly pollMs = computed(() => pollIntervalMs(this.liveSnapshot(), this.tracked()));
 
+  /**
+   * The hunts table (bot repo docs/HUNT_DRILLDOWN_PLAN.md). `undefined` until
+   * the first answer, `null` when the API predates GET /pipeline/hunts or the
+   * bot has not recorded any hunt — the section is hidden then.
+   */
+  readonly hunts = signal<HuntListRow[] | null | undefined>(undefined);
+  /** The hunt opened in place, from `?hunt=` so a reload reopens it. */
+  readonly openHuntId = computed(() => this.queryParams().get('hunt'));
+  readonly huntDetail = signal<HuntDetail | null>(null);
+  readonly huntDetailState = signal<HuntDetailState>(null);
+  private detailSeq = 0;
+
   /** The toggle moved but the matching snapshot has not arrived yet. */
   readonly switching = computed(() => {
     const loaded = this.loadedDays();
@@ -197,6 +218,17 @@ export class PipelineComponent {
       untracked(() => void this.load(days));
     });
 
+    // Opening (or switching) a hunt fetches its detail at once; later polls
+    // refresh it only while something in it can still change.
+    effect(() => {
+      const id = this.openHuntId();
+      untracked(() => {
+        this.huntDetail.set(null);
+        this.huntDetailState.set(id ? 'loading' : null);
+        if (id) void this.loadHuntDetail(id);
+      });
+    });
+
     // One 1 s tick drives both the clock and the adaptive poll: 3 s while
     // something is live (a hunt, an apply run, a command in flight), else 15 s.
     const tick = setInterval(() => {
@@ -213,6 +245,15 @@ export class PipelineComponent {
     inject(DestroyRef).onDestroy(() => {
       clearInterval(tick);
       this.document.removeEventListener('visibilitychange', onVisibility);
+    });
+  }
+
+  /** Row click: open that hunt in place, or close it when it is already open. */
+  onToggleHunt(id: string): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { hunt: this.openHuntId() === id ? null : id },
+      queryParamsHandling: 'merge',
     });
   }
 
@@ -248,6 +289,9 @@ export class PipelineComponent {
     const seq = ++this.loadSeq;
     this.inFlight = true;
     this.lastAttemptAt = Date.now();
+    // The hunts table loads alongside, never in the snapshot's way: a slow or
+    // failing GET /pipeline/hunts must not hold the rest of the page.
+    void this.loadHunts(seq);
     try {
       const result = await this.api.getSnapshot(days);
       if (seq !== this.loadSeq) return;
@@ -267,6 +311,38 @@ export class PipelineComponent {
       );
     } finally {
       if (seq === this.loadSeq) this.inFlight = false;
+    }
+  }
+
+  /**
+   * The hunts list for the table, plus a refresh of the open hunt while it is
+   * still moving. Errors keep the last good list — the table is a secondary
+   * view, the snapshot's own error line covers an unreachable API.
+   */
+  private async loadHunts(seq: number): Promise<void> {
+    try {
+      const res = await this.api.getHunts();
+      if (seq !== this.loadSeq) return;
+      this.hunts.set(res?.hunts ?? null);
+    } catch {
+      return;
+    }
+    const id = this.openHuntId();
+    const d = this.huntDetail();
+    if (id && d && d.hunt.hunt_id === id && detailMoving(d)) void this.loadHuntDetail(id);
+  }
+
+  private async loadHuntDetail(id: string): Promise<void> {
+    const seq = ++this.detailSeq;
+    try {
+      const d = await this.api.getHunt(id);
+      if (seq !== this.detailSeq || this.openHuntId() !== id) return;
+      this.huntDetail.set(d);
+      this.huntDetailState.set(d ? null : 'missing');
+    } catch {
+      if (seq !== this.detailSeq || this.openHuntId() !== id) return;
+      // Keep a detail already on screen; only an empty panel shows the error.
+      if (!this.huntDetail()) this.huntDetailState.set('error');
     }
   }
 

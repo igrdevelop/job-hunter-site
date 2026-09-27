@@ -357,3 +357,127 @@ export interface PipelineSnapshotResult {
   /** True when served from the mock fallback, never from the API. */
   sample: boolean;
 }
+
+// ── Hunts table + one hunt's drill-down ───────────────────────────────────────
+// GET /api/pipeline/hunts?limit= and GET /api/pipeline/hunts/:huntId — copied
+// from job-hunter-api's `src/pipeline/pipeline-hunts.ts`, a port of the bot's
+// `hunts_list` / `hunt_detail` (bot repo docs/HUNT_DRILLDOWN_PLAN.md; contract
+// section "Hunts table + one hunt's drill-down" of PIPELINE_SNAPSHOT_CONTRACT.md).
+
+/** `hunt_runs` counts for one hunt. */
+export interface HuntCounts {
+  found: number;
+  filtered_out: number;
+  dup_url: number;
+  dup_ct: number;
+  dup_cooldown: number;
+  new: number;
+  capped: number;
+  queued: number;
+  applied_inline: number;
+  duration_ms: number;
+}
+
+export type HuntStatus = 'waiting' | 'running' | 'done' | 'error';
+
+/** Where one of a hunt's vacancies is NOW. */
+export type HuntJobState =
+  | 'generating'
+  | 'queued'
+  | 'ready'
+  | 'sent'
+  | 'declined'
+  | 'skipped'
+  | 'failed'
+  | 'expired'
+  | 'manual'
+  | 'awaiting_decision'
+  | 'capped'
+  | 'not_acted'
+  | 'no_record'
+  | 'duplicate';
+
+export interface HuntVacancies {
+  total: number;
+  by_state: Partial<Record<HuntJobState, number>>;
+}
+
+/** One hunts-table row: the `hunt_live` row plus status, duration and counts. */
+export interface HuntListRow extends HuntLiveRow {
+  status: HuntStatus | string;
+  duration_sec: number | null;
+  /** `null` while running, for a retry pass, or before the bot wrote hunt_id. */
+  counts: HuntCounts | null;
+  /** `null` when the bot's `hunt_jobs` table does not exist yet. */
+  vacancies: HuntVacancies | null;
+}
+
+export interface HuntsResponse {
+  /** `null` when the bot has not created `hunt_live` yet. */
+  hunts: HuntListRow[] | null;
+}
+
+/** The caller's `applications` row for the vacancy. */
+export interface HuntJobTracker {
+  /** `_bucket_status`: PENDING / IN_PROGRESS / APPLIED / SKIP / FAIL / MANUAL / EXPIRED / (blank). */
+  status: string;
+  sent: string;
+  /** 1 = claimed next; only for PENDING. */
+  queue_position: number | null;
+  wait_min: number | null;
+  skip_reason: string | null;
+  folder: string | null;
+  drive_url: string | null;
+  ats_verdict: number | null;
+  cost_usd: number | null;
+}
+
+/** The newest non-backfill generation run for the vacancy. */
+export interface HuntJobRun {
+  run_id: string;
+  pipeline: string;
+  started_at: string;
+  finished_at: string | null;
+  outcome: string | null;
+  verdict_first: number | null;
+  verdict_final: number | null;
+  refine_rounds: number | null;
+  cost_usd: number | null;
+  /** The in-progress card's run block while the run is open, else `null`. */
+  live: InProgressRun | null;
+}
+
+export type HuntJobFate =
+  | 'dup_url'
+  | 'dup_ct'
+  | 'dup_cooldown'
+  | 'new'
+  | 'card'
+  | 'capped'
+  | 'queued'
+  | 'applied_inline';
+
+export interface HuntJob {
+  url: string;
+  url_norm: string;
+  source: string;
+  title: string;
+  company: string;
+  /** What THIS hunt did with the vacancy. */
+  fate: HuntJobFate | string;
+  /** For a duplicate: `tracker` / `same hunt` / `fuzzy`. */
+  fate_detail: string;
+  tracker: HuntJobTracker | null;
+  run: HuntJobRun | null;
+  state: HuntJobState | string;
+}
+
+export interface HuntDetail {
+  hunt: Omit<HuntListRow, 'vacancies'>;
+  /** Raw count per source, `"ERR"` for a source that failed; `null` without counts. */
+  per_source: Record<string, number | string> | null;
+  filter_reasons: CountPairs | null;
+  vacancies: HuntVacancies | null;
+  /** Every vacancy that passed the filter, in decision order; `null` without hunt_jobs. */
+  jobs: HuntJob[] | null;
+}

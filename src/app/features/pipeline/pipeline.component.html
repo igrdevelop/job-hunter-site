@@ -165,6 +165,25 @@
         </div>
       </section>
 
+      @if (hunts(); as list) {
+        <section class="tier" aria-labelledby="tier-hunts" data-testid="hunts-section">
+          <h2 id="tier-hunts" class="tier-title">Hunt runs</h2>
+          @if (list.length) {
+            <app-hunts-table
+              [hunts]="list"
+              [now]="serverNow()"
+              [allSources]="allSourcesCount()"
+              [openId]="openHuntId()"
+              [detail]="huntDetail()"
+              [detailState]="huntDetailState()"
+              (toggle)="onToggleHunt($event)"
+            />
+          } @else {
+            <p class="muted-line">No hunts recorded yet.</p>
+          }
+        </section>
+      }
+
       <section class="tier" aria-labelledby="tier-apply">
         <h2 id="tier-apply" class="tier-title">Apply</h2>
         <div class="grid">

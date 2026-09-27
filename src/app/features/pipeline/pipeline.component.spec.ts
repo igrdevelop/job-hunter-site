@@ -17,6 +17,9 @@ import { PipelineApi } from '../../core/api/pipeline.api';
 import { clonePipelineSample } from '../../core/api/pipeline.mock';
 import {
   BotCommand,
+  HuntDetail,
+  HuntListRow,
+  HuntsResponse,
   PipelineSnapshot,
   PipelineSnapshotResult,
 } from '../../core/api/pipeline.models';
@@ -29,6 +32,10 @@ describe('PipelineComponent', () => {
   let api: PipelineApi;
   let queryParams$: BehaviorSubject<ParamMap>;
   let getSnapshot: MockInstance<PipelineApi['getSnapshot']>;
+  let getHunt: MockInstance<PipelineApi['getHunt']>;
+  /** What GET /pipeline/hunts answers in the next setup(); null = an older API. */
+  let huntsResult: HuntsResponse | null = null;
+  let huntDetailResult: HuntDetail | null = null;
 
   async function setup(
     params: Record<string, string>,
@@ -48,6 +55,8 @@ describe('PipelineComponent', () => {
 
     api = TestBed.inject(PipelineApi);
     getSnapshot = vi.spyOn(api, 'getSnapshot').mockResolvedValue(result);
+    vi.spyOn(api, 'getHunts').mockResolvedValue(huntsResult);
+    getHunt = vi.spyOn(api, 'getHunt').mockResolvedValue(huntDetailResult);
     vi.spyOn(TestBed.inject(AuthService), 'currentUser').mockReturnValue(
       owner ? ({ id: 'u1', email: 'o@x', isOwner: true } as unknown as User) : null,
     );
@@ -64,7 +73,11 @@ describe('PipelineComponent', () => {
     fixture.detectChanges();
   }
 
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    huntsResult = null;
+    huntDetailResult = null;
+  });
 
   it('loads the 1-day window by default', async () => {
     const el = await setup({});
@@ -376,6 +389,112 @@ describe('PipelineComponent', () => {
       snapshot.hunt.next = null;
       const el = await setup({}, { snapshot, sample: false });
       expect(el.querySelector('[data-testid="bot-offline"]')?.textContent).toBe('bot offline');
+    });
+  });
+  describe('hunt runs table', () => {
+    const hunt: HuntListRow = {
+      hunt_id: 'h_done',
+      trigger: 'scheduled',
+      sources: ['justjoin'],
+      started_at: '2026-09-22T08:00:00+00:00',
+      step: 'done',
+      step_started_at: '2026-09-22T08:01:30+00:00',
+      current_source: '',
+      sources_done: 1,
+      sources_total: 1,
+      found_so_far: 57,
+      command_id: '',
+      finished_at: '2026-09-22T08:01:30+00:00',
+      status: 'done',
+      duration_sec: 90,
+      counts: {
+        found: 57,
+        filtered_out: 47,
+        dup_url: 1,
+        dup_ct: 0,
+        dup_cooldown: 0,
+        new: 9,
+        capped: 0,
+        queued: 9,
+        applied_inline: 0,
+        duration_ms: 90000,
+      },
+      vacancies: { total: 2, by_state: { ready: 1, duplicate: 1 } },
+    };
+    const { vacancies: _v, ...huntHead } = hunt;
+    const detail: HuntDetail = {
+      hunt: huntHead,
+      per_source: { justjoin: 57 },
+      filter_reasons: [['level', 47]],
+      vacancies: hunt.vacancies,
+      jobs: [
+        {
+          url: 'https://ex.com/j3',
+          url_norm: 'ex.com/j3',
+          source: 'justjoin',
+          title: 'Angular Dev',
+          company: 'Gamma',
+          fate: 'queued',
+          fate_detail: '',
+          tracker: {
+            status: 'APPLIED',
+            sent: '',
+            queue_position: null,
+            wait_min: null,
+            skip_reason: '',
+            folder: '',
+            drive_url: '',
+            ats_verdict: 93,
+            cost_usd: 0.42,
+          },
+          run: null,
+          state: 'ready',
+        },
+      ],
+    };
+
+    it('is hidden on an API without GET /pipeline/hunts', async () => {
+      const el = await setup({});
+      expect(el.querySelector('[data-testid="hunts-section"]')).toBeNull();
+    });
+
+    it('lists hunts and writes a row click into ?hunt=', async () => {
+      huntsResult = { hunts: [hunt] };
+      const el = await setup({});
+      const row = el.querySelector<HTMLElement>('tr[data-hunt="h_done"]');
+      expect(row?.textContent).toContain('found 57 → passed 10 → new 9 → queued 9');
+      expect(row?.textContent).toContain('1 ready');
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      row!.click();
+      expect(navigate).toHaveBeenCalledWith(
+        [],
+        expect.objectContaining({ queryParams: { hunt: 'h_done' }, queryParamsHandling: 'merge' }),
+      );
+    });
+
+    it('opens the hunt from ?hunt= with its funnel and vacancies', async () => {
+      huntsResult = { hunts: [hunt] };
+      huntDetailResult = detail;
+      const el = await setup({ hunt: 'h_done' });
+      expect(getHunt).toHaveBeenCalledWith('h_done');
+      expect(el.querySelector('[data-testid="hunt-funnel"]')?.textContent).toContain('cut 47');
+      const jobs = el.querySelector('[data-testid="hunt-jobs"]')?.textContent ?? '';
+      expect(jobs).toContain('Gamma');
+      expect(jobs).toContain('ATS 93');
+
+      // Clicking the open row closes it.
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      el.querySelector<HTMLElement>('tr[data-hunt="h_done"]')!.click();
+      expect(navigate).toHaveBeenCalledWith(
+        [],
+        expect.objectContaining({ queryParams: { hunt: null } }),
+      );
+    });
+
+    it('says so when the opened hunt is no longer stored', async () => {
+      huntsResult = { hunts: [hunt] };
+      const el = await setup({ hunt: 'h_done' });
+      expect(el.textContent).toContain('This hunt is no longer stored.');
     });
   });
 });
