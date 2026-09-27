@@ -1,7 +1,11 @@
 # E2E Testing Plan — real browser, real API, test users
 
 **Status:** approved to build (owner decision 2026-08-31: "нам надо полноценные
-e2e тесты на этот сайт... прям серьезно надо делать"). Not started.
+e2e тесты на этот сайт... прям серьезно надо делать"). **E1 built 2026-09-27** (`e2e/`, see CLAUDE.md
+"Local E2E"). Deviation from decision 2: E1 runs the API from source (`node dist/main`)
+and the site via `ng serve --configuration production` as Playwright `webServer`s
+instead of the `docker-compose.test.yml` image — no Docker needed locally, and the
+production configuration still means what runs is the production build.
 **Owner motivation:** full end-to-end coverage of the site against a real
 backend with seeded test users — not more unit specs, not manual "opened it in
 a browser and looked".
