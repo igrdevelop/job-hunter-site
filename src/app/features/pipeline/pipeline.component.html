@@ -167,7 +167,26 @@
 
       @if (hunts(); as list) {
         <section class="tier" aria-labelledby="tier-hunts" data-testid="hunts-section">
-          <h2 id="tier-hunts" class="tier-title">Hunt runs</h2>
+          <div class="tier-head">
+            <h2 id="tier-hunts" class="tier-title">Hunt runs</h2>
+            <div class="filter-pills" role="group" aria-label="Hunt runs window">
+              @for (opt of dayOptions; track opt.days) {
+                <button
+                  type="button"
+                  class="filter-pill"
+                  [class.active]="days() === opt.days"
+                  [attr.aria-pressed]="days() === opt.days"
+                  [attr.data-hunts-days]="opt.days"
+                  (click)="onDaysChange(opt.days)"
+                >
+                  {{ opt.label }}
+                </button>
+              }
+            </div>
+            @if (huntsTotal() !== null) {
+              <span class="updated" data-testid="hunts-total">{{ huntsTotal() }} runs</span>
+            }
+          </div>
           @if (list.length) {
             <app-hunts-table
               [hunts]="list"
@@ -178,8 +197,29 @@
               [detailState]="huntDetailState()"
               (toggle)="onToggleHunt($event)"
             />
+            @if (huntsPager(); as pg) {
+              <nav class="pager" aria-label="Hunt runs pages" data-testid="hunts-pager">
+                <button
+                  type="button"
+                  [disabled]="!pg.prev"
+                  (click)="onHuntsPage(-1)"
+                  aria-label="Newer runs"
+                >
+                  &lsaquo;
+                </button>
+                <span>{{ pg.text }}</span>
+                <button
+                  type="button"
+                  [disabled]="!pg.next"
+                  (click)="onHuntsPage(1)"
+                  aria-label="Older runs"
+                >
+                  &rsaquo;
+                </button>
+              </nav>
+            }
           } @else {
-            <p class="muted-line">No hunts recorded yet.</p>
+            <p class="muted-line">No hunt runs in this window.</p>
           }
         </section>
       }
