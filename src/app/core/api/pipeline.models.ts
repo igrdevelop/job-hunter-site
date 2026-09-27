@@ -415,6 +415,12 @@ export interface HuntListRow extends HuntLiveRow {
 export interface HuntsResponse {
   /** `null` when the bot has not created `hunt_live` yet. */
   hunts: HuntListRow[] | null;
+  /** The Warsaw calendar-day window this page belongs to. */
+  window?: { days: number; start_utc: string };
+  /** Every hunt in the window (all pages). */
+  total?: number;
+  offset?: number;
+  limit?: number;
 }
 
 /** The caller's `applications` row for the vacancy. */

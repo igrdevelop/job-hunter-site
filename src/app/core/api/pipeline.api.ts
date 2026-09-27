@@ -27,8 +27,8 @@ import { clonePipelineSample } from './pipeline.mock';
  */
 export const PIPELINE_MOCK_FALLBACK_ENABLED = !environment.production;
 
-/** Rows the hunts table asks for. */
-export const HUNTS_LIMIT = 30;
+/** One page of the hunts table — prod's whole day (~75 hunts) fits on one. */
+export const HUNTS_PAGE = 100;
 
 /** Upper bound for GET /pipeline/commands/:id — below the 3 s fast poll. */
 export const COMMAND_LOOKUP_TIMEOUT_MS = 2000;
@@ -83,12 +83,17 @@ export class PipelineApi {
   }
 
   /**
-   * GET /api/pipeline/hunts — the hunts table. A 404 means the API predates
+   * GET /api/pipeline/hunts?days=&offset=&limit= — one page of every hunt in
+   * the Warsaw calendar-day window (1 = today, 7 = last 7 days). A 404 means the API predates
    * the endpoint: resolves to `null` (the page hides the table) instead of
    * throwing. `{hunts: null}` is the bot not having written any hunt yet.
    */
-  async getHunts(limit = HUNTS_LIMIT): Promise<HuntsResponse | null> {
-    const params = new HttpParams().set('limit', limit);
+  async getHunts(
+    days: PipelineDays,
+    offset = 0,
+    limit = HUNTS_PAGE,
+  ): Promise<HuntsResponse | null> {
+    const params = new HttpParams().set('days', days).set('offset', offset).set('limit', limit);
     try {
       return await firstValueFrom(
         this.http.get<HuntsResponse>(`${this.baseUrl}/pipeline/hunts`, { params }),
