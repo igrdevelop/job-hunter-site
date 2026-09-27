@@ -16,7 +16,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { PipelineApi } from '../../core/api/pipeline.api';
+import { HUNTS_PAGE, PipelineApi } from '../../core/api/pipeline.api';
 import {
   BotCommandKind,
   HuntDetail,
@@ -189,8 +189,26 @@ export class PipelineComponent {
   readonly huntDetail = signal<HuntDetail | null>(null);
   readonly huntDetailState = signal<HuntDetailState>(null);
   private detailSeq = 0;
-  /** One GET /pipeline/hunts at a time: a slow list must not pile requests up. */
+  /** First row of the shown page of hunts; back to 0 whenever ?days= changes. */
+  readonly huntsOffset = signal(0);
+  /** Hunts in the whole window (every page); `null` until known. */
+  readonly huntsTotal = signal<number | null>(null);
+  /** `1–100 of 510`, or null when everything fits on one page. */
+  readonly huntsPager = computed(() => {
+    const total = this.huntsTotal();
+    const shown = this.hunts()?.length ?? 0;
+    if (total === null || total <= HUNTS_PAGE) return null;
+    const from = this.huntsOffset();
+    return {
+      text: `${shown ? from + 1 : 0}–${from + shown} of ${total}`,
+      prev: from > 0,
+      next: from + HUNTS_PAGE < total,
+    };
+  });
+  /** One poll-driven GET /pipeline/hunts at a time: a slow list must not pile requests up. */
   private huntsInFlight = false;
+  /** The (days, offset) the shown list belongs to — a response for another is dropped. */
+  private huntsKey = '';
   private detailInFlight = false;
 
   /** The toggle moved but the matching snapshot has not arrived yet. */
@@ -218,7 +236,11 @@ export class PipelineComponent {
     // Initial load + reload whenever ?days= changes.
     effect(() => {
       const days = this.days();
-      untracked(() => void this.load(days));
+      untracked(() => {
+        // A new window starts on its first page.
+        this.huntsOffset.set(0);
+        void this.load(days);
+      });
     });
 
     // Opening (or switching) a hunt fetches its detail at once; later polls
@@ -258,6 +280,14 @@ export class PipelineComponent {
       queryParams: { hunt: this.openHuntId() === id ? null : id },
       queryParamsHandling: 'merge',
     });
+  }
+
+  /** Pager: show the previous / next page of hunts in the current window. */
+  onHuntsPage(direction: -1 | 1): void {
+    const next = Math.max(0, this.huntsOffset() + direction * HUNTS_PAGE);
+    if (next === this.huntsOffset()) return;
+    this.huntsOffset.set(next);
+    void this.loadHunts(true);
   }
 
   onDaysChange(days: PipelineDays): void {
@@ -322,21 +352,30 @@ export class PipelineComponent {
    * still moving. Errors keep the last good list — the table is a secondary
    * view, the snapshot's own error line covers an unreachable API.
    */
-  // Not tied to loadSeq: the list does not depend on ?days=, and dropping a
-  // response because a newer poll started would starve a list slower than the
-  // 3 s fast poll forever. Single-flight instead.
-  private async loadHunts(): Promise<void> {
+  // Not tied to loadSeq: dropping a response because a newer poll started
+  // would starve a list slower than the 3 s fast poll forever. Single-flight
+  // per (days, offset) instead: a poll skips while a request for the same page
+  // is out; a new window or page goes out at once, and an answer for a page
+  // that is no longer shown is dropped.
+  private async loadHunts(force = false): Promise<void> {
     // Owner-only on the API (the one bot's hunt; per-vacancy rows reveal the
     // owner's applications) — a non-owner never asks, the section stays hidden.
-    if (this.huntsInFlight || !this.isOwner()) return;
+    if (!this.isOwner()) return;
+    const days = untracked(this.days);
+    const offset = untracked(this.huntsOffset);
+    const key = `${days}:${offset}`;
+    if (this.huntsInFlight && !force && key === this.huntsKey) return;
+    this.huntsKey = key;
     this.huntsInFlight = true;
     try {
-      const res = await this.api.getHunts();
+      const res = await this.api.getHunts(days, offset);
+      if (key !== this.huntsKey) return;
       this.hunts.set(res?.hunts ?? null);
+      this.huntsTotal.set(res?.total ?? null);
     } catch {
       return;
     } finally {
-      this.huntsInFlight = false;
+      if (key === this.huntsKey) this.huntsInFlight = false;
     }
     const id = this.openHuntId();
     if (!id || this.detailInFlight) return;

@@ -523,6 +523,45 @@ describe('PipelineComponent', () => {
       expect(el.querySelector('tr.detail-row')).toBeNull();
     });
 
+    it('asks for every run of the page window and follows ?days=', async () => {
+      huntsResult = { hunts: [hunt], total: 1, offset: 0, limit: 100 };
+      const el = await setup({}, undefined, true);
+      const getHunts = vi.mocked(TestBed.inject(PipelineApi).getHunts);
+      expect(getHunts).toHaveBeenLastCalledWith(1, 0);
+      expect(el.querySelector('[data-testid="hunts-total"]')?.textContent).toContain('1 runs');
+      expect(el.querySelector('[data-testid="hunts-pager"]')).toBeNull();
+
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      el.querySelector<HTMLElement>('[data-hunts-days="7"]')!.click();
+      expect(navigate).toHaveBeenCalledWith(
+        [],
+        expect.objectContaining({ queryParams: { days: 7 } }),
+      );
+      queryParams$.next(convertToParamMap({ days: '7' }));
+      await settle();
+      expect(getHunts).toHaveBeenLastCalledWith(7, 0);
+    });
+
+    it('pages a window with more runs than one page', async () => {
+      huntsResult = { hunts: [hunt], total: 250, offset: 0, limit: 100 };
+      const el = await setup({ days: '7' }, undefined, true);
+      const getHunts = vi.mocked(TestBed.inject(PipelineApi).getHunts);
+      const pager = el.querySelector('[data-testid="hunts-pager"]');
+      expect(pager?.textContent).toContain('1–1 of 250');
+      const [prev, next] = Array.from(pager!.querySelectorAll('button'));
+      expect(prev.disabled).toBe(true);
+      next.click();
+      await settle();
+      expect(getHunts).toHaveBeenLastCalledWith(7, 100);
+      expect(component.huntsOffset()).toBe(100);
+
+      // A new window starts on its first page again.
+      queryParams$.next(convertToParamMap({}));
+      await settle();
+      expect(component.huntsOffset()).toBe(0);
+      expect(getHunts).toHaveBeenLastCalledWith(1, 0);
+    });
+
     it('says so when the opened hunt is no longer stored', async () => {
       huntsResult = { hunts: [hunt] };
       const el = await setup({ hunt: 'h_done' }, undefined, true);
