@@ -83,8 +83,7 @@ test.describe('owner', () => {
     const tabs = page.getByRole('tablist', { name: 'Profile sections' });
     await expect(tabs.getByRole('tab', { name: 'Rendered Files' })).toBeVisible();
 
-    // Through the header link: a hard load of /admin is bounced by adminGuard
-    // before /auth/me answers (see the next test).
+    // Through the header link (the direct load is the next test).
     await page.getByRole('link', { name: 'Admin', exact: true }).click();
     await page.waitForURL(onPath('/admin'));
     await expect(page.getByRole('heading', { name: 'Admin', level: 1 })).toBeVisible();
@@ -92,14 +91,21 @@ test.describe('owner', () => {
     await expect(page.getByRole('cell', { name: REGULAR.email, exact: true })).toBeVisible();
   });
 
-  // Site bug: adminGuard reads currentUser() synchronously, but on a hard page
-  // load the user is only fetched by App's constructor (GET /auth/me, async),
-  // so the guard sees null and redirects the owner to /applications. Reloading
-  // /admin or opening a bookmarked /admin link never works. Remove `fixme`
-  // once the guard waits for the current user.
-  test.fixme('a hard load of /admin opens the admin page for the owner', async ({ page }) => {
+  // Regression: adminGuard used to read currentUser() synchronously, and on a
+  // hard page load the user is only being fetched by App's constructor
+  // (GET /auth/me, async), so the guard saw null and bounced the owner to
+  // /applications — a reload or bookmark of /admin never worked. The guard
+  // now awaits that same in-flight request.
+  test('a hard load of /admin opens the admin page for the owner', async ({ page }) => {
+    const meCalls: string[] = [];
+    page.on('request', (req) => {
+      if (new URL(req.url()).pathname === '/auth/me') meCalls.push(req.url());
+    });
     await page.goto('/admin');
     await expect(page.getByRole('heading', { name: 'Admin', level: 1 })).toBeVisible();
     expect(new URL(page.url()).pathname).toBe('/admin');
+    // The guard reuses App's request instead of issuing its own (/auth/* is
+    // rate-limited per IP).
+    expect(meCalls).toHaveLength(1);
   });
 });

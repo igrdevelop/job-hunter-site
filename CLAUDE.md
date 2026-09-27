@@ -275,13 +275,18 @@ allowlist import — that one rejects localhost by design).
   Hunt tier's Found card shows their sum from the real snapshot; control bar visible),
   `role-gating` (regular user: empty list from the API itself, `/admin` → `/applications`,
   no "Rendered Files" tab even via `?tab=files`, no pipeline control bar; owner: the tab
-  and `/admin` through the header link), `signup` (/signup UI → token from app.sqlite →
+  and `/admin` both through the header link and by a direct load), `signup` (/signup UI → token from app.sqlite →
   `/verify?token=` → its own redirect to /login → UI login → /applications).
-- **Known site bug, pinned as `test.fixme`** in `role-gating.spec.ts`: a HARD load of
-  `/admin` sends even the owner to `/applications` — `adminGuard` reads `currentUser()`
-  synchronously, and on a fresh page load the user is only being fetched (`App`'s
-  constructor → `GET /auth/me`), so the guard sees `null`. Reload/bookmark of /admin
-  never works; in-app navigation does. Drop the `fixme` when the guard waits for the user.
+- **Direct-load /admin (fixed 2026-09-27, was a `test.fixme`):** `adminGuard` used to
+  read `currentUser()` synchronously, and on a fresh page load the user is only being
+  fetched (`App`'s constructor → `GET /auth/me`), so a reload/bookmark of /admin sent
+  even the owner to `/applications`. The guard is now async and awaits
+  `AuthService.resolveCurrentUser()`, which returns the loaded user at once or joins the
+  ONE in-flight `/auth/me` (`fetchCurrentUser()` shares a `pendingMe` promise between
+  concurrent callers — never a second request, /auth/* is rate-limited per IP); no token
+  or a failed load resolves `null` → redirect. `role-gating.spec.ts` pins it, including
+  that the direct load makes exactly one `/auth/me` call. Any future role/owner route
+  guard must use `resolveCurrentUser()`, not `currentUser()`.
 - **Mock fallbacks are off:** production configuration makes every
   `*_MOCK_FALLBACK_ENABLED` false, and `e2e/helpers/fixtures.ts` (import `test`/`expect`
   from there, not from `@playwright/test`) fails a test that logs a mock-fallback
@@ -404,3 +409,4 @@ Frontend-specific plan: `docs/IMPLEMENTATION_PLAN.md` in this repo.
 | 2026-09-27 | opus | Hunt runs table follows the page window (branch `feat/hunts-window`). Owner: show every run of today, not the newest 30. `getHunts(days, offset)` asks for one 100-row page of the Warsaw window (API `{window,total,offset,limit,hunts}`); the table header carries its own Today / 7 days pills (same ?days=), a pager appears when the window holds more than a page, and a window change resets to page one. loadHunts stays single-flight per (days, offset): a poll skips while its page is out, a window/page change goes out at once and a stale page answer is dropped. 594 tests pass. |
 | 2026-09-27 | opus | Local e2e harness, E1 of `docs/E2E_TESTING_PLAN.md` (branch `feat/e2e-local`): `e2e/` with its own Playwright config (API + `ng serve --configuration production` as `webServer`s, per-run scratch SQLite created at config load), a setup project for the seeded owner + a registered-and-verified regular user, a mock-fallback guard fixture, `node:sqlite` db helpers, and the first specs (`auth.spec.ts`: guard redirect, wrong password, login, logout; `applications.spec.ts`: the owner's grid shows the real fixture rows and the Total stat is 14, the regular user sees 0). `FILTERS_MOCK_FALLBACK_ENABLED` and `PIPELINE_MOCK_FALLBACK_ENABLED` became `!environment.production` (like the profile flag): both were temporary bridges "until the endpoint is live" and job-hunter-api master serves both; the prod bundle no longer contains either mock. Two API bugs found and worked around in the harness only (see "Local E2E"). 7/7 e2e twice from fresh scratch dirs, 592 unit tests, `npm run build` clean. |
 | 2026-09-27 | opus | Local e2e, five more specs (branch `feat/e2e-local`, PR #55): `profile-editor`, `filters`, `pipeline`, `role-gating`, `signup` (list in "Local E2E"), plus `recordSourceRun()` in `e2e/helpers/db.ts` (the fixture's `source_runs` are months old, so the pipeline window was otherwise all zeros). Found a real site bug and left it visible as `test.fixme` instead of routing around it: `adminGuard` bounces the owner from a hard-loaded `/admin` because `/auth/me` has not answered yet (confirmed by a probe: owner `goto('/admin')` → `/applications`). Auth budget measured: `/auth/me` ~17 of 30 per window per run. Two clean runs 15 passed / 1 skipped (~33 s each), `npm test` 596 green, `npm run build` and `tsc -p e2e` clean. Merged `origin/master` into the branch (CLAUDE.md conflict only) — the PR was CONFLICTING, which is why no `pull_request` workflow had ever run on it. |
+| 2026-09-27 | opus | Direct load of `/admin` no longer bounces the owner (branch `feat/e2e-local`, PR #55). Root cause confirmed: `adminGuard` read `currentUser()` synchronously while `App`'s constructor was still waiting on `GET /auth/me`. `AuthService.fetchCurrentUser()` now shares one in-flight request (`pendingMe`; a logout mid-flight drops it and the late answer does not resurrect the user), new `resolveCurrentUser()` never rejects, and `adminGuard` awaits it. `adminGuard` is the only route guard reading the user (`authGuard` checks the token; owner-only UI is computed signals in components, which re-render when the user arrives). The e2e `test.fixme` became a real test that also asserts a single `/auth/me` call; role.guard.spec rewritten (loaded admin/user/none, loading→admin, loading→user, load fails, guard starts the load itself) + 4 AuthService specs. Mutation-checked: the old synchronous guard fails 2 unit specs and the e2e test. 604 unit tests, build clean, e2e 16/16 twice. |

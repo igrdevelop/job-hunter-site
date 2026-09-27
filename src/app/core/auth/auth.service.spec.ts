@@ -135,5 +135,41 @@ describe('AuthService', () => {
       service.logout();
       expect(service.currentUser()).toBeNull();
     });
+
+    it('fetchCurrentUser() shares one in-flight /auth/me between concurrent callers', async () => {
+      const admin = { id: '1', email: 'a@b.com', role: 'admin', emailVerified: true };
+      const a = service.fetchCurrentUser();
+      const b = service.fetchCurrentUser();
+      http.expectOne('/auth/me').flush(admin);
+      expect((await a)?.role).toBe('admin');
+      expect((await b)?.role).toBe('admin');
+      // Settled: the next call is a fresh request.
+      const c = service.fetchCurrentUser();
+      http.expectOne('/auth/me').flush(admin);
+      await c;
+    });
+
+    it('a logout during the /auth/me load does not resurrect the user', async () => {
+      const p = service.fetchCurrentUser();
+      const req = http.expectOne('/auth/me');
+      service.logout();
+      req.flush({ id: '1', email: 'a@b.com', role: 'admin', emailVerified: true });
+      await p;
+      expect(service.currentUser()).toBeNull();
+    });
+
+    it('resolveCurrentUser() returns the loaded user without a request', async () => {
+      const p = service.fetchCurrentUser();
+      http.expectOne('/auth/me').flush({ id: '1', email: 'a@b.com', role: 'user', emailVerified: true });
+      await p;
+      expect((await service.resolveCurrentUser())?.id).toBe('1');
+      http.expectNone('/auth/me');
+    });
+
+    it('resolveCurrentUser() resolves null when the load fails', async () => {
+      const p = service.resolveCurrentUser();
+      http.expectOne('/auth/me').flush(null, { status: 500, statusText: 'Server Error' });
+      expect(await p).toBeNull();
+    });
   });
 });
