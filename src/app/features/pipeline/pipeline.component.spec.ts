@@ -36,6 +36,8 @@ describe('PipelineComponent', () => {
   /** What GET /pipeline/hunts answers in the next setup(); null = an older API. */
   let huntsResult: HuntsResponse | null = null;
   let huntDetailResult: HuntDetail | null = null;
+  /** The first GET /pipeline/hunts/:id of the next setup() fails. */
+  let huntDetailFailsFirst = false;
 
   async function setup(
     params: Record<string, string>,
@@ -57,6 +59,7 @@ describe('PipelineComponent', () => {
     getSnapshot = vi.spyOn(api, 'getSnapshot').mockResolvedValue(result);
     vi.spyOn(api, 'getHunts').mockResolvedValue(huntsResult);
     getHunt = vi.spyOn(api, 'getHunt').mockResolvedValue(huntDetailResult);
+    if (huntDetailFailsFirst) getHunt.mockRejectedValueOnce(new Error('blip'));
     vi.spyOn(TestBed.inject(AuthService), 'currentUser').mockReturnValue(
       owner ? ({ id: 'u1', email: 'o@x', isOwner: true } as unknown as User) : null,
     );
@@ -77,6 +80,7 @@ describe('PipelineComponent', () => {
     vi.restoreAllMocks();
     huntsResult = null;
     huntDetailResult = null;
+    huntDetailFailsFirst = false;
   });
 
   it('loads the 1-day window by default', async () => {
@@ -489,6 +493,18 @@ describe('PipelineComponent', () => {
         [],
         expect.objectContaining({ queryParams: { hunt: null } }),
       );
+    });
+
+    it('retries a failed hunt on the next poll', async () => {
+      huntsResult = { hunts: [hunt] };
+      huntDetailResult = detail;
+      huntDetailFailsFirst = true;
+      const el = await setup({ hunt: 'h_done' });
+      expect(el.textContent).toContain('Could not load this hunt.');
+      await component.load(1);
+      await settle();
+      expect(getHunt).toHaveBeenCalledTimes(2);
+      expect(el.querySelector('[data-testid="hunt-jobs"]')?.textContent).toContain('Gamma');
     });
 
     it('says so when the opened hunt is no longer stored', async () => {

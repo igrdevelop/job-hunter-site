@@ -189,6 +189,9 @@ export class PipelineComponent {
   readonly huntDetail = signal<HuntDetail | null>(null);
   readonly huntDetailState = signal<HuntDetailState>(null);
   private detailSeq = 0;
+  /** One GET /pipeline/hunts at a time: a slow list must not pile requests up. */
+  private huntsInFlight = false;
+  private detailInFlight = false;
 
   /** The toggle moved but the matching snapshot has not arrived yet. */
   readonly switching = computed(() => {
@@ -291,7 +294,7 @@ export class PipelineComponent {
     this.lastAttemptAt = Date.now();
     // The hunts table loads alongside, never in the snapshot's way: a slow or
     // failing GET /pipeline/hunts must not hold the rest of the page.
-    void this.loadHunts(seq);
+    void this.loadHunts();
     try {
       const result = await this.api.getSnapshot(days);
       if (seq !== this.loadSeq) return;
@@ -319,21 +322,31 @@ export class PipelineComponent {
    * still moving. Errors keep the last good list — the table is a secondary
    * view, the snapshot's own error line covers an unreachable API.
    */
-  private async loadHunts(seq: number): Promise<void> {
+  // Not tied to loadSeq: the list does not depend on ?days=, and dropping a
+  // response because a newer poll started would starve a list slower than the
+  // 3 s fast poll forever. Single-flight instead.
+  private async loadHunts(): Promise<void> {
+    if (this.huntsInFlight) return;
+    this.huntsInFlight = true;
     try {
       const res = await this.api.getHunts();
-      if (seq !== this.loadSeq) return;
       this.hunts.set(res?.hunts ?? null);
     } catch {
       return;
+    } finally {
+      this.huntsInFlight = false;
     }
     const id = this.openHuntId();
+    if (!id || this.detailInFlight) return;
     const d = this.huntDetail();
-    if (id && d && d.hunt.hunt_id === id && detailMoving(d)) void this.loadHuntDetail(id);
+    const moving = !!d && d.hunt.hunt_id === id && detailMoving(d);
+    // An open panel that failed to load retries on the next poll.
+    if (moving || this.huntDetailState() === 'error') void this.loadHuntDetail(id);
   }
 
   private async loadHuntDetail(id: string): Promise<void> {
     const seq = ++this.detailSeq;
+    this.detailInFlight = true;
     try {
       const d = await this.api.getHunt(id);
       if (seq !== this.detailSeq || this.openHuntId() !== id) return;
@@ -343,6 +356,8 @@ export class PipelineComponent {
       if (seq !== this.detailSeq || this.openHuntId() !== id) return;
       // Keep a detail already on screen; only an empty panel shows the error.
       if (!this.huntDetail()) this.huntDetailState.set('error');
+    } finally {
+      if (seq === this.detailSeq) this.detailInFlight = false;
     }
   }
 
