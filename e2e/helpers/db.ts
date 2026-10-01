@@ -92,26 +92,6 @@ export function verifyEmail(email: string): void {
   }
 }
 
-/**
- * Hands the fixture tracker rows that still have no owner (`user_id = ''`) to
- * `email`'s account. Returns how many rows it claimed.
- *
- * The fixture copy reaches the API with `user_id` already added and blank
- * (see preAddUserIdColumn in e2e/scratch.ts — the API's own migration crashes
- * on its fixture), so the API's owner backfill never runs; this plays that
- * backfill. It would be needed even without that workaround: TrackerService
- * runs the backfill in its CONSTRUCTOR, before AuthService.onModuleInit seeds
- * the admin, so on a fresh app.sqlite the backfill runs with an empty owner
- * id and the seeded owner never gets the rows.
- */
-export function claimUnownedApplications(email: string): number {
-  const user = requireUser(email);
-  const result = trackerDb((db) =>
-    db.prepare(`UPDATE applications SET user_id = ? WHERE user_id = ''`).run(user.id),
-  );
-  return Number(result.changes);
-}
-
 export function countApplications(email: string): number {
   const user = requireUser(email);
   const row = trackerDb(

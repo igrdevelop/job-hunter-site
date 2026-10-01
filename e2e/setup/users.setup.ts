@@ -2,12 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Browser } from '@playwright/test';
 import { expect, test as setup } from '../helpers/fixtures';
-import {
-  claimUnownedApplications,
-  countApplications,
-  findUser,
-  getVerificationToken,
-} from '../helpers/db';
+import { countApplications, findUser, getVerificationToken } from '../helpers/db';
 import { loginThroughForm } from '../helpers/auth';
 import { OWNER, REGULAR, TestUser } from '../helpers/users';
 
@@ -31,8 +26,8 @@ setup('owner: seeded admin owns the fixture applications and logs in', async ({ 
   expect(owner, 'the API should seed SEED_USER_EMAIL on first boot').toBeDefined();
   expect(owner?.role).toBe('admin');
 
-  // Works around an API seed-order bug — see claimUnownedApplications().
-  claimUnownedApplications(OWNER.email);
+  // The API's own owner backfill hands the fixture rows to the seeded admin
+  // (TrackerService.onApplicationBootstrap, after the seed).
   expect(countApplications(OWNER.email)).toBeGreaterThan(0);
 
   await saveLoggedInState(browser, OWNER);

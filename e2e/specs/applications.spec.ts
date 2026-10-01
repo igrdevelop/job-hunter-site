@@ -4,11 +4,11 @@ import { OWNER, REGULAR } from '../helpers/users';
 
 /**
  * The applications table against the API's fixture tracker.db (a scratch
- * copy): 14 rows, all with Sent = EXPIRED, so the default "Unsent" filter is
+ * copy): 12 rows, all with Sent = EXPIRED, so the default "Unsent" filter is
  * empty and these tests open ?filter=all. ActDigital is the one fixture row
  * of that company ("Senior Angular Developer", 2026-05-27).
  */
-const FIXTURE_ROWS = 14;
+const FIXTURE_ROWS = 12;
 const FIXTURE_COMPANY = 'ActDigital';
 
 const totalStat = (page: Page) =>

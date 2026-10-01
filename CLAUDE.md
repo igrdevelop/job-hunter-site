@@ -293,13 +293,13 @@ allowlist import — that one rejects localhost by design).
   warning or shows the pipeline "Sample data" banner.
 - **DB helpers** (`e2e/helpers/db.ts`): built-in `node:sqlite` (typings in
   `e2e/types/node-sqlite.d.ts`, since `@types/node` 20 predates it).
-- **Two API workarounds live in the harness** until job-hunter-api fixes them: (1) its
-  tracker migration cannot run on its own fixture — the UNIQUE `(user_id, url_norm)`
-  index fails on two duplicated url_norms (DHCBusinessSolutions, IN4GE) and the API
-  exits at boot — so `scratch.ts` pre-adds `applications.user_id` to the copy; (2) the
-  owner backfill runs in `TrackerService`'s constructor before the admin is seeded, so
-  it could never hand the rows to the seeded owner — `claimUnownedApplications()` in
-  the setup does.
+- **The fixture goes to the API untouched:** the copy boots through the API's own
+  tracker migration, and the API's owner backfill (`TrackerService.onApplicationBootstrap`,
+  after the admin seed) hands all 12 fixture rows to the seeded owner. The harness used
+  to pre-add `applications.user_id` and claim the rows itself, working around two API
+  bugs fixed in job-hunter-api PR #45 (non-atomic migration failing on the fixture's
+  duplicate url_norms; backfill running before the seed). Needs an api checkout at or
+  after that merge (8e7f324).
 - Kept out of `ng build`/Vitest by location (`tsconfig.app.json` and
   `tsconfig.spec.json` only include `src/`); `npx tsc -p e2e/tsconfig.json` type-checks it.
 
@@ -410,3 +410,4 @@ Frontend-specific plan: `docs/IMPLEMENTATION_PLAN.md` in this repo.
 | 2026-09-27 | opus | Local e2e harness, E1 of `docs/E2E_TESTING_PLAN.md` (branch `feat/e2e-local`): `e2e/` with its own Playwright config (API + `ng serve --configuration production` as `webServer`s, per-run scratch SQLite created at config load), a setup project for the seeded owner + a registered-and-verified regular user, a mock-fallback guard fixture, `node:sqlite` db helpers, and the first specs (`auth.spec.ts`: guard redirect, wrong password, login, logout; `applications.spec.ts`: the owner's grid shows the real fixture rows and the Total stat is 14, the regular user sees 0). `FILTERS_MOCK_FALLBACK_ENABLED` and `PIPELINE_MOCK_FALLBACK_ENABLED` became `!environment.production` (like the profile flag): both were temporary bridges "until the endpoint is live" and job-hunter-api master serves both; the prod bundle no longer contains either mock. Two API bugs found and worked around in the harness only (see "Local E2E"). 7/7 e2e twice from fresh scratch dirs, 592 unit tests, `npm run build` clean. |
 | 2026-09-27 | opus | Local e2e, five more specs (branch `feat/e2e-local`, PR #55): `profile-editor`, `filters`, `pipeline`, `role-gating`, `signup` (list in "Local E2E"), plus `recordSourceRun()` in `e2e/helpers/db.ts` (the fixture's `source_runs` are months old, so the pipeline window was otherwise all zeros). Found a real site bug and left it visible as `test.fixme` instead of routing around it: `adminGuard` bounces the owner from a hard-loaded `/admin` because `/auth/me` has not answered yet (confirmed by a probe: owner `goto('/admin')` → `/applications`). Auth budget measured: `/auth/me` ~17 of 30 per window per run. Two clean runs 15 passed / 1 skipped (~33 s each), `npm test` 596 green, `npm run build` and `tsc -p e2e` clean. Merged `origin/master` into the branch (CLAUDE.md conflict only) — the PR was CONFLICTING, which is why no `pull_request` workflow had ever run on it. |
 | 2026-09-27 | opus | Direct load of `/admin` no longer bounces the owner (branch `feat/e2e-local`, PR #55). Root cause confirmed: `adminGuard` read `currentUser()` synchronously while `App`'s constructor was still waiting on `GET /auth/me`. `AuthService.fetchCurrentUser()` now shares one in-flight request (`pendingMe`; a logout mid-flight drops it and the late answer does not resurrect the user), new `resolveCurrentUser()` never rejects, and `adminGuard` awaits it. `adminGuard` is the only route guard reading the user (`authGuard` checks the token; owner-only UI is computed signals in components, which re-render when the user arrives). The e2e `test.fixme` became a real test that also asserts a single `/auth/me` call; role.guard.spec rewritten (loaded admin/user/none, loading→admin, loading→user, load fails, guard starts the load itself) + 4 AuthService specs. Mutation-checked: the old synchronous guard fails 2 unit specs and the e2e test. 604 unit tests, build clean, e2e 16/16 twice. |
+| 2026-10-01 | opus | Local e2e: removed both API workarounds from the harness (PR #55) now that job-hunter-api PR #45 is on api master: `preAddUserIdColumn` in `e2e/scratch.ts` and `claimUnownedApplications()` in `e2e/helpers/db.ts` + the setup project. The API now migrates its own fixture and backfills the seeded owner; the setup only asserts the owner has rows. The fixture lost its two duplicate rows in that PR (14 → 12), so `applications.spec.ts` expects 12. |

@@ -3,8 +3,8 @@ import { expect, test } from '../helpers/fixtures';
 import { OWNER, REGULAR } from '../helpers/users';
 
 /**
- * Who sees what. The fixture tracker rows belong to the owner (handed over in
- * the setup project); a regular user must see none of them, must be turned
+ * Who sees what. The fixture tracker rows belong to the owner (the API's
+ * owner backfill hands them to the seeded admin at boot); a regular user must see none of them, must be turned
  * away from /admin (adminGuard → /applications), and must not get the
  * owner-only "Rendered Files" profile tab (profile-tabs.component.ts: it
  * exposes internal pipeline formats and needs isOwner) nor the pipeline

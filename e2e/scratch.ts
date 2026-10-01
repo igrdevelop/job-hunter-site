@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 
 /**
  * Per-run scratch data for the local e2e suite: a fresh temp dir holding the
@@ -97,7 +96,6 @@ export function prepareScratch(): RunState {
     // -wal/-shm left next to the fixture by some other local process must
     // never leak into the copy.
     fs.copyFileSync(fixture, state.trackerDbPath);
-    preAddUserIdColumn(state.trackerDbPath);
   }
 
   fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true });
@@ -105,35 +103,6 @@ export function prepareScratch(): RunState {
 
   if (!pinned) pruneStaleScratchDirs(scratchDir);
   return state;
-}
-
-/**
- * Adds `applications.user_id` to the fresh fixture copy BEFORE the API boots.
- *
- * Works around an API bug: the API's own fixture tracker.db cannot go through
- * its tracker migration. `runTrackerMigrations` adds `user_id` (all rows get
- * '') and then creates the UNIQUE index `(user_id, url_norm) WHERE url_norm
- * != ''` — but the fixture holds two url_norms twice (the two IN4GE rows and
- * the two DHCBusinessSolutions rows), so the index creation throws
- * `UNIQUE constraint failed` and the API exits at boot. (The ALTER is not in a
- * transaction, so a second boot then "succeeds" on a half-migrated DB without
- * the index.) With the column already present the API skips that block, the
- * same way it skips it on the bot's real, already-migrated DB; the setup
- * project then hands the rows to the seeded owner (claimUnownedApplications).
- * Remove once the fixture/migration is fixed in job-hunter-api.
- */
-function preAddUserIdColumn(trackerDbPath: string): void {
-  const db = new DatabaseSync(trackerDbPath);
-  try {
-    const cols = (db.prepare('PRAGMA table_info(applications)').all() as { name: string }[]).map(
-      (c) => c.name,
-    );
-    if (cols.length > 0 && !cols.includes('user_id')) {
-      db.exec(`ALTER TABLE applications ADD COLUMN user_id TEXT NOT NULL DEFAULT ''`);
-    }
-  } finally {
-    db.close();
-  }
 }
 
 /**
