@@ -53,3 +53,10 @@ secret/
 smoke/playwright-report/
 smoke/test-results/
 smoke/.auth/
+
+# Local full-stack e2e suite (e2e/, docs/E2E_TESTING_PLAN.md) — run artifacts,
+# saved test-user sessions and the pointer to the per-run scratch dir.
+e2e/.auth/
+e2e/.state/
+e2e/test-results/
+e2e/playwright-report/
