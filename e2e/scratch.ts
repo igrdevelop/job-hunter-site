@@ -42,6 +42,24 @@ export function resolveApiDir(): string {
   return path.resolve(SITE_ROOT, fromEnv || path.join('..', 'api'));
 }
 
+/**
+ * Last activity in a scratch dir: the newest mtime of the dir and its direct
+ * entries. The dir's own mtime alone moves only when entries are added or
+ * removed — SQLite writing into app.sqlite / its -wal does not touch it — so a
+ * pinned dir still serving a running API would look stale after a day.
+ */
+function lastActivityMs(dir: string): number {
+  let newest = fs.statSync(dir).mtimeMs;
+  for (const name of fs.readdirSync(dir)) {
+    try {
+      newest = Math.max(newest, fs.statSync(path.join(dir, name)).mtimeMs);
+    } catch {
+      // Removed between readdir and stat — ignore.
+    }
+  }
+  return newest;
+}
+
 /** Best-effort cleanup of scratch dirs left behind by earlier runs. */
 function pruneStaleScratchDirs(keep: string): void {
   const tmp = os.tmpdir();
@@ -55,7 +73,7 @@ function pruneStaleScratchDirs(keep: string): void {
     const dir = path.join(tmp, name);
     if (dir === keep) continue;
     try {
-      if (Date.now() - fs.statSync(dir).mtimeMs > STALE_AFTER_MS) {
+      if (Date.now() - lastActivityMs(dir) > STALE_AFTER_MS) {
         fs.rmSync(dir, { recursive: true, force: true });
       }
     } catch {

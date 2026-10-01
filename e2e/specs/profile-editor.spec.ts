@@ -1,10 +1,12 @@
 import type { Page } from '@playwright/test';
+import { deleteProfile } from '../helpers/db';
 import { expect, test } from '../helpers/fixtures';
 import { OWNER } from '../helpers/users';
 
 /**
  * The profile editor (src/app/features/profile-editor) against the real API:
- * the scratch app.sqlite starts with no profile, so the owner sees the empty
+ * the owner starts with no profile (a fresh scratch app.sqlite; the
+ * beforeEach clears one a pinned E2E_SCRATCH_DIR kept), so the owner sees the empty
  * state, starts a blank profile, fills the three required identity fields
  * (REQUIRED_IDENTITY_FIELDS) and saves through `PUT /api/profile`.
  *
@@ -12,6 +14,8 @@ import { OWNER } from '../helpers/users';
  * job stays pending — nothing here asserts on render completion.
  */
 test.use({ storageState: OWNER.storageState });
+
+test.beforeEach(() => deleteProfile(OWNER.email));
 
 const IDENTITY = {
   fullName: 'E2E Owner',

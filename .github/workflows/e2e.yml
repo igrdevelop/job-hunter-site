@@ -10,9 +10,9 @@ name: Local E2E
 
 on:
   pull_request:
-    branches: [ master ]
+    branches: [master]
   push:
-    branches: [ master ]
+    branches: [master]
   workflow_dispatch: {}
 
 concurrency:
@@ -21,6 +21,10 @@ concurrency:
   group: local-e2e-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Read-only token: the job only checks out code and runs it locally.
+permissions:
+  contents: read
+
 jobs:
   e2e:
     runs-on: ubuntu-latest
@@ -28,6 +32,8 @@ jobs:
     steps:
       - name: Checkout site
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Checkout job-hunter-api (master)
         uses: actions/checkout@v4
@@ -40,6 +46,7 @@ jobs:
           repository: igrdevelop/job-hunter-api
           ref: master
           path: api
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:

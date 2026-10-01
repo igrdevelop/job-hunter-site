@@ -30,14 +30,17 @@ describe('AuthService', () => {
     afterEach(() => localStorage.removeItem(TOKEN_KEY));
 
     it('isLoggedIn() is false', () => expect(service.isLoggedIn()).toBe(false));
-    it('needsEmailVerification starts false', () => expect(service.needsEmailVerification()).toBe(false));
+    it('needsEmailVerification starts false', () =>
+      expect(service.needsEmailVerification()).toBe(false));
     it('currentUser starts null', () => expect(service.currentUser()).toBeNull());
 
     it('login() POSTs credentials and stores the access token', async () => {
       const p = service.login('a@b.com', 'secret');
       http.expectOne('/auth/login').flush({ accessToken: 'jwt-abc' });
       await Promise.resolve(); // let fetchCurrentUser() be called
-      http.expectOne('/auth/me').flush({ id: '1', email: 'a@b.com', role: 'user', emailVerified: true });
+      http
+        .expectOne('/auth/me')
+        .flush({ id: '1', email: 'a@b.com', role: 'user', emailVerified: true });
       await p;
       expect(localStorage.getItem(TOKEN_KEY)).toBe('jwt-abc');
       expect(service.isLoggedIn()).toBe(true);
@@ -47,7 +50,9 @@ describe('AuthService', () => {
       const p = service.login('a@b.com', 'secret');
       http.expectOne('/auth/login').flush({ accessToken: 'tok' });
       await Promise.resolve(); // let fetchCurrentUser() be called
-      http.expectOne('/auth/me').flush({ id: '42', email: 'a@b.com', role: 'admin', emailVerified: false });
+      http
+        .expectOne('/auth/me')
+        .flush({ id: '42', email: 'a@b.com', role: 'admin', emailVerified: false });
       await p;
       expect(service.currentUser()?.role).toBe('admin');
       expect(service.currentUser()?.emailVerified).toBe(false);
@@ -116,7 +121,9 @@ describe('AuthService', () => {
 
     it('fetchCurrentUser() GETs /auth/me and updates user signal', async () => {
       const p = service.fetchCurrentUser();
-      http.expectOne('/auth/me').flush({ id: '5', email: 'x@y.com', role: 'user', emailVerified: true });
+      http
+        .expectOne('/auth/me')
+        .flush({ id: '5', email: 'x@y.com', role: 'user', emailVerified: true });
       await p;
       expect(service.currentUser()?.email).toBe('x@y.com');
     });
@@ -129,7 +136,9 @@ describe('AuthService', () => {
 
     it('logout() clears currentUser', async () => {
       const p = service.fetchCurrentUser();
-      http.expectOne('/auth/me').flush({ id: '1', email: 'a@b.com', role: 'user', emailVerified: true });
+      http
+        .expectOne('/auth/me')
+        .flush({ id: '1', email: 'a@b.com', role: 'user', emailVerified: true });
       await p;
       expect(service.currentUser()).not.toBeNull();
       service.logout();
@@ -158,9 +167,30 @@ describe('AuthService', () => {
       expect(service.currentUser()).toBeNull();
     });
 
+    it('login() does not reuse an /auth/me still in flight for the previous token', async () => {
+      const startup = service.fetchCurrentUser();
+      const oldMe = http.expectOne('/auth/me');
+
+      const login = service.login('new@b.com', 'pw');
+      http.expectOne('/auth/login').flush({ accessToken: 'new-token', expiresIn: 3600 });
+      await Promise.resolve();
+      await Promise.resolve();
+      const newMe = http.expectOne('/auth/me');
+      newMe.flush({ id: '2', email: 'new@b.com', role: 'user', emailVerified: true });
+      await login;
+      expect(service.currentUser()?.email).toBe('new@b.com');
+
+      // The previous session's answer arrives late and must not win.
+      oldMe.flush({ id: '1', email: 'old@b.com', role: 'admin', emailVerified: true });
+      await startup;
+      expect(service.currentUser()?.email).toBe('new@b.com');
+    });
+
     it('resolveCurrentUser() returns the loaded user without a request', async () => {
       const p = service.fetchCurrentUser();
-      http.expectOne('/auth/me').flush({ id: '1', email: 'a@b.com', role: 'user', emailVerified: true });
+      http
+        .expectOne('/auth/me')
+        .flush({ id: '1', email: 'a@b.com', role: 'user', emailVerified: true });
       await p;
       expect((await service.resolveCurrentUser())?.id).toBe('1');
       http.expectNone('/auth/me');

@@ -1,13 +1,17 @@
+import { deleteFiltersOverride } from '../helpers/db';
 import { expect, test } from '../helpers/fixtures';
 import { REGULAR } from '../helpers/users';
 
 /**
  * The Job Filters editor (src/app/features/filters) against the real API.
  * The regular user starts on the shared builtin defaults (no filters.yaml in
- * the scratch users/ root); flipping one boolean knob and saving must write an
+ * the scratch users/ root; the beforeEach removes one a pinned
+ * E2E_SCRATCH_DIR kept); flipping one boolean knob and saving must write an
  * override through `PUT /api/filters` that is still there after a reload.
  */
 test.use({ storageState: REGULAR.storageState });
+
+test.beforeEach(() => deleteFiltersOverride(REGULAR.email));
 
 const KNOB = 'Skip jobs that require German';
 

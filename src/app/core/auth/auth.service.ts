@@ -53,6 +53,11 @@ export class AuthService {
     );
     localStorage.setItem(TOKEN_STORAGE_KEY, response.accessToken);
     this.token.set(response.accessToken);
+    // A new session: drop a user or an in-flight /auth/me that belongs to the
+    // previous token (e.g. the startup load still running when /login is
+    // submitted), or fetchCurrentUser() would hand back the old account.
+    this.pendingMe = null;
+    this.user.set(null);
     await this.fetchCurrentUser();
   }
 
@@ -114,15 +119,11 @@ export class AuthService {
   }
 
   async verifyEmail(token: string): Promise<void> {
-    await firstValueFrom(
-      this.http.post(`${environment.authBaseUrl}/verify`, { token }),
-    );
+    await firstValueFrom(this.http.post(`${environment.authBaseUrl}/verify`, { token }));
   }
 
   async resendVerification(email: string): Promise<void> {
-    await firstValueFrom(
-      this.http.post(`${environment.authBaseUrl}/resend`, { email }),
-    );
+    await firstValueFrom(this.http.post(`${environment.authBaseUrl}/resend`, { email }));
   }
 
   async getDownloadToken(): Promise<string> {
@@ -140,5 +141,4 @@ export class AuthService {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     this.router.navigate(['/login']);
   }
-
 }

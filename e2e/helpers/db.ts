@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { readRunState } from '../scratch';
 
@@ -90,6 +92,31 @@ export function verifyEmail(email: string): void {
     requireUser(email);
     throw new Error(`e2e db: verifyEmail(${email}) updated ${result.changes} rows`);
   }
+}
+
+/**
+ * Removes `email`'s saved profile and its revisions from app.sqlite
+ * (`profiles`, `profile_revisions`), so a spec that starts from the empty
+ * state also passes on a pinned E2E_SCRATCH_DIR an earlier run saved into.
+ */
+export function deleteProfile(email: string): void {
+  const user = requireUser(email);
+  appDb((db) => {
+    db.prepare('DELETE FROM profile_revisions WHERE user_id = ?').run(user.id);
+    db.prepare('DELETE FROM profiles WHERE user_id = ?').run(user.id);
+  });
+}
+
+/**
+ * Removes `email`'s filters override (`users/{id}/candidate/filters.yaml` in
+ * the scratch users root — the file `PUT /api/filters` writes), putting the
+ * user back on the builtin defaults. Not a db row, but the same job as
+ * deleteProfile(): a clean start on a pinned E2E_SCRATCH_DIR.
+ */
+export function deleteFiltersOverride(email: string): void {
+  const user = requireUser(email);
+  const file = path.join(readRunState().usersRoot, user.id, 'candidate', 'filters.yaml');
+  fs.rmSync(file, { force: true });
 }
 
 export function countApplications(email: string): number {
