@@ -44,6 +44,11 @@ concurrency:
   group: live-smoke-e2e
   cancel-in-progress: false
 
+# Least privilege: the job only reads the repo (checkout). actions/cache and
+# upload-artifact use the runner's own runtime token, not GITHUB_TOKEN.
+permissions:
+  contents: read
+
 jobs:
   smoke:
     # workflow_dispatch and schedule always run. workflow_run also fires
@@ -73,8 +78,11 @@ jobs:
     # Raised 20->25 when E4 landed: a THIRD up-to-4-minute poll (the resume
     # parse job) on top of E1+E2+E3 - worst case across all three mutating
     # phases' polls maxed out is close to 20 minutes before install/cache
-    # overhead, leaving no slack at the old 20-minute cap.
-    timeout-minutes: 25
+    # overhead, leaving no slack at the old 20-minute cap. Raised 25->30 when
+    # the failure alert landed: the smoke STEP now has its own 22-minute cap,
+    # and the job cap must cover setup (checkout, npm ci, Playwright install)
+    # on top of it, or a job timeout would cancel the run and skip the alert.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
@@ -116,9 +124,11 @@ jobs:
         run: npx playwright install-deps chromium
 
       - name: Run smoke suite
-        # Below the job's own 25-minute cap on purpose: a JOB timeout cancels
-        # the job and skips every later step, so the failure alert below
-        # would never be sent. A STEP timeout is an ordinary step failure.
+        # Well below the job's own 30-minute cap on purpose: a JOB timeout
+        # cancels the job and skips every later step, so the failure alert
+        # below would never be sent. A STEP timeout is an ordinary step
+        # failure. The 8-minute gap covers checkout, npm ci and Playwright
+        # setup.
         timeout-minutes: 22
         env:
           SMOKE_BASE_URL: https://job-hunter.igrflex.work
