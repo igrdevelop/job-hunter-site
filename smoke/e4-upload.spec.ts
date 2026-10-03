@@ -174,13 +174,24 @@ async function waitForParseJobTerminal(
       const direct = await request
         .get(`${origin}/api/profile/jobs/${jobId}`, { headers: { Authorization: `Bearer ${token}` } })
         .catch(() => null);
+      const retryButton = page.getByRole('button', { name: 'Retry', exact: true });
       if (direct?.ok()) {
         const body = (await direct.json().catch(() => null)) as TerminalJob | null;
         if (body?.status === 'done' || body?.status === 'error') {
+          // When the job finished AFTER the dialog's own 60s poll gave up,
+          // only this direct read saw it: the dialog still shows "Parsing is
+          // taking longer than expected." and never closes or hands the
+          // draft to the editor by itself. One Retry click makes it poll
+          // once, see the terminal status and act on it, as a user would.
+          // Without it the confirmation-screen assertion below fails on a
+          // parse that succeeded (the 2026-09-06 run: E4 took 1.5 min =
+          // 65s wait window + 20s heading timeout, vs ~40s on passing runs).
+          if (await retryButton.isVisible().catch(() => false)) {
+            await retryButton.click();
+          }
           return body;
         }
       }
-      const retryButton = page.getByRole('button', { name: 'Retry', exact: true });
       if (await retryButton.isVisible().catch(() => false)) {
         await retryButton.click();
       }

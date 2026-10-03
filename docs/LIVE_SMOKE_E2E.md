@@ -129,11 +129,13 @@ representative in shape, and doubling as a check of the customer-facing view.
 
 ### Workflow
 
-- `.github/workflows/smoke.yml`: runs on `workflow_dispatch` and after the
-  deploy job completes (on `workflow_run` of Build and Deploy, success only).
-  A failed smoke does NOT roll anything back — it notifies (the job fails
-  loudly; a Telegram hook can ride the bot's existing alert path later, out
-  of scope here).
+- `.github/workflows/smoke.yml`: runs on `workflow_dispatch` (optional
+  `reason` input — the api/bot deploys dispatch it), daily on a `schedule`
+  (06:30 UTC), and after the deploy job completes (on `workflow_run` of
+  Build and Deploy, success only). A failed smoke does NOT roll anything
+  back — it sends one Telegram alert (trigger, failing tests, run URL; added
+  2026-10-03 after two weeks of unnoticed red runs — see CLAUDE.md "Live
+  Smoke E2E" for the details and the `TELEGRAM_*` secrets it needs).
 - One run at a time (`concurrency` group) — two concurrent runs would fight
   over the sentinel and produce false negatives.
 - E2E against prod means occasional flakiness. Whole-spec auto-retry is

@@ -53,3 +53,4 @@ secret/
 smoke/playwright-report/
 smoke/test-results/
 smoke/.auth/
+smoke/results.json
