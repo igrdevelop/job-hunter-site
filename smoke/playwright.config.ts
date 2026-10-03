@@ -43,6 +43,12 @@ export default defineConfig({
   reporter: [
     ['list'],
     ['html', { open: 'never', outputFolder: path.join(__dirname, 'playwright-report') }],
+    // Machine-readable results, read ONLY by .github/scripts/smoke-failed-
+    // tests.mjs to put the failing test titles into the Telegram failure
+    // alert (smoke.yml). Written next to, not inside, playwright-report/
+    // (the html reporter owns that folder) and never uploaded as an
+    // artifact — gitignored like the other run-time outputs.
+    ['json', { outputFile: path.join(__dirname, 'results.json') }],
   ],
   use: {
     baseURL,

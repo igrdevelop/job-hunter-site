@@ -3,16 +3,33 @@ name: Live Smoke E2E
 # dedicated smoke test account. See docs/LIVE_SMOKE_E2E.md — this repo owns
 # the Playwright suite (smoke/) and this workflow; no api/bot code changes.
 #
-# Runs after "Build and Deploy" (deploy.yml) finishes deploying master, and
-# on demand via workflow_dispatch. A failed run does NOT roll anything back
-# — it just fails loudly so the owner notices (a Telegram hook can ride the
-# bot's existing alert path later; out of scope here).
+# Runs after "Build and Deploy" (deploy.yml) finishes deploying master, once
+# a day on a schedule, and on demand via workflow_dispatch (job-hunter-api and
+# the bot repo dispatch it after their own deploys:
+# `gh workflow run smoke.yml -R igrdevelop/job-hunter-site -f reason="..."`).
+# A failed run does NOT roll anything back; it sends one Telegram alert (last
+# step) so a red run is noticed. Every real run failed for two weeks from
+# 2026-09-14 with nobody aware, because a failure notified no one.
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      reason:
+        # Free text shown in the failure alert, so a run dispatched by
+        # another repo's deploy says which deploy it checks
+        # (e.g. "job-hunter-api deploy abc1234"). Optional.
+        description: "Why this run was started (shown in the failure alert)"
+        required: false
+        default: ""
+        type: string
   workflow_run:
     workflows: ["Build and Deploy"]
     types: [completed]
+  schedule:
+    # Daily, independent of any site deploy: API and bot deploys change what
+    # this suite exercises (the 2026-09-14 regression came from those repos)
+    # without ever triggering the workflow_run above.
+    - cron: "30 6 * * *"
 
 concurrency:
   # One run at a time (docs/LIVE_SMOKE_E2E.md): two concurrent runs would
@@ -20,20 +37,25 @@ concurrency:
   # (E2-E4) land, fight over the rotating marker sentinel and produce false
   # negatives. `cancel-in-progress: false` — a run that's mid-flight (real
   # network requests against prod) queues the next one rather than being
-  # killed partway through a mutation.
+  # killed partway through a mutation. A schedule tick or a dispatch that
+  # arrives while another run is queued REPLACES that queued run (GitHub keeps
+  # one pending run per group) — fine for a smoke check, the newest run tests
+  # the newest prod state.
   group: live-smoke-e2e
   cancel-in-progress: false
 
 jobs:
   smoke:
-    # workflow_dispatch always runs. workflow_run also fires for deploy.yml's
-    # pull_request runs (its `test` job only — `build-and-deploy` gates on
-    # `github.ref == 'refs/heads/master'` and never runs for a PR), which
+    # workflow_dispatch and schedule always run. workflow_run also fires
+    # for deploy.yml's pull_request runs (its `test` job only —
+    # `build-and-deploy` gates on `github.ref == 'refs/heads/master'` and
+    # never runs for a PR), which
     # would smoke-check prod on every green PR even though nothing new was
     # deployed — so this only reacts to a `push`-triggered run of "Build and
     # Deploy" against master that actually succeeded.
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push' &&
        github.event.workflow_run.head_branch == 'master')
@@ -58,7 +80,8 @@ jobs:
         with:
           # Pin to the exact commit that was just deployed (workflow_run),
           # so the smoke suite that runs matches what's actually live. Falls
-          # back to the triggering ref for workflow_dispatch.
+          # back to the triggering ref for workflow_dispatch (the ref it was
+          # dispatched on) and schedule (the default branch).
           ref: ${{ github.event.workflow_run.head_sha || github.ref }}
 
       - uses: actions/setup-node@v4
@@ -93,6 +116,10 @@ jobs:
         run: npx playwright install-deps chromium
 
       - name: Run smoke suite
+        # Below the job's own 25-minute cap on purpose: a JOB timeout cancels
+        # the job and skips every later step, so the failure alert below
+        # would never be sent. A STEP timeout is an ordinary step failure.
+        timeout-minutes: 22
         env:
           SMOKE_BASE_URL: https://job-hunter.igrflex.work
           SMOKE_USER_EMAIL: ${{ secrets.SMOKE_USER_EMAIL }}
@@ -113,3 +140,61 @@ jobs:
           # submission itself runs in a Playwright project with
           # trace/screenshot/video fully off (smoke/playwright.config.ts),
           # so no artifact in this report can contain the password.
+
+      - name: Telegram alert on failure
+        # Failure only (no recovery message). Skipped with a notice while the
+        # TELEGRAM_* secrets are not configured on this repo. The token only
+        # ever travels through env and a curl config on stdin, never a
+        # command line or `set -x` output; GitHub masks it in logs regardless.
+        # Every value from the event payload (commit message, dispatch
+        # reason) is passed through env, never interpolated into the script,
+        # so it cannot inject shell.
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          DISPATCH_REASON: ${{ github.event.inputs.reason }}
+          ACTOR: ${{ github.triggering_actor }}
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+          DEPLOY_MESSAGE: ${{ github.event.workflow_run.head_commit.message }}
+          CHECKED_OUT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "::notice::TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID not set on this repo - failure alert skipped."
+            exit 0
+          fi
+
+          case "$EVENT_NAME" in
+            workflow_run)
+              trigger="site deploy of $REPO@${DEPLOY_SHA:0:7}: $(printf '%s\n' "$DEPLOY_MESSAGE" | head -n 1)" ;;
+            schedule)
+              trigger="daily schedule (suite at $REPO@${CHECKED_OUT_SHA:0:7})" ;;
+            workflow_dispatch)
+              trigger="dispatch by $ACTOR${DISPATCH_REASON:+: $DISPATCH_REASON}" ;;
+            *)
+              trigger="$EVENT_NAME" ;;
+          esac
+
+          failed="$(node .github/scripts/smoke-failed-tests.mjs smoke/results.json || true)"
+          [ -n "$failed" ] || failed="(no test results - the run failed before or outside the suite; see the log)"
+
+          text="$(printf 'Live smoke E2E FAILED\nTrigger: %s\n\n%s\n\n%s' "$trigger" "$failed" "$RUN_URL")"
+
+          # A failed alert must not hide the real failure: report it as a
+          # warning and let the job's existing red status stand.
+          # The URL (which embeds the token) goes in through a curl config
+          # read from stdin, written by the `printf` builtin, so the token is
+          # never part of any process's argv either.
+          status="$(printf 'url = "https://api.telegram.org/bot%s/sendMessage"\n' "$TELEGRAM_BOT_TOKEN" |
+            curl -sS -o /dev/null -w '%{http_code}' --max-time 20 -K - \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${text}" \
+            --data-urlencode "disable_web_page_preview=true")" || status="curl error"
+          if [ "$status" = "200" ]; then
+            echo "Telegram failure alert sent."
+          else
+            echo "::warning::Telegram failure alert not delivered (HTTP $status)."
+          fi

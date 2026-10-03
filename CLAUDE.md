@@ -79,7 +79,7 @@ still calls `/api/*` and `/auth/*` on the same origin as always.
 |---|---|
 | `npm start` | Dev server at http://localhost:4200 |
 | `npm run build` | Production build → `dist/job-hunter-site/browser/` |
-| `npm test` | Vitest unit tests |
+| `npm test` | Vitest unit tests (watch mode locally; CI runs `npm test -- --watch=false`, which exits non-zero on a failing spec) |
 | `npm run smoke` | Playwright live smoke suite against `SMOKE_BASE_URL` (default prod) — see "Live Smoke E2E" below |
 
 For local dev with the backend:
@@ -95,7 +95,10 @@ ng serve --proxy-config proxy.conf.json
 **Production:** this repo builds its own Docker image (`Dockerfile`: `npm run
 build` → nginx serving `dist/job-hunter-site/browser/`), pushes to
 `ghcr.io/igrdevelop/job-hunter-site`, and deploys via `.github/workflows/deploy.yml`
-on push to `master`. Deploy only touches the `frontend` service in the shared
+on push to `master`. Its `test` job (also the PR check) runs `npm ci`, the Vitest
+unit specs (`npm test -- --watch=false`) and `npm run build`; `build-and-deploy`
+`needs: [test]`, so a failing spec blocks both the PR and the deploy. (Until
+2026-10-03 the job ran only the build — the ~600 specs never ran in CI.) Deploy only touches the `frontend` service in the shared
 `docker-compose.prod.yml` on the VPS (178.105.131.107) — it does not rewrite
 that file; `job-hunter-api`'s CI owns it. Exposed via Cloudflare Tunnel path
 routing on `job-hunter.igrflex.work` (catch-all → this container; `/api`,
@@ -172,11 +175,29 @@ the owner's. Full design/rationale: `docs/LIVE_SMOKE_E2E.md`.
   reader never has to check the top-level default to know a given project
   is retry-safe by contract (a retry after a request-succeeded-but-poll-
   failed would double-submit a preview/save/upload).
-- **Workflow** `.github/workflows/smoke.yml`: `workflow_dispatch` +
-  `workflow_run` reacting only to a `push`-triggered, successful run of
-  "Build and Deploy" (`deploy.yml`) on `master` (its `test` job also runs on
-  `pull_request`, which must NOT trigger a live prod smoke run). One run at a
-  time (`concurrency` group) — two runs would otherwise fight over the
+- **Workflow** `.github/workflows/smoke.yml`: `workflow_run` reacting only
+  to a `push`-triggered, successful run of "Build and Deploy" (`deploy.yml`)
+  on `master` (its `test` job also runs on `pull_request`, which must NOT
+  trigger a live prod smoke run), a daily `schedule` (06:30 UTC — API and
+  bot deploys change what the suite exercises without ever triggering the
+  site's `workflow_run`), and `workflow_dispatch` with an optional free-text
+  `reason` input, so the api/bot deploys can run it after themselves:
+  `gh workflow run smoke.yml -R igrdevelop/job-hunter-site -f reason="api
+  deploy <sha>"` (needs a token with `actions: write` on this repo).
+  **Failure alert:** the last step (`if: failure()`) sends ONE plain-text
+  Telegram message — trigger (site deploy sha + commit subject / schedule /
+  dispatch actor + reason), the failing tests with the first line of each
+  error (`.github/scripts/smoke-failed-tests.mjs` over the Playwright JSON
+  report `smoke/results.json`, gitignored, never uploaded) and the run URL.
+  No recovery message. Secrets `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`
+  (same names as the bot repo); the step logs a notice and exits 0 when
+  they are absent, and a failed send is only a warning. The token reaches
+  curl through a config on stdin, never argv or `set -x`. The smoke STEP
+  has its own `timeout-minutes: 22` under the job's 25: a job timeout skips
+  every later step, the alert included. Added 2026-10-03 after every real
+  run since 2026-09-14 had failed with nobody noticing. One run at a
+  time (`concurrency` group; a newly queued run replaces an older queued
+  one) — two runs would otherwise fight over the
   rotating marker sentinel (E3) or double-upload a fixture (E4); a local
   `npm run smoke` run is NOT covered by that group and could race a
   concurrent CI run over the same state — avoid local runs of mutating
@@ -332,3 +353,4 @@ Frontend-specific plan: `docs/IMPLEMENTATION_PLAN.md` in this repo.
 | 2026-09-25 | opus | `/pipeline` live loaders, next-run header and owner control bar (branch `feat/pipeline-control` on top of `feat/pipeline-page`; PR 3 of the bot plan "pipeline: live loaders, next-run time, action buttons", built in parallel with the bot and API PRs against that plan's shared contract — no shape invented beyond it). Models: `HuntLive`/`HuntLiveRow`, `HuntNext`, `Control`/`BotCommand` + `hunt.live`, `hunt.next`, `control` on the snapshot; the sample gains a web hunt in `fetch` (linkedin 3/25, found 41), a next hunt, and three commands — hand-written from the contract, to be replaced by the API fixture once it asserts them. `PipelineApi.postCommand()` / `getCommand()`. Pure logic in `hunt-stepper.ts` (stepper mapping, last-hunt line, next-run view) and `pipeline-control.ts` (disable rules, `pollIntervalMs`, command following, error messages; `PIPELINE_POLL_MS` moved here and re-exported from the component) with Vitest specs; component spec covers owner/non-owner, the send → waiting → rejected snackbar flow, the GET fallback, the source menu, 409, stepper, busy spinners, next-run and bot offline. 569 tests pass, `npm run build` clean. Not verified against a live bot/API (both still in flight). |
 | 2026-09-27 | opus | `/pipeline` hunt runs table + per-hunt drill-down (bot docs/HUNT_DRILLDOWN_PLAN.md M4; branch `feat/hunt-drilldown`). Models `HuntListRow`/`HuntDetail`/`HuntJob` copied from job-hunter-api's `pipeline-hunts.ts`; `PipelineApi.getHunts()`/`getHunt()` resolve a 404 to `null` (no mock sample — an undeployed endpoint hides the section). `HuntsTableComponent` is presentational (inputs + `toggle` output), the page owns loading and `?hunt=`. First cut awaited the hunts request inside `load()` — it held the whole snapshot hostage (20 page specs hung on an unmocked request); now it runs alongside the snapshot, single-flight (`huntsInFlight`), deliberately NOT tied to `loadSeq` (a seq guard starves a list slower than the 3 s poll). A `?hunt=` older than the listed rows renders its detail under the table. Verified end to end against a local API on the bot's contract fixture DB (list, open, every vacancy state, the generating row's stage strip) and at 375 px (no horizontal scroll after hiding three columns). 13 view specs + 4 page specs; 589 tests pass, build clean. |
 | 2026-09-27 | opus | Hunt runs table follows the page window (branch `feat/hunts-window`). Owner: show every run of today, not the newest 30. `getHunts(days, offset)` asks for one 100-row page of the Warsaw window (API `{window,total,offset,limit,hunts}`); the table header carries its own Today / 7 days pills (same ?days=), a pager appears when the window holds more than a page, and a window change resets to page one. loadHunts stays single-flight per (days, offset): a poll skips while its page is out, a window/page change goes out at once and a stale page answer is dropped. 594 tests pass. |
+| 2026-10-03 | opus | **CI: unit specs gate the deploy; the live smoke run alerts on failure (branch `ci/smoke-alerts-and-unit-tests`).** Found: `.github/workflows/smoke.yml` had failed on every real run since 2026-09-14 (E2/E3 render jobs `[Errno 13] Permission denied` under `/app/users/<uid>/candidate/` — a uid mismatch between the api and bot containers, fixed in those repos) and nobody noticed, because a red run notified no one; separately `deploy.yml`'s `test` job ran only `npm ci` + `npm run build`, so the ~600 Vitest specs never ran in CI. (1) `deploy.yml` `test` job gains `npm test -- --watch=false` before the build — `build-and-deploy` already `needs: [test]`, so a failing spec now blocks the PR check and the deploy; verified locally that the exact command passes (42 files / 596 tests, ~45 s) and exits 1 with one spec deliberately broken (then reverted). (2) `smoke.yml` last step `if: failure()`: one plain-text Telegram message with the trigger, the failing tests + first error line (new `.github/scripts/smoke-failed-tests.mjs` over a new Playwright `json` reporter writing `smoke/results.json`, gitignored, never uploaded; the HTML report artifact is unchanged; verified against a real Playwright JSON incl. describe titles, a flaky-then-passed test that is correctly NOT reported, and a missing report) and the run URL. Skipped with a notice when `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` are not set (the owner still has to add them to this repo); token via env and a curl config on stdin, never argv; event-payload text (commit message, dispatch reason) only through env. The smoke step got `timeout-minutes: 22` under the job's 25 so a hang still reaches the alert. (3) Daily `schedule` (06:30 UTC) + a `reason` input on `workflow_dispatch` for the api/bot deploys to call; the job `if:` admits `schedule`. Validated with actionlint 1.7.7 and PyYAML; the alert script exercised locally (no-secret branch, fake token → HTTP 401 warning). (4) **The 2026-09-06 E4 failure** ("expected the confirmation screen to open after the parse completed") was a test bug, not a live one: that run's E4 took 1.5 min against ~40 s on every passing run before and after — exactly the spec's 65 s ridden-poll window + the 20 s heading timeout. The parse finished after the upload dialog's own 60 s poll gave up, the spec's direct `GET /api/profile/jobs/:id` fallback saw `done` and returned, but nothing clicked the dialog's Retry, so it stayed on "Parsing is taking longer than expected." and never opened the review screen. `waitForParseJobTerminal` now clicks Retry (when visible) before returning a terminal status found by the direct read. Every later failure is the permission bug; E4 passed in all of them. |
