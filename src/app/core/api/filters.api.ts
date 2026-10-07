@@ -7,10 +7,13 @@ import { cloneFiltersMock } from './filters.mock';
 
 /**
  * Temporary GET 404 → mock fixture bridge while `/api/filters` is undeployed.
- * TODO(filters-api): set to `false` (then delete the flag + mock fallback path)
- * once GET /api/filters is live — silent mock on a broken API hides real outages.
+ * Gated on `!environment.production` (same as PROFILE_MOCK_FALLBACK_ENABLED):
+ * job-hunter-api ships GET /api/filters on master, so a production build must
+ * surface a real 404 instead of silently serving the mock — and the local e2e
+ * suite (e2e/, production configuration) must never pass on mock data.
+ * TODO(filters-api): delete the flag + mock fallback path entirely.
  */
-export const FILTERS_MOCK_FALLBACK_ENABLED = true;
+export const FILTERS_MOCK_FALLBACK_ENABLED = !environment.production;
 
 @Injectable({ providedIn: 'root' })
 export class FiltersApi {

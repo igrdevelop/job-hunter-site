@@ -19,11 +19,13 @@ import { clonePipelineSample } from './pipeline.mock';
  * undeployed (bot repo docs/PIPELINE_VIZ_PLAN.md M2 ships the endpoint in
  * job-hunter-api). Unlike the filters mock, the sample is never passed off as
  * real data: the result carries `sample: true` and the page shows a banner.
- * TODO(pipeline-api): set to `false` (then delete the flag + mock fallback path)
- * once GET /api/pipeline/snapshot is live — a silent sample on a broken API
- * would hide a real outage.
+ * Gated on `!environment.production` (same as PROFILE_MOCK_FALLBACK_ENABLED):
+ * job-hunter-api ships GET /api/pipeline/snapshot on master, so a production
+ * build must show the real error on a 404 instead of a sample — and the local
+ * e2e suite (e2e/, production configuration) must never pass on sample data.
+ * TODO(pipeline-api): delete the flag + mock fallback path entirely.
  */
-export const PIPELINE_MOCK_FALLBACK_ENABLED = true;
+export const PIPELINE_MOCK_FALLBACK_ENABLED = !environment.production;
 
 /** One page of the hunts table — prod's whole day (~75 hunts) fits on one. */
 export const HUNTS_PAGE = 100;
