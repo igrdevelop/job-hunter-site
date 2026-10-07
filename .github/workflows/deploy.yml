@@ -25,6 +25,12 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Vitest unit specs (@angular/build:unit-test). `--watch=false` is
+      # explicit rather than left to CI detection: in watch mode the runner
+      # never exits and the job would hang until its timeout. A failing spec
+      # exits non-zero, which fails this job and therefore blocks both the PR
+      # check and `build-and-deploy` (needs: [test]).
+      - run: npm test -- --watch=false
       - run: npm run build
 
   build-and-deploy:

@@ -79,7 +79,7 @@ still calls `/api/*` and `/auth/*` on the same origin as always.
 |---|---|
 | `npm start` | Dev server at http://localhost:4200 |
 | `npm run build` | Production build → `dist/job-hunter-site/browser/` |
-| `npm test` | Vitest unit tests |
+| `npm test` | Vitest unit tests (watch mode locally; CI runs `npm test -- --watch=false`, which exits non-zero on a failing spec) |
 | `npm run smoke` | Playwright live smoke suite against `SMOKE_BASE_URL` (default prod) — see "Live Smoke E2E" below |
 | `npm run e2e` / `npm run e2e:ui` | Local full-stack Playwright suite (real API from `API_DIR` + this site, scratch SQLite) — see "Local E2E" below |
 
@@ -96,7 +96,10 @@ ng serve --proxy-config proxy.conf.json
 **Production:** this repo builds its own Docker image (`Dockerfile`: `npm run
 build` → nginx serving `dist/job-hunter-site/browser/`), pushes to
 `ghcr.io/igrdevelop/job-hunter-site`, and deploys via `.github/workflows/deploy.yml`
-on push to `master`. Deploy only touches the `frontend` service in the shared
+on push to `master`. Its `test` job (also the PR check) runs `npm ci`, the Vitest
+unit specs (`npm test -- --watch=false`) and `npm run build`; `build-and-deploy`
+`needs: [test]`, so a failing spec blocks both the PR and the deploy. (Until
+2026-10-03 the job ran only the build — the ~600 specs never ran in CI.) Deploy only touches the `frontend` service in the shared
 `docker-compose.prod.yml` on the VPS (178.105.131.107) — it does not rewrite
 that file; `job-hunter-api`'s CI owns it. Exposed via Cloudflare Tunnel path
 routing on `job-hunter.igrflex.work` (catch-all → this container; `/api`,
@@ -173,11 +176,30 @@ the owner's. Full design/rationale: `docs/LIVE_SMOKE_E2E.md`.
   reader never has to check the top-level default to know a given project
   is retry-safe by contract (a retry after a request-succeeded-but-poll-
   failed would double-submit a preview/save/upload).
-- **Workflow** `.github/workflows/smoke.yml`: `workflow_dispatch` +
-  `workflow_run` reacting only to a `push`-triggered, successful run of
-  "Build and Deploy" (`deploy.yml`) on `master` (its `test` job also runs on
-  `pull_request`, which must NOT trigger a live prod smoke run). One run at a
-  time (`concurrency` group) — two runs would otherwise fight over the
+- **Workflow** `.github/workflows/smoke.yml`: `workflow_run` reacting only
+  to a `push`-triggered, successful run of "Build and Deploy" (`deploy.yml`)
+  on `master` (its `test` job also runs on `pull_request`, which must NOT
+  trigger a live prod smoke run), a daily `schedule` (06:30 UTC — API and
+  bot deploys change what the suite exercises without ever triggering the
+  site's `workflow_run`), and `workflow_dispatch` with an optional free-text
+  `reason` input, so the api/bot deploys can run it after themselves:
+  `gh workflow run smoke.yml -R igrdevelop/job-hunter-site -f reason="api
+  deploy <sha>"` (needs a token with `actions: write` on this repo).
+  **Failure alert:** the last step (`if: failure()`) sends ONE plain-text
+  Telegram message — trigger (site deploy sha + commit subject / schedule /
+  dispatch actor + reason), the failing tests with the first line of each
+  error (`.github/scripts/smoke-failed-tests.mjs` over the Playwright JSON
+  report `smoke/results.json`, gitignored, never uploaded) and the run URL.
+  No recovery message. Secrets `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`
+  (same names as the bot repo); the step logs a notice and exits 0 when
+  they are absent, and a failed send is only a warning. The token reaches
+  curl through a config on stdin, never argv or `set -x`. The smoke STEP
+  has its own `timeout-minutes: 22` under the job's 30 (raised from 25 so
+  setup fits in the gap): a job timeout skips every later step, the alert
+  included. Workflow `permissions: contents: read`. Added 2026-10-03 after every real
+  run since 2026-09-14 had failed with nobody noticing. One run at a
+  time (`concurrency` group; a newly queued run replaces an older queued
+  one) — two runs would otherwise fight over the
   rotating marker sentinel (E3) or double-upload a fixture (E4); a local
   `npm run smoke` run is NOT covered by that group and could race a
   concurrent CI run over the same state — avoid local runs of mutating
@@ -411,3 +433,4 @@ Frontend-specific plan: `docs/IMPLEMENTATION_PLAN.md` in this repo.
 | 2026-09-27 | opus | Local e2e, five more specs (branch `feat/e2e-local`, PR #55): `profile-editor`, `filters`, `pipeline`, `role-gating`, `signup` (list in "Local E2E"), plus `recordSourceRun()` in `e2e/helpers/db.ts` (the fixture's `source_runs` are months old, so the pipeline window was otherwise all zeros). Found a real site bug and left it visible as `test.fixme` instead of routing around it: `adminGuard` bounces the owner from a hard-loaded `/admin` because `/auth/me` has not answered yet (confirmed by a probe: owner `goto('/admin')` → `/applications`). Auth budget measured: `/auth/me` ~17 of 30 per window per run. Two clean runs 15 passed / 1 skipped (~33 s each), `npm test` 596 green, `npm run build` and `tsc -p e2e` clean. Merged `origin/master` into the branch (CLAUDE.md conflict only) — the PR was CONFLICTING, which is why no `pull_request` workflow had ever run on it. |
 | 2026-09-27 | opus | Direct load of `/admin` no longer bounces the owner (branch `feat/e2e-local`, PR #55). Root cause confirmed: `adminGuard` read `currentUser()` synchronously while `App`'s constructor was still waiting on `GET /auth/me`. `AuthService.fetchCurrentUser()` now shares one in-flight request (`pendingMe`; a logout mid-flight drops it and the late answer does not resurrect the user), new `resolveCurrentUser()` never rejects, and `adminGuard` awaits it. `adminGuard` is the only route guard reading the user (`authGuard` checks the token; owner-only UI is computed signals in components, which re-render when the user arrives). The e2e `test.fixme` became a real test that also asserts a single `/auth/me` call; role.guard.spec rewritten (loaded admin/user/none, loading→admin, loading→user, load fails, guard starts the load itself) + 4 AuthService specs. Mutation-checked: the old synchronous guard fails 2 unit specs and the e2e test. 604 unit tests, build clean, e2e 16/16 twice. |
 | 2026-10-01 | opus | Local e2e: removed both API workarounds from the harness (PR #55) now that job-hunter-api PR #45 is on api master: `preAddUserIdColumn` in `e2e/scratch.ts` and `claimUnownedApplications()` in `e2e/helpers/db.ts` + the setup project. The API now migrates its own fixture and backfills the seeded owner; the setup only asserts the owner has rows. The fixture lost its two duplicate rows in that PR (14 → 12), so `applications.spec.ts` expects 12. CodeRabbit follow-ups on the same PR: `login()` drops a pending `/auth/me` and the cached user of the previous token (the startup load could otherwise hand back the old account; new unit spec, mutation-checked); `e2e.yml` gets `permissions: contents: read` and `persist-credentials: false`; the stale-scratch prune uses the newest mtime inside a dir (SQLite writes do not move the dir's own mtime); `profile-editor` and `filters` reset their state in `beforeEach` (`deleteProfile`, `deleteFiltersOverride`), so a pinned `E2E_SCRATCH_DIR` reruns green. |
+| 2026-10-03 | opus | **CI: unit specs gate the deploy; the live smoke run alerts on failure (branch `ci/smoke-alerts-and-unit-tests`).** Found: `.github/workflows/smoke.yml` had failed on every real run since 2026-09-14 (E2/E3 render jobs `[Errno 13] Permission denied` under `/app/users/<uid>/candidate/` — a uid mismatch between the api and bot containers, fixed in those repos) and nobody noticed, because a red run notified no one; separately `deploy.yml`'s `test` job ran only `npm ci` + `npm run build`, so the ~600 Vitest specs never ran in CI. (1) `deploy.yml` `test` job gains `npm test -- --watch=false` before the build — `build-and-deploy` already `needs: [test]`, so a failing spec now blocks the PR check and the deploy; verified locally that the exact command passes (42 files / 596 tests, ~45 s) and exits 1 with one spec deliberately broken (then reverted). (2) `smoke.yml` last step `if: failure()`: one plain-text Telegram message with the trigger, the failing tests + first error line (new `.github/scripts/smoke-failed-tests.mjs` over a new Playwright `json` reporter writing `smoke/results.json`, gitignored, never uploaded; the HTML report artifact is unchanged; verified against a real Playwright JSON incl. describe titles, a flaky-then-passed test that is correctly NOT reported, and a missing report) and the run URL. Skipped with a notice when `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` are not set (the owner still has to add them to this repo); token via env and a curl config on stdin, never argv; event-payload text (commit message, dispatch reason) only through env. The smoke step got `timeout-minutes: 22` and the job cap went 25 -> 30 so a hang still reaches the alert (CodeRabbit finding); workflow `permissions: contents: read`. (3) Daily `schedule` (06:30 UTC) + a `reason` input on `workflow_dispatch` for the api/bot deploys to call; the job `if:` admits `schedule`. Validated with actionlint 1.7.7 and PyYAML; the alert script exercised locally (no-secret branch, fake token → HTTP 401 warning). (4) **The 2026-09-06 E4 failure** ("expected the confirmation screen to open after the parse completed") was a test bug, not a live one: that run's E4 took 1.5 min against ~40 s on every passing run before and after — exactly the spec's 65 s ridden-poll window + the 20 s heading timeout. The parse finished after the upload dialog's own 60 s poll gave up, the spec's direct `GET /api/profile/jobs/:id` fallback saw `done` and returned, but nothing clicked the dialog's Retry, so it stayed on "Parsing is taking longer than expected." and never opened the review screen. `waitForParseJobTerminal` now clicks Retry (when visible) before returning a terminal status found by the direct read. Every later failure is the permission bug; E4 passed in all of them. |
